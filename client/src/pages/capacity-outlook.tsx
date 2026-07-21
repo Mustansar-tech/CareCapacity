@@ -2159,7 +2159,7 @@ function MonthlyViewSheet({
                             className="w-16 border border-border rounded px-1.5 py-0.5 text-sm bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-emerald-400"
                           />
                         ) : showGenderSplit ? (
-                          <div className="flex items-center gap-2">
+                          <div className="flex flex-col gap-0.5">
                             <span className="font-bold text-pink-500 dark:text-pink-400">♀ {femaleHiresH > 0 ? `+${femaleHiresH}h` : '—'}</span>
                             <span className="font-bold text-blue-500 dark:text-blue-400">♂ {maleHiresH > 0 ? `+${maleHiresH}h` : '—'}</span>
                           </div>
@@ -2178,7 +2178,7 @@ function MonthlyViewSheet({
                             className="w-14 border border-border rounded px-1.5 py-0.5 text-sm bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-emerald-400"
                           />
                         ) : showGenderSplit ? (
-                          <div className="flex items-center gap-2">
+                          <div className="flex flex-col gap-0.5">
                             <span className="font-bold text-pink-500 dark:text-pink-400">♀ {femaleHiresCount || '—'}</span>
                             <span className="font-bold text-blue-500 dark:text-blue-400">♂ {maleHiresCount || '—'}</span>
                           </div>
@@ -2197,7 +2197,7 @@ function MonthlyViewSheet({
                             className="w-16 border border-border rounded px-1.5 py-0.5 text-sm bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-red-400"
                           />
                         ) : showGenderSplit ? (
-                          <div className="flex items-center gap-2">
+                          <div className="flex flex-col gap-0.5">
                             <span className="font-bold text-pink-500 dark:text-pink-400">♀ {femaleLeaversH > 0 ? `${femaleLeaversH}h` : '—'}</span>
                             <span className="font-bold text-blue-500 dark:text-blue-400">♂ {maleLeaversH > 0 ? `${maleLeaversH}h` : '—'}</span>
                           </div>
@@ -2216,7 +2216,7 @@ function MonthlyViewSheet({
                             className="w-14 border border-border rounded px-1.5 py-0.5 text-sm bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-red-400"
                           />
                         ) : showGenderSplit ? (
-                          <div className="flex items-center gap-2">
+                          <div className="flex flex-col gap-0.5">
                             <span className="font-bold text-pink-500 dark:text-pink-400">♀ {femaleLeaversCount || '—'}</span>
                             <span className="font-bold text-blue-500 dark:text-blue-400">♂ {maleLeaversCount || '—'}</span>
                           </div>
@@ -2228,7 +2228,7 @@ function MonthlyViewSheet({
                       {/* Net */}
                       <TableCell>
                         {showGenderSplit ? (
-                          <div className="flex items-center gap-2">
+                          <div className="flex flex-col gap-0.5">
                             <span className={`font-bold ${femaleNet > 0 ? 'text-pink-500 dark:text-pink-400' : femaleNet < 0 ? 'text-pink-700 dark:text-pink-300' : 'text-pink-400'}`}>
                               ♀ {femaleNet === 0 ? '±0h' : femaleNet > 0 ? `+${femaleNet}h` : `${femaleNet}h`}
                             </span>
