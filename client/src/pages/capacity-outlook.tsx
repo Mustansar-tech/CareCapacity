@@ -30,6 +30,9 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
   TrendingDown, TrendingUp, Minus, Users, AlertTriangle,
   Plus, Pencil, Trash2, ChevronDown, ChevronUp, Info, Calendar, CheckCircle2, UserMinus, RotateCcw, Archive, CalendarDays,
 } from "lucide-react";
@@ -1374,22 +1377,39 @@ export default function CapacityOutlookPage() {
             </Button>
             {isScheduler && (
               <>
-                <Button
-                  onClick={() => { setEditingLeaver(null); setLeaverModalOpen(true); }}
-                  size="sm"
-                  className="bg-red-600 hover:bg-red-700 text-white gap-1.5"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  Add Leaver
-                </Button>
-                <Button
-                  onClick={() => { setEditingJoiner(null); setJoinerModalOpen(true); }}
-                  size="sm"
-                  className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  Add Joiner
-                </Button>
+                {/* − dropdown: Add Leaver + Add Availability Decrease */}
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button size="sm" className="bg-red-600 hover:bg-red-700 text-white gap-1.5">
+                      <Minus className="w-3.5 h-3.5" /> −
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-52">
+                    <DropdownMenuItem onClick={() => { setEditingLeaver(null); setLeaverModalOpen(true); }}>
+                      <UserMinus className="w-4 h-4 mr-2 text-red-500" /> Add Leaver
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => { setAvailChangeType('decrease'); setEditingAvailChange(null); setAvailChangeModalOpen(true); }}>
+                      <TrendingDown className="w-4 h-4 mr-2 text-amber-500" /> Add Availability Decrease
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+
+                {/* + dropdown: Add Joiner + Add Availability Increase */}
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5">
+                      <Plus className="w-3.5 h-3.5" /> +
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-52">
+                    <DropdownMenuItem onClick={() => { setEditingJoiner(null); setJoinerModalOpen(true); }}>
+                      <TrendingUp className="w-4 h-4 mr-2 text-emerald-500" /> Add Joiner
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => { setAvailChangeType('increase'); setEditingAvailChange(null); setAvailChangeModalOpen(true); }}>
+                      <TrendingUp className="w-4 h-4 mr-2 text-emerald-400" /> Add Availability Increase
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </>
             )}
           </div>
@@ -1563,66 +1583,343 @@ export default function CapacityOutlookPage() {
           </span>
         </div>
 
-        {/* Leavers / Pipeline tabbed card */}
-        <Card className="glass">
-          {/* Tab bar */}
-          <div className="flex items-center border-b border-border px-2 pt-1 gap-0">
-            <button
-              onClick={() => setActiveTab('pipeline')}
-              className={[
-                "flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px",
-                activeTab === 'pipeline'
-                  ? "border-emerald-500 text-emerald-600 dark:text-emerald-400"
-                  : "border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground/40",
-              ].join(' ')}
-            >
-              <div className={`w-5 h-5 rounded flex items-center justify-center ${activeTab === 'pipeline' ? 'bg-emerald-500' : 'bg-muted'}`}>
+        {/* ── 4-section 2×2 grid ─────────────────────────────────────────────── */}
+        <div className="grid grid-cols-2 gap-4">
+
+          {/* ─ Joiners card (top-left) ──────────────────────────────────────── */}
+          <Card className="glass overflow-hidden">
+            <div className="flex items-center gap-2 px-4 py-3 border-b border-border bg-emerald-50/60 dark:bg-emerald-950/20">
+              <div className="w-5 h-5 rounded flex items-center justify-center bg-emerald-500">
                 <TrendingUp className="w-3 h-3 text-white" />
               </div>
-              All Joiners
-              <span className={[
-                "inline-flex items-center justify-center rounded-full text-xs font-semibold px-1.5 py-0.5 min-w-[20px]",
-                activeTab === 'pipeline'
-                  ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300"
-                  : "bg-muted text-muted-foreground",
-              ].join(' ')}>
+              <span className="text-sm font-semibold text-emerald-700 dark:text-emerald-300">All Joiners</span>
+              <span className="inline-flex items-center justify-center rounded-full text-xs font-semibold px-1.5 py-0.5 min-w-[20px] bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
                 {allJoiners.length}
               </span>
-            </button>
+            </div>
+            <CardContent className="pt-0 px-0">
+              {joinersQuery.isLoading ? (
+                <div className="h-16 bg-muted animate-pulse rounded m-4" />
+              ) : !pipelineJoiners.length && !hiredJoiners.length && !archivedJoiners.length ? (
+                <p className="text-sm text-muted-foreground text-center py-8">No joiners recorded.</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  {pipelineJoiners.length > 0 && (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <SortHead col="candidateName" label="Name" current={joinerSort} onSort={toggleJoinerSort} />
+                          <SortHead col="employmentType" label="Type" current={joinerSort} onSort={toggleJoinerSort} />
+                          <SortHead col="desiredWeeklyHours" label="Hrs/wk" current={joinerSort} onSort={toggleJoinerSort} />
+                          <TableHead>Contracted</TableHead>
+                          <SortHead col="postcode" label="Postcode" current={joinerSort} onSort={toggleJoinerSort} />
+                          <SortHead col="stage" label="Stage" current={joinerSort} onSort={toggleJoinerSort} />
+                          {isScheduler && <TableHead className="text-right">Actions</TableHead>}
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {sortBy(pipelineJoiners, joinerSort.col, joinerSort.dir).map(j => (
+                          <TableRow key={j.id} className={isStale14Days(j) ? "bg-red-50/60 dark:bg-red-950/20" : undefined}>
+                            <TableCell
+                              className={`font-medium cursor-pointer select-none ${getGenderColorClass(j.gender ?? undefined)}`}
+                              onDoubleClick={() => setAvailabilityPopupJoiner(j)}
+                              title="Double-click to edit availability & notes"
+                            >{j.candidateName}</TableCell>
+                            <TableCell>
+                              <Badge variant="outline" className="capitalize text-xs">{j.employmentType}</Badge>
+                            </TableCell>
+                            <TableCell>{j.desiredWeeklyHours === 0 ? <Badge variant="outline" className="text-xs text-indigo-600 border-indigo-200 bg-indigo-50">Bank</Badge> : `${j.desiredWeeklyHours}h`}</TableCell>
+                            <TableCell>{j.contractedHours != null ? `${j.contractedHours}h` : '—'}</TableCell>
+                            <TableCell className="font-mono text-xs">{j.postcode || '—'}</TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-1 flex-wrap">
+                                {j.stage === 'Dropped' ? (
+                                  <Badge className="text-xs bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400">Dropped</Badge>
+                                ) : (j.completedStages && j.completedStages.length > 0 ? j.completedStages : [j.stage])
+                                  .filter(m => m !== 'Onboarding' && m !== 'Training Attended')
+                                  .map(m => (
+                                  <Badge key={m} className={[
+                                    "text-xs",
+                                    m === 'PVG' || m === 'REF1' || m === 'REF2'
+                                      ? "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300"
+                                      : "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300",
+                                  ].join(' ')}>{m}</Badge>
+                                ))}
+                                {j.trainingDate && (() => {
+                                  const days = j.trainingDate.split(',').map(s => s.trim()).filter(Boolean);
+                                  if (days.length === 0) return null;
+                                  return (
+                                    <span className="flex items-center gap-0.5 ml-0.5" title={`Training: day${days.length > 1 ? 's' : ''} ${days.join(', ')} of 4`}>
+                                      {[1,2,3,4].map(d => (
+                                        <span key={d} className={`w-2 h-2 rounded-full ${days.includes(String(d)) ? 'bg-violet-500' : 'bg-muted-foreground/25'}`} />
+                                      ))}
+                                    </span>
+                                  );
+                                })()}
+                                {isStale14Days(j) && (
+                                  <Badge className="text-xs bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300 border-red-200 dark:border-red-700 gap-1">
+                                    <AlertTriangle className="w-3 h-3" /> Stale
+                                  </Badge>
+                                )}
+                              </div>
+                            </TableCell>
+                            {isScheduler && (
+                              <TableCell className="text-right">
+                                <div className="flex items-center justify-end gap-1">
+                                  <Button size="icon" variant="ghost" className="h-7 w-7"
+                                    onClick={() => { setEditingJoiner(j); setJoinerModalOpen(true); }}>
+                                    <Pencil className="w-3.5 h-3.5" />
+                                  </Button>
+                                  <Button size="icon" variant="ghost" className="h-7 w-7 text-red-500 hover:text-red-700"
+                                    onClick={() => setDeletingJoinerId(j.id)}>
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </Button>
+                                </div>
+                              </TableCell>
+                            )}
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  )}
 
-            <button
-              onClick={() => setActiveTab('leavers')}
-              className={[
-                "flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px",
-                activeTab === 'leavers'
-                  ? "border-red-500 text-red-600 dark:text-red-400"
-                  : "border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground/40",
-              ].join(' ')}
-            >
-              <div className={`w-5 h-5 rounded flex items-center justify-center ${activeTab === 'leavers' ? 'bg-red-500' : 'bg-muted'}`}>
+                  {hiredJoiners.length > 0 && (
+                    <div className="border-t border-yellow-200 dark:border-yellow-800/40 bg-yellow-50/60 dark:bg-yellow-900/10">
+                      <div className="flex items-center gap-2 px-4 py-2">
+                        <CheckCircle2 className="w-4 h-4 text-yellow-600 dark:text-yellow-400" />
+                        <span className="text-xs font-semibold text-yellow-700 dark:text-yellow-300 uppercase tracking-wide">
+                          Hired this month — {hiredJoiners.reduce((s, j) => s + (j.desiredWeeklyHours ?? 0), 0)}h/wk · {hiredJoiners.length} {hiredJoiners.length === 1 ? 'person' : 'people'}
+                        </span>
+                      </div>
+                      <Table>
+                        <TableHeader>
+                          <TableRow className="bg-yellow-100/60 dark:bg-yellow-900/20">
+                            <TableHead>Name</TableHead>
+                            <TableHead>Type</TableHead>
+                            <TableHead>Hrs/wk</TableHead>
+                            <TableHead>Contracted</TableHead>
+                            <TableHead>Postcode</TableHead>
+                            <TableHead>Stage</TableHead>
+                            {isScheduler && <TableHead className="text-right">Actions</TableHead>}
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {hiredJoiners.map(j => (
+                            <TableRow key={j.id}>
+                              <TableCell
+                                className={`font-medium cursor-pointer select-none ${getGenderColorClass(j.gender ?? undefined)}`}
+                                onDoubleClick={() => setAvailabilityPopupJoiner(j)}
+                                title="Double-click to edit availability & notes"
+                              >{j.candidateName}</TableCell>
+                              <TableCell>
+                                <Badge variant="outline" className="capitalize text-xs">{j.employmentType}</Badge>
+                              </TableCell>
+                              <TableCell>{j.desiredWeeklyHours === 0 ? <Badge variant="outline" className="text-xs text-indigo-600 border-indigo-200 bg-indigo-50">Bank</Badge> : `${j.desiredWeeklyHours}h`}</TableCell>
+                              <TableCell>{j.contractedHours != null ? `${j.contractedHours}h` : '—'}</TableCell>
+                              <TableCell className="font-mono text-xs">{j.postcode || '—'}</TableCell>
+                              <TableCell>
+                                {j.stage ? <Badge className="text-xs capitalize">{j.stage}</Badge> : '—'}
+                              </TableCell>
+                              {isScheduler && (
+                                <TableCell className="text-right">
+                                  <div className="flex items-center justify-end gap-1">
+                                    <Button size="icon" variant="ghost" className="h-7 w-7"
+                                      onClick={() => { setEditingJoiner(j); setJoinerModalOpen(true); }}>
+                                      <Pencil className="w-3.5 h-3.5" />
+                                    </Button>
+                                    <Button size="icon" variant="ghost" className="h-7 w-7 text-red-500 hover:text-red-700"
+                                      onClick={() => setDeletingJoinerId(j.id)}>
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    </Button>
+                                  </div>
+                                </TableCell>
+                              )}
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  )}
+
+                  {archivedJoiners.length > 0 && (() => {
+                    const groups: Record<string, typeof archivedJoiners> = {};
+                    for (const j of archivedJoiners) {
+                      const key = (j.hiredAt ?? '').slice(0, 7);
+                      if (!key) continue;
+                      (groups[key] ??= []).push(j);
+                    }
+                    const sortedGroups = Object.entries(groups).sort(([a], [b]) => b.localeCompare(a));
+                    return (
+                      <>
+                        {sortedGroups.map(([monthKey, rows]) => {
+                          const label = new Date(`${monthKey}-01T00:00:00Z`).toLocaleDateString('en-GB', { month: 'long', year: 'numeric', timeZone: 'UTC' });
+                          const totalHrs = rows.reduce((s, j) => s + (j.desiredWeeklyHours ?? 0), 0);
+                          const isOpen = expandedJoinerMonths.has(monthKey);
+                          return (
+                            <div key={monthKey} className="border-t border-emerald-200 dark:border-emerald-800/40 bg-emerald-50/20 dark:bg-emerald-900/5">
+                              <button
+                                onClick={() => toggleJoinerMonth(monthKey)}
+                                className="w-full flex items-center gap-2 px-4 py-2.5 hover:bg-emerald-50/60 dark:hover:bg-emerald-900/10 transition-colors text-left"
+                              >
+                                <Archive className="w-4 h-4 text-emerald-400 dark:text-emerald-500 shrink-0" />
+                                <span className="text-xs font-semibold text-emerald-600/70 dark:text-emerald-400/70 uppercase tracking-wide flex-1">
+                                  {label} — {totalHrs}h/wk · {rows.length} {rows.length === 1 ? 'person' : 'people'} hired
+                                </span>
+                                {isOpen
+                                  ? <ChevronUp className="w-3.5 h-3.5 text-emerald-400 dark:text-emerald-500 shrink-0" />
+                                  : <ChevronDown className="w-3.5 h-3.5 text-emerald-400 dark:text-emerald-500 shrink-0" />
+                                }
+                              </button>
+                              {isOpen && (
+                                <Table>
+                                  <TableHeader>
+                                    <TableRow className="bg-emerald-100/30 dark:bg-emerald-900/10">
+                                      <TableHead>Name</TableHead>
+                                      <TableHead>Status</TableHead>
+                                      <TableHead>Type</TableHead>
+                                      <TableHead>Hrs/wk</TableHead>
+                                      <TableHead>Contracted</TableHead>
+                                      <TableHead>Hired</TableHead>
+                                      {isAdmin && <TableHead className="text-right">Actions</TableHead>}
+                                    </TableRow>
+                                  </TableHeader>
+                                  <TableBody>
+                                    {rows.map(j => (
+                                      <TableRow key={j.id} className="opacity-60 hover:opacity-100 transition-opacity">
+                                        <TableCell
+                                          className={`font-medium cursor-pointer select-none ${getGenderColorClass(j.gender ?? undefined)}`}
+                                          onDoubleClick={() => setAvailabilityPopupJoiner(j)}
+                                          title="Double-click to edit availability & notes"
+                                        >{j.candidateName}</TableCell>
+                                        <TableCell>
+                                          <Badge className="text-xs bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-300 dark:border-emerald-800">Hired</Badge>
+                                        </TableCell>
+                                        <TableCell>
+                                          <Badge variant="outline" className="capitalize text-xs">{j.employmentType}</Badge>
+                                        </TableCell>
+                                        <TableCell>{j.desiredWeeklyHours === 0 ? <Badge variant="outline" className="text-xs text-indigo-600 border-indigo-200 bg-indigo-50">Bank</Badge> : `${j.desiredWeeklyHours}h`}</TableCell>
+                                        <TableCell>{j.contractedHours != null ? `${j.contractedHours}h` : '—'}</TableCell>
+                                        <TableCell>{formatDate(j.hiredAt)}</TableCell>
+                                        {isAdmin && (
+                                          <TableCell className="text-right">
+                                            <div className="flex items-center justify-end gap-1">
+                                              <Button size="icon" variant="ghost" className="h-7 w-7"
+                                                onClick={() => { setEditingJoiner(j); setJoinerModalOpen(true); }}>
+                                                <Pencil className="w-3.5 h-3.5" />
+                                              </Button>
+                                              <Button size="icon" variant="ghost" className="h-7 w-7 text-red-500 hover:text-red-700"
+                                                onClick={() => setHardDeletingJoinerId(j.id)}>
+                                                <Trash2 className="w-3.5 h-3.5" />
+                                              </Button>
+                                            </div>
+                                          </TableCell>
+                                        )}
+                                      </TableRow>
+                                    ))}
+                                  </TableBody>
+                                </Table>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </>
+                    );
+                  })()}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* ─ Availability Increase card (top-right) ───────────────────────── */}
+          {(() => {
+            const increases = (availChangesQuery.data ?? []).filter(r => r.changeType === 'increase');
+            return (
+              <Card className="border border-card-border shadow-sm overflow-hidden">
+                <div className="flex items-center gap-2 px-4 py-3 border-b border-border bg-emerald-50/60 dark:bg-emerald-950/20">
+                  <div className="w-5 h-5 rounded flex items-center justify-center bg-emerald-400">
+                    <TrendingUp className="w-3 h-3 text-white" />
+                  </div>
+                  <span className="text-sm font-semibold text-emerald-700 dark:text-emerald-300">Availability Increase</span>
+                  <span className="inline-flex items-center justify-center rounded-full text-xs font-semibold px-1.5 py-0.5 min-w-[20px] bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
+                    {increases.length}
+                  </span>
+                  <p className="text-xs text-emerald-500 dark:text-emerald-500 ml-1">contracted hours increased</p>
+                </div>
+                <CardContent className="pt-0 px-0">
+                  {availChangesQuery.isLoading ? (
+                    <div className="h-16 bg-muted animate-pulse rounded m-4" />
+                  ) : increases.length === 0 ? (
+                    <p className="text-sm text-muted-foreground text-center py-8">No availability increases recorded yet.</p>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow className="text-xs">
+                            <TableHead>Name</TableHead>
+                            <TableHead>Type</TableHead>
+                            <TableHead>Prev Hrs</TableHead>
+                            <TableHead>New Hrs</TableHead>
+                            <TableHead>Effective</TableHead>
+                            <TableHead>Notes</TableHead>
+                            {isScheduler && <TableHead className="text-right">Actions</TableHead>}
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {increases.map(r => (
+                            <TableRow key={r.id} className="text-sm">
+                              <TableCell className="font-medium">{r.employeeName}</TableCell>
+                              <TableCell>
+                                <Badge variant="outline" className="capitalize text-xs">{r.employmentType}</Badge>
+                              </TableCell>
+                              <TableCell>{r.previousHours != null ? `${r.previousHours}h` : '—'}</TableCell>
+                              <TableCell>
+                                <span className="text-emerald-700 dark:text-emerald-400 font-semibold">{r.newHours}h</span>
+                              </TableCell>
+                              <TableCell>{formatDate(r.effectiveDate)}</TableCell>
+                              <TableCell className="max-w-[150px] truncate text-muted-foreground">{r.notes || '—'}</TableCell>
+                              {isScheduler && (
+                                <TableCell className="text-right">
+                                  <div className="flex items-center justify-end gap-1">
+                                    <Button size="icon" variant="ghost" className="h-7 w-7"
+                                      onClick={() => { setAvailChangeType('increase'); setEditingAvailChange(r); setAvailChangeModalOpen(true); }}>
+                                      <Pencil className="w-3.5 h-3.5" />
+                                    </Button>
+                                    <Button size="icon" variant="ghost" className="h-7 w-7 text-red-500 hover:text-red-700"
+                                      onClick={() => setDeletingAvailChangeId(r.id)}>
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    </Button>
+                                  </div>
+                                </TableCell>
+                              )}
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            );
+          })()}
+
+          {/* ─ Leavers card (bottom-left) ───────────────────────────────────── */}
+          <Card className="glass overflow-hidden">
+            <div className="flex items-center gap-2 px-4 py-3 border-b border-border bg-red-50/60 dark:bg-red-950/20">
+              <div className="w-5 h-5 rounded flex items-center justify-center bg-red-500">
                 <TrendingDown className="w-3 h-3 text-white" />
               </div>
-              All Leavers
-              <span className={[
-                "inline-flex items-center justify-center rounded-full text-xs font-semibold px-1.5 py-0.5 min-w-[20px]",
-                activeTab === 'leavers'
-                  ? "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300"
-                  : "bg-muted text-muted-foreground",
-              ].join(' ')}>
+              <span className="text-sm font-semibold text-red-700 dark:text-red-300">All Leavers</span>
+              <span className="inline-flex items-center justify-center rounded-full text-xs font-semibold px-1.5 py-0.5 min-w-[20px] bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300">
                 {allLeavers.length}
               </span>
-            </button>
-          </div>
-
-          {/* Tab content */}
-          <CardContent className="pt-0 px-0">
-            {activeTab === 'leavers' && (
-              leaversQuery.isLoading ? (
+            </div>
+            <CardContent className="pt-0 px-0">
+              {leaversQuery.isLoading ? (
                 <div className="h-16 bg-muted animate-pulse rounded m-4" />
               ) : !leaversQuery.data?.length ? (
                 <p className="text-sm text-muted-foreground text-center py-8">No active leavers recorded.</p>
               ) : (
-                <>
+                <div className="overflow-x-auto">
                   {/* On-notice leavers (still working) */}
                   {sortBy(onNotice, leaverSort.col, leaverSort.dir).length > 0 && (
                     <Table>
@@ -1632,8 +1929,8 @@ export default function CapacityOutlookPage() {
                           <TableHead>Status</TableHead>
                           <TableHead>Emp No</TableHead>
                           <SortHead col="employmentType" label="Type" current={leaverSort} onSort={toggleLeaverSort} />
-                          <SortHead col="weeklyHours" label="Desired Hrs/wk" current={leaverSort} onSort={toggleLeaverSort} />
-                          <TableHead>Contracted Hrs</TableHead>
+                          <SortHead col="weeklyHours" label="Hrs/wk" current={leaverSort} onSort={toggleLeaverSort} />
+                          <TableHead>Contracted</TableHead>
                           <TableHead>Postcode</TableHead>
                           <SortHead col="firstDayOfNotice" label="Day of Notice" current={leaverSort} onSort={toggleLeaverSort} />
                           <SortHead col="lastWorkingDay" label="Termination Day" current={leaverSort} onSort={toggleLeaverSort} />
@@ -1694,8 +1991,8 @@ export default function CapacityOutlookPage() {
                             <TableHead>Status</TableHead>
                             <TableHead>Emp No</TableHead>
                             <TableHead>Type</TableHead>
-                            <TableHead>Desired Hrs/wk</TableHead>
-                            <TableHead>Contracted Hrs</TableHead>
+                            <TableHead>Hrs/wk</TableHead>
+                            <TableHead>Contracted</TableHead>
                             <TableHead>Postcode</TableHead>
                             <TableHead>Day of Notice</TableHead>
                             <TableHead>Termination Day</TableHead>
@@ -1783,8 +2080,8 @@ export default function CapacityOutlookPage() {
                                       <TableHead>Name</TableHead>
                                       <TableHead>Emp No</TableHead>
                                       <TableHead>Type</TableHead>
-                                      <TableHead>Desired Hrs/wk</TableHead>
-                                      <TableHead>Contracted Hrs</TableHead>
+                                      <TableHead>Hrs/wk</TableHead>
+                                      <TableHead>Contracted</TableHead>
                                       <TableHead>Termination Day</TableHead>
                                       <TableHead>Notes</TableHead>
                                       {isAdmin && <TableHead className="text-right">Actions</TableHead>}
@@ -1827,142 +2124,67 @@ export default function CapacityOutlookPage() {
                       </>
                     );
                   })()}
-                </>
-              )
-            )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
 
-            {activeTab === 'pipeline' && (
-              joinersQuery.isLoading ? (
-                <div className="h-16 bg-muted animate-pulse rounded m-4" />
-              ) : !pipelineJoiners.length && !hiredJoiners.length && !archivedJoiners.length ? (
-                <p className="text-sm text-muted-foreground text-center py-8">No joiners recorded.</p>
-              ) : (
-                <>
-                  {pipelineJoiners.length > 0 && (
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <SortHead col="candidateName" label="Name" current={joinerSort} onSort={toggleJoinerSort} />
-                          <SortHead col="employmentType" label="Type" current={joinerSort} onSort={toggleJoinerSort} />
-                          <SortHead col="desiredWeeklyHours" label="Desired Hrs/wk" current={joinerSort} onSort={toggleJoinerSort} />
-                          <TableHead>Contracted Hrs</TableHead>
-                          <SortHead col="postcode" label="Postcode" current={joinerSort} onSort={toggleJoinerSort} />
-                          <SortHead col="stage" label="Stage" current={joinerSort} onSort={toggleJoinerSort} />
-                          {isScheduler && <TableHead className="text-right">Actions</TableHead>}
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {sortBy(pipelineJoiners, joinerSort.col, joinerSort.dir).map(j => (
-                          <TableRow key={j.id} className={isStale14Days(j) ? "bg-red-50/60 dark:bg-red-950/20" : undefined}>
-                            <TableCell
-                              className={`font-medium cursor-pointer select-none ${getGenderColorClass(j.gender ?? undefined)}`}
-                              onDoubleClick={() => setAvailabilityPopupJoiner(j)}
-                              title="Double-click to edit availability & notes"
-                            >{j.candidateName}</TableCell>
-                            <TableCell>
-                              <Badge variant="outline" className="capitalize text-xs">{j.employmentType}</Badge>
-                            </TableCell>
-                            <TableCell>{j.desiredWeeklyHours === 0 ? <Badge variant="outline" className="text-xs text-indigo-600 border-indigo-200 bg-indigo-50">Bank</Badge> : `${j.desiredWeeklyHours}h`}</TableCell>
-                            <TableCell>{j.contractedHours != null ? `${j.contractedHours}h` : '—'}</TableCell>
-                            <TableCell className="font-mono text-xs">{j.postcode || '—'}</TableCell>
-                            <TableCell>
-                              <div className="flex items-center gap-1 flex-wrap">
-                                {j.stage === 'Dropped' ? (
-                                  <Badge className="text-xs bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400">Dropped</Badge>
-                                ) : (j.completedStages && j.completedStages.length > 0 ? j.completedStages : [j.stage])
-                                  .filter(m => m !== 'Onboarding' && m !== 'Training Attended')
-                                  .map(m => (
-                                  <Badge key={m} className={[
-                                    "text-xs",
-                                    m === 'PVG' || m === 'REF1' || m === 'REF2'
-                                      ? "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300"
-                                      : "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300",
-                                  ].join(' ')}>{m}</Badge>
-                                ))}
-                                {j.trainingDate && (() => {
-                                  const days = j.trainingDate.split(',').map(s => s.trim()).filter(Boolean);
-                                  if (days.length === 0) return null;
-                                  return (
-                                    <span className="flex items-center gap-0.5 ml-0.5" title={`Training: day${days.length > 1 ? 's' : ''} ${days.join(', ')} of 4`}>
-                                      {[1,2,3,4].map(d => (
-                                        <span key={d} className={`w-2 h-2 rounded-full ${days.includes(String(d)) ? 'bg-violet-500' : 'bg-muted-foreground/25'}`} />
-                                      ))}
-                                    </span>
-                                  );
-                                })()}
-                                {isStale14Days(j) && (
-                                  <Badge className="text-xs bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300 border-red-200 dark:border-red-700 gap-1">
-                                    <AlertTriangle className="w-3 h-3" /> Stale
-                                  </Badge>
-                                )}
-                              </div>
-                            </TableCell>
-                            {isScheduler && (
-                              <TableCell className="text-right">
-                                <div className="flex items-center justify-end gap-1">
-                                  <Button size="icon" variant="ghost" className="h-7 w-7"
-                                    onClick={() => { setEditingJoiner(j); setJoinerModalOpen(true); }}>
-                                    <Pencil className="w-3.5 h-3.5" />
-                                  </Button>
-                                  <Button size="icon" variant="ghost" className="h-7 w-7 text-red-500 hover:text-red-700"
-                                    onClick={() => setDeletingJoinerId(j.id)}>
-                                    <Trash2 className="w-3.5 h-3.5" />
-                                  </Button>
-                                </div>
-                              </TableCell>
-                            )}
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  )}
-
-                  {hiredJoiners.length > 0 && (
-                    <div className="border-t border-yellow-200 dark:border-yellow-800/40 bg-yellow-50/60 dark:bg-yellow-900/10">
-                      <div className="flex items-center gap-2 px-4 py-2">
-                        <CheckCircle2 className="w-4 h-4 text-yellow-600 dark:text-yellow-400" />
-                        <span className="text-xs font-semibold text-yellow-700 dark:text-yellow-300 uppercase tracking-wide">
-                          Hired this month — {hiredJoiners.reduce((s, j) => s + (j.desiredWeeklyHours ?? 0), 0)}h/wk · {hiredJoiners.length} {hiredJoiners.length === 1 ? 'person' : 'people'}
-                        </span>
-                      </div>
+          {/* ─ Availability Decrease card (bottom-right) ────────────────────── */}
+          {(() => {
+            const decreases = (availChangesQuery.data ?? []).filter(r => r.changeType === 'decrease');
+            return (
+              <Card className="border border-card-border shadow-sm overflow-hidden">
+                <div className="flex items-center gap-2 px-4 py-3 border-b border-border bg-amber-50/60 dark:bg-amber-950/20">
+                  <div className="w-5 h-5 rounded flex items-center justify-center bg-amber-500">
+                    <TrendingDown className="w-3 h-3 text-white" />
+                  </div>
+                  <span className="text-sm font-semibold text-amber-700 dark:text-amber-300">Availability Decrease</span>
+                  <span className="inline-flex items-center justify-center rounded-full text-xs font-semibold px-1.5 py-0.5 min-w-[20px] bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">
+                    {decreases.length}
+                  </span>
+                  <p className="text-xs text-amber-500 dark:text-amber-500 ml-1">contracted hours reduced</p>
+                </div>
+                <CardContent className="pt-0 px-0">
+                  {availChangesQuery.isLoading ? (
+                    <div className="h-16 bg-muted animate-pulse rounded m-4" />
+                  ) : decreases.length === 0 ? (
+                    <p className="text-sm text-muted-foreground text-center py-8">No availability decreases recorded yet.</p>
+                  ) : (
+                    <div className="overflow-x-auto">
                       <Table>
                         <TableHeader>
-                          <TableRow className="bg-yellow-100/60 dark:bg-yellow-900/20">
+                          <TableRow className="text-xs">
                             <TableHead>Name</TableHead>
                             <TableHead>Type</TableHead>
-                            <TableHead>Desired Hrs/wk</TableHead>
-                            <TableHead>Contracted Hrs</TableHead>
-                            <TableHead>Postcode</TableHead>
-                            <TableHead>Stage</TableHead>
+                            <TableHead>Prev Hrs</TableHead>
+                            <TableHead>New Hrs</TableHead>
+                            <TableHead>Effective</TableHead>
+                            <TableHead>Notes</TableHead>
                             {isScheduler && <TableHead className="text-right">Actions</TableHead>}
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {hiredJoiners.map(j => (
-                            <TableRow key={j.id}>
-                              <TableCell
-                                className={`font-medium cursor-pointer select-none ${getGenderColorClass(j.gender ?? undefined)}`}
-                                onDoubleClick={() => setAvailabilityPopupJoiner(j)}
-                                title="Double-click to edit availability & notes"
-                              >{j.candidateName}</TableCell>
+                          {decreases.map(r => (
+                            <TableRow key={r.id} className="text-sm">
+                              <TableCell className="font-medium">{r.employeeName}</TableCell>
                               <TableCell>
-                                <Badge variant="outline" className="capitalize text-xs">{j.employmentType}</Badge>
+                                <Badge variant="outline" className="capitalize text-xs">{r.employmentType}</Badge>
                               </TableCell>
-                              <TableCell>{j.desiredWeeklyHours === 0 ? <Badge variant="outline" className="text-xs text-indigo-600 border-indigo-200 bg-indigo-50">Bank</Badge> : `${j.desiredWeeklyHours}h`}</TableCell>
-                              <TableCell>{j.contractedHours != null ? `${j.contractedHours}h` : '—'}</TableCell>
-                              <TableCell className="font-mono text-xs">{j.postcode || '—'}</TableCell>
+                              <TableCell>{r.previousHours != null ? `${r.previousHours}h` : '—'}</TableCell>
                               <TableCell>
-                                {j.stage ? <Badge className="text-xs capitalize">{j.stage}</Badge> : '—'}
+                                <span className="text-amber-700 dark:text-amber-400 font-semibold">{r.newHours}h</span>
                               </TableCell>
+                              <TableCell>{formatDate(r.effectiveDate)}</TableCell>
+                              <TableCell className="max-w-[150px] truncate text-muted-foreground">{r.notes || '—'}</TableCell>
                               {isScheduler && (
                                 <TableCell className="text-right">
                                   <div className="flex items-center justify-end gap-1">
                                     <Button size="icon" variant="ghost" className="h-7 w-7"
-                                      onClick={() => { setEditingJoiner(j); setJoinerModalOpen(true); }}>
+                                      onClick={() => { setAvailChangeType('decrease'); setEditingAvailChange(r); setAvailChangeModalOpen(true); }}>
                                       <Pencil className="w-3.5 h-3.5" />
                                     </Button>
                                     <Button size="icon" variant="ghost" className="h-7 w-7 text-red-500 hover:text-red-700"
-                                      onClick={() => setDeletingJoinerId(j.id)}>
+                                      onClick={() => setDeletingAvailChangeId(r.id)}>
                                       <Trash2 className="w-3.5 h-3.5" />
                                     </Button>
                                   </div>
@@ -1974,265 +2196,12 @@ export default function CapacityOutlookPage() {
                       </Table>
                     </div>
                   )}
+                </CardContent>
+              </Card>
+            );
+          })()}
 
-                  {/* Past months — hired (closed month archives, collapsible) */}
-                  {archivedJoiners.length > 0 && (() => {
-                    const groups: Record<string, typeof archivedJoiners> = {};
-                    for (const j of archivedJoiners) {
-                      const key = (j.hiredAt ?? '').slice(0, 7);
-                      if (!key) continue;
-                      (groups[key] ??= []).push(j);
-                    }
-                    const sortedGroups = Object.entries(groups).sort(([a], [b]) => b.localeCompare(a));
-                    return (
-                      <>
-                        {sortedGroups.map(([monthKey, rows]) => {
-                          const label = new Date(`${monthKey}-01T00:00:00Z`).toLocaleDateString('en-GB', { month: 'long', year: 'numeric', timeZone: 'UTC' });
-                          const totalHrs = rows.reduce((s, j) => s + (j.desiredWeeklyHours ?? 0), 0);
-                          const isOpen = expandedJoinerMonths.has(monthKey);
-                          return (
-                            <div key={monthKey} className="border-t border-emerald-200 dark:border-emerald-800/40 bg-emerald-50/20 dark:bg-emerald-900/5">
-                              <button
-                                onClick={() => toggleJoinerMonth(monthKey)}
-                                className="w-full flex items-center gap-2 px-4 py-2.5 hover:bg-emerald-50/60 dark:hover:bg-emerald-900/10 transition-colors text-left"
-                              >
-                                <Archive className="w-4 h-4 text-emerald-400 dark:text-emerald-500 shrink-0" />
-                                <span className="text-xs font-semibold text-emerald-600/70 dark:text-emerald-400/70 uppercase tracking-wide flex-1">
-                                  {label} — {totalHrs}h/wk · {rows.length} {rows.length === 1 ? 'person' : 'people'} hired
-                                </span>
-                                {isOpen
-                                  ? <ChevronUp className="w-3.5 h-3.5 text-emerald-400 dark:text-emerald-500 shrink-0" />
-                                  : <ChevronDown className="w-3.5 h-3.5 text-emerald-400 dark:text-emerald-500 shrink-0" />
-                                }
-                              </button>
-                              {isOpen && (
-                                <Table>
-                                  <TableHeader>
-                                    <TableRow className="bg-emerald-100/30 dark:bg-emerald-900/10">
-                                      <TableHead>Name</TableHead>
-                                      <TableHead>Status</TableHead>
-                                      <TableHead>Type</TableHead>
-                                      <TableHead>Desired Hrs/wk</TableHead>
-                                      <TableHead>Contracted Hrs</TableHead>
-                                      <TableHead>Hired</TableHead>
-                                      {isAdmin && <TableHead className="text-right">Actions</TableHead>}
-                                    </TableRow>
-                                  </TableHeader>
-                                  <TableBody>
-                                    {rows.map(j => (
-                                      <TableRow key={j.id} className="opacity-60 hover:opacity-100 transition-opacity">
-                                        <TableCell
-                                          className={`font-medium cursor-pointer select-none ${getGenderColorClass(j.gender ?? undefined)}`}
-                                          onDoubleClick={() => setAvailabilityPopupJoiner(j)}
-                                          title="Double-click to edit availability & notes"
-                                        >{j.candidateName}</TableCell>
-                                        <TableCell>
-                                          <Badge className="text-xs bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-300 dark:border-emerald-800">Hired</Badge>
-                                        </TableCell>
-                                        <TableCell>
-                                          <Badge variant="outline" className="capitalize text-xs">{j.employmentType}</Badge>
-                                        </TableCell>
-                                        <TableCell>{j.desiredWeeklyHours === 0 ? <Badge variant="outline" className="text-xs text-indigo-600 border-indigo-200 bg-indigo-50">Bank</Badge> : `${j.desiredWeeklyHours}h`}</TableCell>
-                                        <TableCell>{j.contractedHours != null ? `${j.contractedHours}h` : '—'}</TableCell>
-                                        <TableCell>{formatDate(j.hiredAt)}</TableCell>
-                                        {isAdmin && (
-                                          <TableCell className="text-right">
-                                            <div className="flex items-center justify-end gap-1">
-                                              <Button size="icon" variant="ghost" className="h-7 w-7"
-                                                onClick={() => { setEditingJoiner(j); setJoinerModalOpen(true); }}>
-                                                <Pencil className="w-3.5 h-3.5" />
-                                              </Button>
-                                              <Button size="icon" variant="ghost" className="h-7 w-7 text-red-500 hover:text-red-700"
-                                                onClick={() => setHardDeletingJoinerId(j.id)}>
-                                                <Trash2 className="w-3.5 h-3.5" />
-                                              </Button>
-                                            </div>
-                                          </TableCell>
-                                        )}
-                                      </TableRow>
-                                    ))}
-                                  </TableBody>
-                                </Table>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </>
-                    );
-                  })()}
-                </>
-              )
-            )}
-          </CardContent>
-        </Card>
-
-        {/* ── Availability Increase ─────────────────────────────────────────── */}
-        {(() => {
-          const increases = (availChangesQuery.data ?? []).filter(r => r.changeType === 'increase');
-          return (
-            <Card className="border border-card-border shadow-sm">
-              <CardHeader className="pb-3 bg-gradient-to-r from-emerald-50 to-green-50 dark:from-emerald-950/30 dark:to-green-950/30 rounded-t-xl">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-lg bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center">
-                      <TrendingUp className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                    </div>
-                    <div>
-                      <h3 className="text-base font-semibold text-emerald-800 dark:text-emerald-200">Availability Increase</h3>
-                      <p className="text-xs text-emerald-600 dark:text-emerald-400">Care pros who have increased their contracted hours</p>
-                    </div>
-                  </div>
-                  {isScheduler && (
-                    <Button
-                      size="sm"
-                      className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5"
-                      onClick={() => { setAvailChangeType('increase'); setEditingAvailChange(null); setAvailChangeModalOpen(true); }}
-                    >
-                      <Plus className="w-3.5 h-3.5" /> Add
-                    </Button>
-                  )}
-                </div>
-              </CardHeader>
-              <CardContent className="pt-4 px-0 pb-0">
-                {availChangesQuery.isLoading ? (
-                  <div className="px-6 py-8 text-center text-sm text-muted-foreground">Loading…</div>
-                ) : increases.length === 0 ? (
-                  <div className="px-6 py-8 text-center text-sm text-muted-foreground">
-                    No availability increases recorded yet.
-                  </div>
-                ) : (
-                  <Table>
-                    <TableHeader>
-                      <TableRow className="text-xs">
-                        <TableHead>Name</TableHead>
-                        <TableHead>Type</TableHead>
-                        <TableHead>Previous Hours</TableHead>
-                        <TableHead>New Hours</TableHead>
-                        <TableHead>Effective Date</TableHead>
-                        <TableHead>Notes</TableHead>
-                        {isScheduler && <TableHead className="text-right">Actions</TableHead>}
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {increases.map(r => (
-                        <TableRow key={r.id} className="text-sm">
-                          <TableCell className="font-medium">{r.employeeName}</TableCell>
-                          <TableCell>
-                            <Badge variant="outline" className="capitalize text-xs">{r.employmentType}</Badge>
-                          </TableCell>
-                          <TableCell>{r.previousHours != null ? `${r.previousHours}h` : '—'}</TableCell>
-                          <TableCell>
-                            <span className="text-emerald-700 dark:text-emerald-400 font-semibold">{r.newHours}h</span>
-                          </TableCell>
-                          <TableCell>{formatDate(r.effectiveDate)}</TableCell>
-                          <TableCell className="max-w-[200px] truncate text-muted-foreground">{r.notes || '—'}</TableCell>
-                          {isScheduler && (
-                            <TableCell className="text-right">
-                              <div className="flex items-center justify-end gap-1">
-                                <Button size="icon" variant="ghost" className="h-7 w-7"
-                                  onClick={() => { setAvailChangeType('increase'); setEditingAvailChange(r); setAvailChangeModalOpen(true); }}>
-                                  <Pencil className="w-3.5 h-3.5" />
-                                </Button>
-                                <Button size="icon" variant="ghost" className="h-7 w-7 text-red-500 hover:text-red-700"
-                                  onClick={() => setDeletingAvailChangeId(r.id)}>
-                                  <Trash2 className="w-3.5 h-3.5" />
-                                </Button>
-                              </div>
-                            </TableCell>
-                          )}
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                )}
-              </CardContent>
-            </Card>
-          );
-        })()}
-
-        {/* ── Availability Decrease ─────────────────────────────────────────── */}
-        {(() => {
-          const decreases = (availChangesQuery.data ?? []).filter(r => r.changeType === 'decrease');
-          return (
-            <Card className="border border-card-border shadow-sm">
-              <CardHeader className="pb-3 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/30 dark:to-orange-950/30 rounded-t-xl">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-lg bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center">
-                      <TrendingDown className="w-4 h-4 text-amber-600 dark:text-amber-400" />
-                    </div>
-                    <div>
-                      <h3 className="text-base font-semibold text-amber-800 dark:text-amber-200">Availability Decrease</h3>
-                      <p className="text-xs text-amber-600 dark:text-amber-400">Care pros who have reduced their contracted hours</p>
-                    </div>
-                  </div>
-                  {isScheduler && (
-                    <Button
-                      size="sm"
-                      className="bg-amber-600 hover:bg-amber-700 text-white gap-1.5"
-                      onClick={() => { setAvailChangeType('decrease'); setEditingAvailChange(null); setAvailChangeModalOpen(true); }}
-                    >
-                      <Plus className="w-3.5 h-3.5" /> Add
-                    </Button>
-                  )}
-                </div>
-              </CardHeader>
-              <CardContent className="pt-4 px-0 pb-0">
-                {availChangesQuery.isLoading ? (
-                  <div className="px-6 py-8 text-center text-sm text-muted-foreground">Loading…</div>
-                ) : decreases.length === 0 ? (
-                  <div className="px-6 py-8 text-center text-sm text-muted-foreground">
-                    No availability decreases recorded yet.
-                  </div>
-                ) : (
-                  <Table>
-                    <TableHeader>
-                      <TableRow className="text-xs">
-                        <TableHead>Name</TableHead>
-                        <TableHead>Type</TableHead>
-                        <TableHead>Previous Hours</TableHead>
-                        <TableHead>New Hours</TableHead>
-                        <TableHead>Effective Date</TableHead>
-                        <TableHead>Notes</TableHead>
-                        {isScheduler && <TableHead className="text-right">Actions</TableHead>}
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {decreases.map(r => (
-                        <TableRow key={r.id} className="text-sm">
-                          <TableCell className="font-medium">{r.employeeName}</TableCell>
-                          <TableCell>
-                            <Badge variant="outline" className="capitalize text-xs">{r.employmentType}</Badge>
-                          </TableCell>
-                          <TableCell>{r.previousHours != null ? `${r.previousHours}h` : '—'}</TableCell>
-                          <TableCell>
-                            <span className="text-amber-700 dark:text-amber-400 font-semibold">{r.newHours}h</span>
-                          </TableCell>
-                          <TableCell>{formatDate(r.effectiveDate)}</TableCell>
-                          <TableCell className="max-w-[200px] truncate text-muted-foreground">{r.notes || '—'}</TableCell>
-                          {isScheduler && (
-                            <TableCell className="text-right">
-                              <div className="flex items-center justify-end gap-1">
-                                <Button size="icon" variant="ghost" className="h-7 w-7"
-                                  onClick={() => { setAvailChangeType('decrease'); setEditingAvailChange(r); setAvailChangeModalOpen(true); }}>
-                                  <Pencil className="w-3.5 h-3.5" />
-                                </Button>
-                                <Button size="icon" variant="ghost" className="h-7 w-7 text-red-500 hover:text-red-700"
-                                  onClick={() => setDeletingAvailChangeId(r.id)}>
-                                  <Trash2 className="w-3.5 h-3.5" />
-                                </Button>
-                              </div>
-                            </TableCell>
-                          )}
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                )}
-              </CardContent>
-            </Card>
-          );
-        })()}
+        </div>{/* end 2×2 grid */}
 
       </div>
 
