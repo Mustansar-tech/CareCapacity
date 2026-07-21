@@ -1860,6 +1860,7 @@ export default function CapacityOutlookPage() {
         isLoading={monthlyQuery.isLoading}
         isScheduler={isScheduler}
         hiredJoiners={hiredJoiners}
+        allLeavers={allLeavers}
       />
     </div>
   );
@@ -1887,6 +1888,7 @@ function MonthlyViewSheet({
   isLoading,
   isScheduler,
   hiredJoiners,
+  allLeavers,
 }: {
   open: boolean;
   onClose: () => void;
@@ -1895,6 +1897,7 @@ function MonthlyViewSheet({
   isLoading: boolean;
   isScheduler: boolean;
   hiredJoiners: Joiner[];
+  allLeavers: Leaver[];
 }) {
   const { toast } = useToast();
 
@@ -2043,6 +2046,19 @@ function MonthlyViewSheet({
                   const displayHoursOut = isEditing ? editValues.hoursOut : row.hoursOut;
                   const displayHeadsOut = isEditing ? editValues.headsOut : row.headsOut;
                   const net = Math.round((displayHoursIn - displayHoursOut) * 10) / 10;
+
+                  // Gender split — only computable for the live row (individual records available)
+                  const currentMonthLeavers = allLeavers.filter(l => {
+                    if (!l.lastWorkingDay) return false;
+                    const d = new Date(l.lastWorkingDay + 'T00:00:00Z');
+                    return d.getUTCFullYear() === row.year && d.getUTCMonth() + 1 === row.month;
+                  });
+                  const femaleHiresH  = isLive ? Math.round(hiredJoiners.filter(j => j.gender?.toLowerCase() === 'female').reduce((s, j) => s + (j.desiredWeeklyHours ?? 0), 0) * 10) / 10 : 0;
+                  const maleHiresH    = isLive ? Math.round(hiredJoiners.filter(j => j.gender?.toLowerCase() === 'male').reduce((s, j) => s + (j.desiredWeeklyHours ?? 0), 0) * 10) / 10 : 0;
+                  const femaleLeaversH = isLive ? Math.round(currentMonthLeavers.filter(l => l.gender?.toLowerCase() === 'female').reduce((s, l) => s + (l.weeklyHours ?? 0), 0) * 10) / 10 : 0;
+                  const maleLeaversH   = isLive ? Math.round(currentMonthLeavers.filter(l => l.gender?.toLowerCase() === 'male').reduce((s, l) => s + (l.weeklyHours ?? 0), 0) * 10) / 10 : 0;
+                  const showGenderSplit = isLive && (femaleHiresH > 0 || maleHiresH > 0 || femaleLeaversH > 0 || maleLeaversH > 0);
+
                   return (
                     <TableRow
                       key={`${row.year}-${row.month}`}
@@ -2072,7 +2088,15 @@ function MonthlyViewSheet({
                             className="w-16 border border-border rounded px-1.5 py-0.5 text-sm bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-emerald-400"
                           />
                         ) : (
-                          displayHoursIn > 0 ? `+${displayHoursIn}h` : '—'
+                          <div className="flex flex-col gap-0.5">
+                            <span>{displayHoursIn > 0 ? `+${displayHoursIn}h` : '—'}</span>
+                            {showGenderSplit && (femaleHiresH > 0 || maleHiresH > 0) && (
+                              <span className="flex items-center gap-1.5 text-[10px] font-normal">
+                                {femaleHiresH > 0 && <span className="text-pink-500 dark:text-pink-400">♀ {femaleHiresH}h</span>}
+                                {maleHiresH > 0 && <span className="text-blue-500 dark:text-blue-400">♂ {maleHiresH}h</span>}
+                              </span>
+                            )}
+                          </div>
                         )}
                       </TableCell>
 
@@ -2100,7 +2124,15 @@ function MonthlyViewSheet({
                             className="w-16 border border-border rounded px-1.5 py-0.5 text-sm bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-red-400"
                           />
                         ) : (
-                          displayHoursOut > 0 ? `${displayHoursOut}h` : '—'
+                          <div className="flex flex-col gap-0.5">
+                            <span>{displayHoursOut > 0 ? `${displayHoursOut}h` : '—'}</span>
+                            {showGenderSplit && (femaleLeaversH > 0 || maleLeaversH > 0) && (
+                              <span className="flex items-center gap-1.5 text-[10px] font-normal">
+                                {femaleLeaversH > 0 && <span className="text-pink-500 dark:text-pink-400">♀ {femaleLeaversH}h</span>}
+                                {maleLeaversH > 0 && <span className="text-blue-500 dark:text-blue-400">♂ {maleLeaversH}h</span>}
+                              </span>
+                            )}
+                          </div>
                         )}
                       </TableCell>
 
@@ -2212,7 +2244,7 @@ function MonthlyViewSheet({
                   <TableBody>
                     {hiredJoiners.map(j => (
                       <TableRow key={j.id} className="bg-yellow-50/40 dark:bg-yellow-900/5">
-                        <TableCell className="text-xs font-medium py-2">{j.candidateName}</TableCell>
+                        <TableCell className={`text-xs font-medium py-2 ${getGenderColorClass(j.gender ?? undefined)}`}>{j.candidateName}</TableCell>
                         <TableCell className="text-xs py-2 capitalize">{j.employmentType ?? '—'}</TableCell>
                         <TableCell className="text-xs py-2 text-emerald-700 dark:text-emerald-400 font-semibold">
                           {j.desiredWeeklyHours ? `${j.desiredWeeklyHours}h` : '—'}
