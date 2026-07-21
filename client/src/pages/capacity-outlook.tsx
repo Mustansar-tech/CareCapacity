@@ -2053,10 +2053,16 @@ function MonthlyViewSheet({
                     const d = new Date(l.lastWorkingDay + 'T00:00:00Z');
                     return d.getUTCFullYear() === row.year && d.getUTCMonth() + 1 === row.month;
                   });
-                  const femaleHiresH  = isLive ? Math.round(hiredJoiners.filter(j => j.gender?.toLowerCase() === 'female').reduce((s, j) => s + (j.desiredWeeklyHours ?? 0), 0) * 10) / 10 : 0;
-                  const maleHiresH    = isLive ? Math.round(hiredJoiners.filter(j => j.gender?.toLowerCase() === 'male').reduce((s, j) => s + (j.desiredWeeklyHours ?? 0), 0) * 10) / 10 : 0;
-                  const femaleLeaversH = isLive ? Math.round(currentMonthLeavers.filter(l => l.gender?.toLowerCase() === 'female').reduce((s, l) => s + (l.weeklyHours ?? 0), 0) * 10) / 10 : 0;
-                  const maleLeaversH   = isLive ? Math.round(currentMonthLeavers.filter(l => l.gender?.toLowerCase() === 'male').reduce((s, l) => s + (l.weeklyHours ?? 0), 0) * 10) / 10 : 0;
+                  const femaleHiresH     = isLive ? Math.round(hiredJoiners.filter(j => j.gender?.toLowerCase() === 'female').reduce((s, j) => s + (j.desiredWeeklyHours ?? 0), 0) * 10) / 10 : 0;
+                  const maleHiresH       = isLive ? Math.round(hiredJoiners.filter(j => j.gender?.toLowerCase() === 'male').reduce((s, j) => s + (j.desiredWeeklyHours ?? 0), 0) * 10) / 10 : 0;
+                  const femaleLeaversH   = isLive ? Math.round(currentMonthLeavers.filter(l => l.gender?.toLowerCase() === 'female').reduce((s, l) => s + (l.weeklyHours ?? 0), 0) * 10) / 10 : 0;
+                  const maleLeaversH     = isLive ? Math.round(currentMonthLeavers.filter(l => l.gender?.toLowerCase() === 'male').reduce((s, l) => s + (l.weeklyHours ?? 0), 0) * 10) / 10 : 0;
+                  const femaleHiresCount   = isLive ? hiredJoiners.filter(j => j.gender?.toLowerCase() === 'female').length : 0;
+                  const maleHiresCount     = isLive ? hiredJoiners.filter(j => j.gender?.toLowerCase() === 'male').length : 0;
+                  const femaleLeaversCount = isLive ? currentMonthLeavers.filter(l => l.gender?.toLowerCase() === 'female').length : 0;
+                  const maleLeaversCount   = isLive ? currentMonthLeavers.filter(l => l.gender?.toLowerCase() === 'male').length : 0;
+                  const femaleNet = Math.round((femaleHiresH - femaleLeaversH) * 10) / 10;
+                  const maleNet   = Math.round((maleHiresH   - maleLeaversH)   * 10) / 10;
                   const showGenderSplit = isLive && (femaleHiresH > 0 || maleHiresH > 0 || femaleLeaversH > 0 || maleLeaversH > 0);
 
                   return (
@@ -2079,7 +2085,7 @@ function MonthlyViewSheet({
                       </TableCell>
 
                       {/* In h/wk */}
-                      <TableCell className="text-emerald-700 dark:text-emerald-400 font-semibold">
+                      <TableCell>
                         {isEditing ? (
                           <input
                             type="number" min={0} step={0.5}
@@ -2087,21 +2093,18 @@ function MonthlyViewSheet({
                             onChange={e => setEditValues(v => ({ ...v, hoursIn: parseFloat(e.target.value) || 0 }))}
                             className="w-16 border border-border rounded px-1.5 py-0.5 text-sm bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-emerald-400"
                           />
-                        ) : (
-                          <div className="flex flex-col gap-0.5">
-                            <span>{displayHoursIn > 0 ? `+${displayHoursIn}h` : '—'}</span>
-                            {showGenderSplit && (femaleHiresH > 0 || maleHiresH > 0) && (
-                              <span className="flex items-center gap-1.5 text-[10px] font-normal">
-                                {femaleHiresH > 0 && <span className="text-pink-500 dark:text-pink-400">♀ {femaleHiresH}h</span>}
-                                {maleHiresH > 0 && <span className="text-blue-500 dark:text-blue-400">♂ {maleHiresH}h</span>}
-                              </span>
-                            )}
+                        ) : showGenderSplit ? (
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-pink-500 dark:text-pink-400">♀ {femaleHiresH > 0 ? `+${femaleHiresH}h` : '—'}</span>
+                            <span className="font-bold text-blue-500 dark:text-blue-400">♂ {maleHiresH > 0 ? `+${maleHiresH}h` : '—'}</span>
                           </div>
+                        ) : (
+                          <span className="font-semibold text-emerald-700 dark:text-emerald-400">{displayHoursIn > 0 ? `+${displayHoursIn}h` : '—'}</span>
                         )}
                       </TableCell>
 
                       {/* Hires */}
-                      <TableCell className="text-emerald-600 dark:text-emerald-400">
+                      <TableCell>
                         {isEditing ? (
                           <input
                             type="number" min={0} step={1}
@@ -2109,13 +2112,18 @@ function MonthlyViewSheet({
                             onChange={e => setEditValues(v => ({ ...v, headsIn: parseInt(e.target.value) || 0 }))}
                             className="w-14 border border-border rounded px-1.5 py-0.5 text-sm bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-emerald-400"
                           />
+                        ) : showGenderSplit ? (
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-pink-500 dark:text-pink-400">♀ {femaleHiresCount || '—'}</span>
+                            <span className="font-bold text-blue-500 dark:text-blue-400">♂ {maleHiresCount || '—'}</span>
+                          </div>
                         ) : (
-                          displayHeadsIn > 0 ? displayHeadsIn : '—'
+                          <span className="text-emerald-600 dark:text-emerald-400">{displayHeadsIn > 0 ? displayHeadsIn : '—'}</span>
                         )}
                       </TableCell>
 
                       {/* Out h/wk */}
-                      <TableCell className="text-red-600 dark:text-red-400 font-semibold">
+                      <TableCell>
                         {isEditing ? (
                           <input
                             type="number" min={0} step={0.5}
@@ -2123,21 +2131,18 @@ function MonthlyViewSheet({
                             onChange={e => setEditValues(v => ({ ...v, hoursOut: parseFloat(e.target.value) || 0 }))}
                             className="w-16 border border-border rounded px-1.5 py-0.5 text-sm bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-red-400"
                           />
-                        ) : (
-                          <div className="flex flex-col gap-0.5">
-                            <span>{displayHoursOut > 0 ? `${displayHoursOut}h` : '—'}</span>
-                            {showGenderSplit && (femaleLeaversH > 0 || maleLeaversH > 0) && (
-                              <span className="flex items-center gap-1.5 text-[10px] font-normal">
-                                {femaleLeaversH > 0 && <span className="text-pink-500 dark:text-pink-400">♀ {femaleLeaversH}h</span>}
-                                {maleLeaversH > 0 && <span className="text-blue-500 dark:text-blue-400">♂ {maleLeaversH}h</span>}
-                              </span>
-                            )}
+                        ) : showGenderSplit ? (
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-pink-500 dark:text-pink-400">♀ {femaleLeaversH > 0 ? `${femaleLeaversH}h` : '—'}</span>
+                            <span className="font-bold text-blue-500 dark:text-blue-400">♂ {maleLeaversH > 0 ? `${maleLeaversH}h` : '—'}</span>
                           </div>
+                        ) : (
+                          <span className="font-semibold text-red-600 dark:text-red-400">{displayHoursOut > 0 ? `${displayHoursOut}h` : '—'}</span>
                         )}
                       </TableCell>
 
                       {/* Leavers */}
-                      <TableCell className="text-red-500 dark:text-red-400">
+                      <TableCell>
                         {isEditing ? (
                           <input
                             type="number" min={0} step={1}
@@ -2145,19 +2150,37 @@ function MonthlyViewSheet({
                             onChange={e => setEditValues(v => ({ ...v, headsOut: parseInt(e.target.value) || 0 }))}
                             className="w-14 border border-border rounded px-1.5 py-0.5 text-sm bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-red-400"
                           />
+                        ) : showGenderSplit ? (
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-pink-500 dark:text-pink-400">♀ {femaleLeaversCount || '—'}</span>
+                            <span className="font-bold text-blue-500 dark:text-blue-400">♂ {maleLeaversCount || '—'}</span>
+                          </div>
                         ) : (
-                          displayHeadsOut > 0 ? displayHeadsOut : '—'
+                          <span className="text-red-500 dark:text-red-400">{displayHeadsOut > 0 ? displayHeadsOut : '—'}</span>
                         )}
                       </TableCell>
 
                       {/* Net */}
-                      <TableCell className={[
-                        "font-semibold",
-                        net > 0 ? "text-emerald-600 dark:text-emerald-400"
-                        : net < 0 ? "text-red-600 dark:text-red-400"
-                        : "text-muted-foreground",
-                      ].join(' ')}>
-                        {net === 0 ? '±0h' : net > 0 ? `+${net}h` : `${net}h`}
+                      <TableCell>
+                        {showGenderSplit ? (
+                          <div className="flex items-center gap-2">
+                            <span className={`font-bold ${femaleNet > 0 ? 'text-pink-500 dark:text-pink-400' : femaleNet < 0 ? 'text-pink-700 dark:text-pink-300' : 'text-pink-400'}`}>
+                              ♀ {femaleNet === 0 ? '±0h' : femaleNet > 0 ? `+${femaleNet}h` : `${femaleNet}h`}
+                            </span>
+                            <span className={`font-bold ${maleNet > 0 ? 'text-blue-500 dark:text-blue-400' : maleNet < 0 ? 'text-blue-700 dark:text-blue-300' : 'text-blue-400'}`}>
+                              ♂ {maleNet === 0 ? '±0h' : maleNet > 0 ? `+${maleNet}h` : `${maleNet}h`}
+                            </span>
+                          </div>
+                        ) : (
+                          <span className={[
+                            "font-semibold",
+                            net > 0 ? "text-emerald-600 dark:text-emerald-400"
+                            : net < 0 ? "text-red-600 dark:text-red-400"
+                            : "text-muted-foreground",
+                          ].join(' ')}>
+                            {net === 0 ? '±0h' : net > 0 ? `+${net}h` : `${net}h`}
+                          </span>
+                        )}
                       </TableCell>
 
                       {/* Edit / Save / Cancel */}
