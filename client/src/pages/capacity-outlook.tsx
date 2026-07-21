@@ -58,14 +58,12 @@ interface CumulativeKpiResult {
 
 const MILESTONE_WEIGHTS: Record<string, number> = {
   'Hired': 1.0,
-  'Onboarding': 0.33,
-  'Training Attended': 0.33,
-  'PVG': 0.11,
-  'REF1': 0.11,
-  'REF2': 0.11,
+  'PVG': 0.34,
+  'REF1': 0.33,
+  'REF2': 0.33,
 };
-const MILESTONE_ORDER = ['Hired', 'REF2', 'REF1', 'PVG', 'Training Attended', 'Onboarding'];
-const ALL_MILESTONES = ['Onboarding', 'Training Attended', 'PVG', 'REF1', 'REF2', 'Hired'] as const;
+const MILESTONE_ORDER = ['Hired', 'REF2', 'REF1', 'PVG'];
+const ALL_MILESTONES = ['PVG', 'REF1', 'REF2', 'Hired'] as const;
 
 function calcMilestoneConfidence(stages: string[]): number {
   if (stages.includes('Hired')) return 1.0;
@@ -1188,37 +1186,6 @@ export default function CapacityOutlookPage() {
             </CardContent>
           </Card>
 
-          {/* Coverage */}
-          <Card className="glass hover-lift animate-scale-in">
-            <CardHeader className="pb-2 pt-4 px-4">
-              <CardTitle className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
-                <div className="w-6 h-6 rounded-md bg-gradient-to-br from-violet-500 to-violet-600 flex items-center justify-center">
-                  <Users className="w-3.5 h-3.5 text-white" />
-                </div>
-                Coverage
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="px-4 pb-4">
-              {cumulativeKpiQuery.isLoading ? (
-                <div className="h-8 bg-muted animate-pulse rounded" />
-              ) : (
-                <>
-                  <div className={[
-                    "text-2xl font-bold",
-                    (cumKpi?.coverage ?? 1) >= 1
-                      ? "text-emerald-600 dark:text-emerald-400"
-                      : (cumKpi?.coverage ?? 1) >= 0.5
-                      ? "text-amber-600 dark:text-amber-400"
-                      : "text-red-600 dark:text-red-400",
-                  ].join(' ')}>
-                    {(cumKpi?.cumulativeHoursLost ?? 0) === 0 ? '—' : `${Math.round((cumKpi?.coverage ?? 0) * 100)}%`}
-                  </div>
-                  <div className="text-xs text-muted-foreground mt-0.5">confirmed hires vs terminated</div>
-                </>
-              )}
-            </CardContent>
-          </Card>
-
           {/* Risk */}
           <Card className="glass hover-lift animate-scale-in">
             <CardHeader className="pb-2 pt-4 px-4">
@@ -1536,8 +1503,6 @@ export default function CapacityOutlookPage() {
                           <TableHead>Contracted Hrs</TableHead>
                           <SortHead col="postcode" label="Postcode" current={joinerSort} onSort={toggleJoinerSort} />
                           <SortHead col="stage" label="Stage" current={joinerSort} onSort={toggleJoinerSort} />
-                          <SortHead col="confidenceWeight" label="Confidence" current={joinerSort} onSort={toggleJoinerSort} />
-                          <SortHead col="trainingDate" label="Training Attended" current={joinerSort} onSort={toggleJoinerSort} />
                           <TableHead>Notes</TableHead>
                           {isScheduler && <TableHead className="text-right">Actions</TableHead>}
                         </TableRow>
@@ -1556,12 +1521,12 @@ export default function CapacityOutlookPage() {
                               <div className="flex items-center gap-1 flex-wrap">
                                 {j.stage === 'Dropped' ? (
                                   <Badge className="text-xs bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400">Dropped</Badge>
-                                ) : (j.completedStages && j.completedStages.length > 0 ? j.completedStages : [j.stage]).map(m => (
+                                ) : (j.completedStages && j.completedStages.length > 0 ? j.completedStages : [j.stage])
+                                  .filter(m => m !== 'Onboarding' && m !== 'Training Attended')
+                                  .map(m => (
                                   <Badge key={m} className={[
                                     "text-xs",
-                                    m === 'Training Attended'
-                                      ? "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300"
-                                      : m === 'PVG' || m === 'REF1' || m === 'REF2'
+                                    m === 'PVG' || m === 'REF1' || m === 'REF2'
                                       ? "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300"
                                       : "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300",
                                   ].join(' ')}>{m}</Badge>
@@ -1573,8 +1538,6 @@ export default function CapacityOutlookPage() {
                                 )}
                               </div>
                             </TableCell>
-                            <TableCell>{Math.round((j.confidenceWeight ?? 0) * 100)}%</TableCell>
-                            <TableCell>{formatDate(j.trainingDate)}</TableCell>
                             <TableCell className="text-xs text-muted-foreground max-w-[200px] whitespace-pre-wrap">{j.notes || '—'}</TableCell>
                             {isScheduler && (
                               <TableCell className="text-right">
@@ -1613,8 +1576,6 @@ export default function CapacityOutlookPage() {
                             <TableHead>Contracted Hrs</TableHead>
                             <TableHead>Postcode</TableHead>
                             <TableHead>Stage</TableHead>
-                            <TableHead>Confidence</TableHead>
-                            <TableHead>Training Attended</TableHead>
                             <TableHead>Notes</TableHead>
                             {isScheduler && <TableHead className="text-right">Actions</TableHead>}
                           </TableRow>
@@ -1632,8 +1593,6 @@ export default function CapacityOutlookPage() {
                               <TableCell>
                                 {j.stage ? <Badge className="text-xs capitalize">{j.stage}</Badge> : '—'}
                               </TableCell>
-                              <TableCell>{j.confidenceWeight != null ? `${Math.round(j.confidenceWeight * 100)}%` : '—'}</TableCell>
-                              <TableCell>{j.trainingDate ? formatDate(j.trainingDate) : '—'}</TableCell>
                               <TableCell className="text-xs text-muted-foreground max-w-[200px] whitespace-pre-wrap">{j.notes || '—'}</TableCell>
                               {isScheduler && (
                                 <TableCell className="text-right">
