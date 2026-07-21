@@ -988,6 +988,39 @@ export const insertHrCalendarSchema = createInsertSchema(employeeHrCalendar).omi
 export type InsertHrCalendar = z.infer<typeof insertHrCalendarSchema>;
 export type HrCalendar = typeof employeeHrCalendar.$inferSelect;
 
+// ── Capacity Outlook — Availability Changes ───────────────────────────────────
+
+export const availabilityChanges = pgTable("availability_changes", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  branchId: varchar("branch_id").notNull().references(() => branches.id),
+  employeeName: text("employee_name").notNull(),
+  employmentType: text("employment_type", { enum: ["driver", "walker"] }).notNull(),
+  changeType: text("change_type", { enum: ["increase", "decrease"] }).notNull(),
+  previousHours: real("previous_hours"),
+  newHours: real("new_hours").notNull(),
+  effectiveDate: text("effective_date"),
+  notes: text("notes"),
+  createdBy: varchar("created_by"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  availChangesBranchIdx: index("avail_changes_branch_idx").on(table.branchId),
+}));
+
+export const insertAvailabilityChangeSchema = createInsertSchema(availabilityChanges).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  employmentType: z.enum(["driver", "walker"]),
+  changeType: z.enum(["increase", "decrease"]),
+  newHours: z.number().nonnegative(),
+  previousHours: z.number().nonnegative().optional().nullable(),
+});
+
+export type InsertAvailabilityChange = z.infer<typeof insertAvailabilityChangeSchema>;
+export type AvailabilityChange = typeof availabilityChanges.$inferSelect;
+
 // ── Leaver Report Recipients ──────────────────────────────────────────────────
 
 export const leaverReportRecipients = pgTable("leaver_report_recipients", {

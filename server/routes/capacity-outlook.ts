@@ -22,6 +22,10 @@ import {
   updateMonthlySnapshot,
   deleteMonthlySnapshot,
   computeCumulativeKpi,
+  getAvailabilityChanges,
+  createAvailabilityChange,
+  updateAvailabilityChange,
+  deleteAvailabilityChange,
 } from '../repositories/capacity-outlook.repository';
 
 const MILESTONE_WEIGHTS: Record<string, number> = {
@@ -48,7 +52,7 @@ function deriveStageFromMilestones(stages: string[], status: string): string {
   return 'Onboarding';
 }
 
-import { insertLeaverSchema, insertJoinerSchema } from '@shared/schema';
+import { insertLeaverSchema, insertJoinerSchema, insertAvailabilityChangeSchema } from '@shared/schema';
 import { z } from 'zod';
 
 export function registerCapacityOutlookRoutes(app: Express): void {
@@ -355,6 +359,81 @@ export function registerCapacityOutlookRoutes(app: Express): void {
       );
 
       res.json(updated);
+    }),
+  );
+
+  // ── Availability Changes ─────────────────────────────────────────────────────
+
+  // GET /api/capacity-outlook/availability-changes
+  app.get('/api/capacity-outlook/availability-changes', asyncHandler(async (req, res) => {
+    const branchId = await resolveBranch(req);
+    const rows = await getAvailabilityChanges(branchId);
+    res.json(rows);
+  }));
+
+  // POST /api/capacity-outlook/availability-changes
+  app.post(
+    '/api/capacity-outlook/availability-changes',
+    requireRoleAtLeast('scheduler'),
+    asyncHandler(async (req, res) => {
+      const branchId = await resolveBranch(req);
+      const parsed = insertAvailabilityChangeSchema.safeParse({ ...req.body, branchId });
+      if (!parsed.success) {
+        throw createAppError(parsed.error.errors[0]?.message || 'Invalid data', 400);
+      }
+      const row = await createAvailabilityChange({ ...parsed.data, createdBy: req.session?.userId ?? null });
+      await auditLog(
+        req.session?.userId ?? null,
+        req.session?.userEmail ?? null,
+        branchId,
+        'AVAIL_CHANGE_CREATED',
+        `Availability change created: ${parsed.data.employeeName} ${parsed.data.changeType} → ${parsed.data.newHours}h`,
+      );
+      res.status(201).json(row);
+    }),
+  );
+
+  // PUT /api/capacity-outlook/availability-changes/:id
+  app.put(
+    '/api/capacity-outlook/availability-changes/:id',
+    requireRoleAtLeast('scheduler'),
+    asyncHandler(async (req, res) => {
+      const branchId = await resolveBranch(req);
+      const { id } = req.params;
+      const parsed = insertAvailabilityChangeSchema.partial().omit({ branchId: true }).safeParse(req.body);
+      if (!parsed.success) {
+        throw createAppError(parsed.error.errors[0]?.message || 'Invalid data', 400);
+      }
+      const updated = await updateAvailabilityChange(id, branchId, parsed.data);
+      if (!updated) throw createAppError('Record not found or access denied', 404);
+      await auditLog(
+        req.session?.userId ?? null,
+        req.session?.userEmail ?? null,
+        branchId,
+        'AVAIL_CHANGE_UPDATED',
+        `Availability change updated: ${id}`,
+      );
+      res.json(updated);
+    }),
+  );
+
+  // DELETE /api/capacity-outlook/availability-changes/:id
+  app.delete(
+    '/api/capacity-outlook/availability-changes/:id',
+    requireRoleAtLeast('scheduler'),
+    asyncHandler(async (req, res) => {
+      const branchId = await resolveBranch(req);
+      const { id } = req.params;
+      const ok = await deleteAvailabilityChange(id, branchId);
+      if (!ok) throw createAppError('Record not found or access denied', 404);
+      await auditLog(
+        req.session?.userId ?? null,
+        req.session?.userEmail ?? null,
+        branchId,
+        'AVAIL_CHANGE_DELETED',
+        `Availability change deleted: ${id}`,
+      );
+      res.json({ success: true });
     }),
   );
 

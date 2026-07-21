@@ -36,7 +36,7 @@ import {
 import {
   Sheet, SheetContent, SheetHeader, SheetTitle,
 } from "@/components/ui/sheet";
-import type { OutlookResponse, OutlookDetail, Leaver, Joiner, MonthlySnapshot } from "@shared/schema";
+import type { OutlookResponse, OutlookDetail, Leaver, Joiner, MonthlySnapshot, AvailabilityChange } from "@shared/schema";
 import { joinerStages } from "@shared/schema";
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -770,6 +770,192 @@ function JoinerModal({
   );
 }
 
+// ── AvailabilityChangeModal ───────────────────────────────────────────────────
+
+function AvailabilityChangeModal({
+  open,
+  onClose,
+  editing,
+  changeType,
+  branchId,
+}: {
+  open: boolean;
+  onClose: () => void;
+  editing: AvailabilityChange | null;
+  changeType: 'increase' | 'decrease';
+  branchId: string;
+}) {
+  const { toast } = useToast();
+  const { user } = useAuth();
+
+  const form = useForm<{
+    employeeName: string;
+    employmentType: 'driver' | 'walker';
+    previousHours: number | '';
+    newHours: number | '';
+    effectiveDate: string;
+    notes: string;
+  }>({
+    defaultValues: {
+      employeeName: '',
+      employmentType: 'driver',
+      previousHours: '',
+      newHours: '',
+      effectiveDate: '',
+      notes: '',
+    },
+  });
+
+  useEffect(() => {
+    if (open) {
+      if (editing) {
+        form.reset({
+          employeeName: editing.employeeName ?? '',
+          employmentType: (editing.employmentType as 'driver' | 'walker') ?? 'driver',
+          previousHours: editing.previousHours ?? '',
+          newHours: editing.newHours ?? '',
+          effectiveDate: editing.effectiveDate ?? '',
+          notes: editing.notes ?? '',
+        });
+      } else {
+        form.reset({
+          employeeName: '',
+          employmentType: 'driver',
+          previousHours: '',
+          newHours: '',
+          effectiveDate: '',
+          notes: '',
+        });
+      }
+    }
+  }, [open, editing]);
+
+  const saveMutation = useMutation({
+    mutationFn: async (values: ReturnType<typeof form.getValues>) => {
+      const payload = {
+        branchId,
+        changeType,
+        employeeName: values.employeeName,
+        employmentType: values.employmentType,
+        previousHours: values.previousHours === '' ? null : Number(values.previousHours),
+        newHours: Number(values.newHours),
+        effectiveDate: values.effectiveDate || null,
+        notes: values.notes || null,
+      };
+      const url = editing
+        ? toAbsoluteUrl(`/api/capacity-outlook/availability-changes/${editing.id}?branchId=${branchId}`)
+        : toAbsoluteUrl(`/api/capacity-outlook/availability-changes?branchId=${branchId}`);
+      const res = await fetch(url, {
+        method: editing ? 'PUT' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error((err as any).message || 'Failed to save');
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/capacity-outlook/availability-changes'] });
+      toast({ title: editing ? 'Record updated' : 'Record added' });
+      onClose();
+    },
+    onError: (e: Error) => toast({ variant: 'destructive', title: 'Error', description: e.message }),
+  });
+
+  const label = changeType === 'increase' ? 'Availability Increase' : 'Availability Decrease';
+
+  return (
+    <Dialog open={open} onOpenChange={v => { if (!v) onClose(); }}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>{editing ? 'Edit' : 'Add'} {label}</DialogTitle>
+        </DialogHeader>
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(v => saveMutation.mutate(v))} className="space-y-4">
+            <FormField control={form.control} name="employeeName" rules={{ required: 'Name is required' }} render={({ field }) => (
+              <FormItem>
+                <FormLabel>Care Pro Name</FormLabel>
+                <FormControl><Input placeholder="e.g. Jane Smith" {...field} /></FormControl>
+                <FormMessage />
+              </FormItem>
+            )} />
+
+            <FormField control={form.control} name="employmentType" render={({ field }) => (
+              <FormItem>
+                <FormLabel>Type</FormLabel>
+                <Select value={field.value} onValueChange={field.onChange}>
+                  <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
+                  <SelectContent>
+                    <SelectItem value="driver">Driver</SelectItem>
+                    <SelectItem value="walker">Walker / Public Transport</SelectItem>
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )} />
+
+            <div className="grid grid-cols-2 gap-4">
+              <FormField control={form.control} name="previousHours" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Previous Hours</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="number" step="0.5" placeholder="e.g. 20"
+                      value={field.value ?? ''}
+                      onChange={e => field.onChange(e.target.value === '' ? '' : Number(e.target.value))}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )} />
+
+              <FormField control={form.control} name="newHours" rules={{ required: 'New hours required', validate: v => (v !== '' && Number(v) >= 0) || 'Must be 0 or more' }} render={({ field }) => (
+                <FormItem>
+                  <FormLabel>New Hours</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="number" step="0.5" placeholder="e.g. 30"
+                      value={field.value ?? ''}
+                      onChange={e => field.onChange(e.target.value === '' ? '' : Number(e.target.value))}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )} />
+            </div>
+
+            <FormField control={form.control} name="effectiveDate" render={({ field }) => (
+              <FormItem>
+                <FormLabel>Effective Date <span className="text-muted-foreground text-xs">(optional)</span></FormLabel>
+                <FormControl><Input type="date" {...field} /></FormControl>
+                <FormMessage />
+              </FormItem>
+            )} />
+
+            <FormField control={form.control} name="notes" render={({ field }) => (
+              <FormItem>
+                <FormLabel>Notes <span className="text-muted-foreground text-xs">(optional)</span></FormLabel>
+                <FormControl><Textarea placeholder="Any context…" rows={2} {...field} /></FormControl>
+                <FormMessage />
+              </FormItem>
+            )} />
+
+            <div className="flex justify-end gap-2 pt-2">
+              <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
+              <Button type="submit" disabled={saveMutation.isPending}>
+                {saveMutation.isPending ? 'Saving…' : editing ? 'Save Changes' : 'Add Record'}
+              </Button>
+            </div>
+          </form>
+        </Form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 // ── AvailabilityNotesPopup ────────────────────────────────────────────────────
 
 function AvailabilityNotesPopup({
@@ -869,6 +1055,11 @@ export default function CapacityOutlookPage() {
   const [deletingJoinerId, setDeletingJoinerId] = useState<string | null>(null);
   const [availabilityPopupJoiner, setAvailabilityPopupJoiner] = useState<Joiner | null>(null);
   const [activeTab, setActiveTab] = useState<'leavers' | 'pipeline'>('pipeline');
+
+  const [availChangeModalOpen, setAvailChangeModalOpen] = useState(false);
+  const [availChangeType, setAvailChangeType] = useState<'increase' | 'decrease'>('increase');
+  const [editingAvailChange, setEditingAvailChange] = useState<AvailabilityChange | null>(null);
+  const [deletingAvailChangeId, setDeletingAvailChangeId] = useState<string | null>(null);
   const [monthlyViewOpen, setMonthlyViewOpen] = useState(false);
 
   type LeaverSortCol = 'employeeName' | 'employmentType' | 'weeklyHours' | 'firstDayOfNotice' | 'lastWorkingDay';
@@ -926,6 +1117,21 @@ export default function CapacityOutlookPage() {
         { credentials: 'include' },
       );
       if (!res.ok) throw new Error('Failed to load joiners');
+      return res.json();
+    },
+    enabled: !!branchId,
+    staleTime: 30_000,
+  });
+
+  // Availability changes
+  const availChangesQuery = useQuery<AvailabilityChange[]>({
+    queryKey: ['/api/capacity-outlook/availability-changes', branchId],
+    queryFn: async () => {
+      const res = await fetch(
+        toAbsoluteUrl(`/api/capacity-outlook/availability-changes?branchId=${branchId}`),
+        { credentials: 'include' },
+      );
+      if (!res.ok) throw new Error('Failed to load availability changes');
       return res.json();
     },
     enabled: !!branchId,
@@ -996,6 +1202,22 @@ export default function CapacityOutlookPage() {
       toast({ title: "Joiner removed" });
     },
     onError: () => toast({ variant: "destructive", title: "Error", description: "Failed to remove joiner" }),
+  });
+
+  const deleteAvailChangeMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await fetch(
+        toAbsoluteUrl(`/api/capacity-outlook/availability-changes/${id}?branchId=${branchId}`),
+        { method: 'DELETE', credentials: 'include' },
+      );
+      if (!res.ok) throw new Error('Failed to delete');
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/capacity-outlook/availability-changes'] });
+      setDeletingAvailChangeId(null);
+      toast({ title: 'Record removed' });
+    },
+    onError: () => toast({ variant: 'destructive', title: 'Error', description: 'Failed to remove record' }),
   });
 
   const hardDeleteLeaverMutation = useMutation({
@@ -1844,7 +2066,207 @@ export default function CapacityOutlookPage() {
           </CardContent>
         </Card>
 
+        {/* ── Availability Increase ─────────────────────────────────────────── */}
+        {(() => {
+          const increases = (availChangesQuery.data ?? []).filter(r => r.changeType === 'increase');
+          return (
+            <Card className="border border-card-border shadow-sm">
+              <CardHeader className="pb-3 bg-gradient-to-r from-emerald-50 to-green-50 dark:from-emerald-950/30 dark:to-green-950/30 rounded-t-xl">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-lg bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center">
+                      <TrendingUp className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                    </div>
+                    <div>
+                      <h3 className="text-base font-semibold text-emerald-800 dark:text-emerald-200">Availability Increase</h3>
+                      <p className="text-xs text-emerald-600 dark:text-emerald-400">Care pros who have increased their contracted hours</p>
+                    </div>
+                  </div>
+                  {isScheduler && (
+                    <Button
+                      size="sm"
+                      className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5"
+                      onClick={() => { setAvailChangeType('increase'); setEditingAvailChange(null); setAvailChangeModalOpen(true); }}
+                    >
+                      <Plus className="w-3.5 h-3.5" /> Add
+                    </Button>
+                  )}
+                </div>
+              </CardHeader>
+              <CardContent className="pt-4 px-0 pb-0">
+                {availChangesQuery.isLoading ? (
+                  <div className="px-6 py-8 text-center text-sm text-muted-foreground">Loading…</div>
+                ) : increases.length === 0 ? (
+                  <div className="px-6 py-8 text-center text-sm text-muted-foreground">
+                    No availability increases recorded yet.
+                  </div>
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="text-xs">
+                        <TableHead>Name</TableHead>
+                        <TableHead>Type</TableHead>
+                        <TableHead>Previous Hours</TableHead>
+                        <TableHead>New Hours</TableHead>
+                        <TableHead>Effective Date</TableHead>
+                        <TableHead>Notes</TableHead>
+                        {isScheduler && <TableHead className="text-right">Actions</TableHead>}
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {increases.map(r => (
+                        <TableRow key={r.id} className="text-sm">
+                          <TableCell className="font-medium">{r.employeeName}</TableCell>
+                          <TableCell>
+                            <Badge variant="outline" className="capitalize text-xs">{r.employmentType}</Badge>
+                          </TableCell>
+                          <TableCell>{r.previousHours != null ? `${r.previousHours}h` : '—'}</TableCell>
+                          <TableCell>
+                            <span className="text-emerald-700 dark:text-emerald-400 font-semibold">{r.newHours}h</span>
+                          </TableCell>
+                          <TableCell>{formatDate(r.effectiveDate)}</TableCell>
+                          <TableCell className="max-w-[200px] truncate text-muted-foreground">{r.notes || '—'}</TableCell>
+                          {isScheduler && (
+                            <TableCell className="text-right">
+                              <div className="flex items-center justify-end gap-1">
+                                <Button size="icon" variant="ghost" className="h-7 w-7"
+                                  onClick={() => { setAvailChangeType('increase'); setEditingAvailChange(r); setAvailChangeModalOpen(true); }}>
+                                  <Pencil className="w-3.5 h-3.5" />
+                                </Button>
+                                <Button size="icon" variant="ghost" className="h-7 w-7 text-red-500 hover:text-red-700"
+                                  onClick={() => setDeletingAvailChangeId(r.id)}>
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </Button>
+                              </div>
+                            </TableCell>
+                          )}
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
+              </CardContent>
+            </Card>
+          );
+        })()}
+
+        {/* ── Availability Decrease ─────────────────────────────────────────── */}
+        {(() => {
+          const decreases = (availChangesQuery.data ?? []).filter(r => r.changeType === 'decrease');
+          return (
+            <Card className="border border-card-border shadow-sm">
+              <CardHeader className="pb-3 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/30 dark:to-orange-950/30 rounded-t-xl">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-lg bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center">
+                      <TrendingDown className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                    </div>
+                    <div>
+                      <h3 className="text-base font-semibold text-amber-800 dark:text-amber-200">Availability Decrease</h3>
+                      <p className="text-xs text-amber-600 dark:text-amber-400">Care pros who have reduced their contracted hours</p>
+                    </div>
+                  </div>
+                  {isScheduler && (
+                    <Button
+                      size="sm"
+                      className="bg-amber-600 hover:bg-amber-700 text-white gap-1.5"
+                      onClick={() => { setAvailChangeType('decrease'); setEditingAvailChange(null); setAvailChangeModalOpen(true); }}
+                    >
+                      <Plus className="w-3.5 h-3.5" /> Add
+                    </Button>
+                  )}
+                </div>
+              </CardHeader>
+              <CardContent className="pt-4 px-0 pb-0">
+                {availChangesQuery.isLoading ? (
+                  <div className="px-6 py-8 text-center text-sm text-muted-foreground">Loading…</div>
+                ) : decreases.length === 0 ? (
+                  <div className="px-6 py-8 text-center text-sm text-muted-foreground">
+                    No availability decreases recorded yet.
+                  </div>
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="text-xs">
+                        <TableHead>Name</TableHead>
+                        <TableHead>Type</TableHead>
+                        <TableHead>Previous Hours</TableHead>
+                        <TableHead>New Hours</TableHead>
+                        <TableHead>Effective Date</TableHead>
+                        <TableHead>Notes</TableHead>
+                        {isScheduler && <TableHead className="text-right">Actions</TableHead>}
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {decreases.map(r => (
+                        <TableRow key={r.id} className="text-sm">
+                          <TableCell className="font-medium">{r.employeeName}</TableCell>
+                          <TableCell>
+                            <Badge variant="outline" className="capitalize text-xs">{r.employmentType}</Badge>
+                          </TableCell>
+                          <TableCell>{r.previousHours != null ? `${r.previousHours}h` : '—'}</TableCell>
+                          <TableCell>
+                            <span className="text-amber-700 dark:text-amber-400 font-semibold">{r.newHours}h</span>
+                          </TableCell>
+                          <TableCell>{formatDate(r.effectiveDate)}</TableCell>
+                          <TableCell className="max-w-[200px] truncate text-muted-foreground">{r.notes || '—'}</TableCell>
+                          {isScheduler && (
+                            <TableCell className="text-right">
+                              <div className="flex items-center justify-end gap-1">
+                                <Button size="icon" variant="ghost" className="h-7 w-7"
+                                  onClick={() => { setAvailChangeType('decrease'); setEditingAvailChange(r); setAvailChangeModalOpen(true); }}>
+                                  <Pencil className="w-3.5 h-3.5" />
+                                </Button>
+                                <Button size="icon" variant="ghost" className="h-7 w-7 text-red-500 hover:text-red-700"
+                                  onClick={() => setDeletingAvailChangeId(r.id)}>
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </Button>
+                              </div>
+                            </TableCell>
+                          )}
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
+              </CardContent>
+            </Card>
+          );
+        })()}
+
       </div>
+
+      {/* Availability Change modal */}
+      {branchId && (
+        <AvailabilityChangeModal
+          open={availChangeModalOpen}
+          onClose={() => { setAvailChangeModalOpen(false); setEditingAvailChange(null); }}
+          editing={editingAvailChange}
+          changeType={availChangeType}
+          branchId={branchId}
+        />
+      )}
+
+      {/* Delete availability change confirm */}
+      <AlertDialog open={!!deletingAvailChangeId} onOpenChange={v => { if (!v) setDeletingAvailChangeId(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove this record?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will remove the availability change record. You can re-add it at any time.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => deletingAvailChangeId && deleteAvailChangeMutation.mutate(deletingAvailChangeId)}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              Remove
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Leaver modal */}
       {branchId && (

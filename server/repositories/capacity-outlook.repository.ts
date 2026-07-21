@@ -1,9 +1,9 @@
 import { db } from '../infrastructure/db';
-import { leavers, joiners, monthlyCapacitySnapshots, branches } from '@shared/schema';
+import { leavers, joiners, monthlyCapacitySnapshots, branches, availabilityChanges } from '@shared/schema';
 import type {
   Leaver, InsertLeaver, Joiner, InsertJoiner,
   OutlookWeek, OutlookTotals, OutlookResponse, OutlookDetail, OutlookRag,
-  MonthlySnapshot,
+  MonthlySnapshot, AvailabilityChange, InsertAvailabilityChange,
 } from '@shared/schema';
 import { eq, and, inArray, desc } from 'drizzle-orm';
 
@@ -564,6 +564,44 @@ export async function deleteMonthlySnapshot(
       eq(monthlyCapacitySnapshots.year, year),
       eq(monthlyCapacitySnapshots.month, month),
     ));
+  return (result.rowCount ?? 0) > 0;
+}
+
+// ── Availability Changes CRUD ─────────────────────────────────────────────────
+
+export async function getAvailabilityChanges(branchId: string): Promise<AvailabilityChange[]> {
+  return db
+    .select()
+    .from(availabilityChanges)
+    .where(eq(availabilityChanges.branchId, branchId))
+    .orderBy(desc(availabilityChanges.createdAt));
+}
+
+export async function createAvailabilityChange(data: InsertAvailabilityChange): Promise<AvailabilityChange> {
+  const [row] = await db
+    .insert(availabilityChanges)
+    .values({ ...data, updatedAt: new Date() })
+    .returning();
+  return row;
+}
+
+export async function updateAvailabilityChange(
+  id: string,
+  branchId: string,
+  data: Partial<InsertAvailabilityChange>,
+): Promise<AvailabilityChange | null> {
+  const [row] = await db
+    .update(availabilityChanges)
+    .set({ ...data, updatedAt: new Date() })
+    .where(and(eq(availabilityChanges.id, id), eq(availabilityChanges.branchId, branchId)))
+    .returning();
+  return row ?? null;
+}
+
+export async function deleteAvailabilityChange(id: string, branchId: string): Promise<boolean> {
+  const result = await db
+    .delete(availabilityChanges)
+    .where(and(eq(availabilityChanges.id, id), eq(availabilityChanges.branchId, branchId)));
   return (result.rowCount ?? 0) > 0;
 }
 
