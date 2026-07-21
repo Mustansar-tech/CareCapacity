@@ -852,6 +852,7 @@ export const joiners = pgTable("joiners", {
   status: text("status", { enum: ["active", "dropped", "hired", "hired_archived"] }).notNull().default("active"),
   hiredAt: text("hired_at"),
   confidenceWeight: real("confidence_weight").notNull(),
+  availability: text("availability"),
   notes: text("notes"),
   createdBy: varchar("created_by"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -875,6 +876,7 @@ export const insertJoinerSchema = createInsertSchema(joiners).omit({
   status: z.enum(["active", "dropped", "hired", "hired_archived"]).default("active"),
   expectedStartDate: z.string().optional().nullable(),
   hiredAt: z.string().optional().nullable(),
+  availability: z.string().optional().nullable(),
 });
 
 export type InsertJoiner = z.infer<typeof insertJoinerSchema>;

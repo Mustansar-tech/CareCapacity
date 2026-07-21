@@ -31,7 +31,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import {
   TrendingDown, TrendingUp, Minus, Users, AlertTriangle,
-  Plus, Pencil, Trash2, ChevronDown, ChevronUp, Info, Calendar, CheckCircle2, UserMinus, RotateCcw, Archive,
+  Plus, Pencil, Trash2, ChevronDown, ChevronUp, Info, Calendar, CheckCircle2, UserMinus, RotateCcw, Archive, CalendarDays,
 } from "lucide-react";
 import {
   Sheet, SheetContent, SheetHeader, SheetTitle,
@@ -144,7 +144,6 @@ const joinerFormSchema = z.object({
   completedStages: z.array(z.string()).default([]),
   status: z.enum(["active", "dropped", "hired", "hired_archived"]).default("active"),
   hiredAt: z.string().optional(),
-  notes: z.string().optional(),
 });
 
 type JoinerFormData = z.infer<typeof joinerFormSchema>;
@@ -429,7 +428,6 @@ function JoinerModal({
       trainingDate: "",
       completedStages: ['Onboarding'],
       status: "active",
-      notes: "",
     },
   });
 
@@ -447,7 +445,6 @@ function JoinerModal({
           completedStages: getInitialCompletedStages(editing),
           status: (editing.status as "active" | "dropped" | "hired" | "hired_archived") ?? "active",
           hiredAt: editing.hiredAt ?? "",
-          notes: editing.notes ?? "",
         });
       } else {
         form.reset({
@@ -460,7 +457,6 @@ function JoinerModal({
           completedStages: ['Onboarding'],
           status: "active",
           hiredAt: "",
-          notes: "",
         });
       }
     }
@@ -705,14 +701,6 @@ function JoinerModal({
               </FormItem>
             )} />
 
-            <FormField control={form.control} name="notes" render={({ field }) => (
-              <FormItem>
-                <FormLabel>Notes</FormLabel>
-                <FormControl><Textarea placeholder="Optional notes…" rows={2} {...field} /></FormControl>
-                <FormMessage />
-              </FormItem>
-            )} />
-
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => { onClose(); form.reset(); }}>Cancel</Button>
               <Button type="submit" disabled={mutation.isPending} className="bg-emerald-600 hover:bg-emerald-700 text-white">
@@ -721,6 +709,114 @@ function JoinerModal({
             </DialogFooter>
           </form>
         </Form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ── AvailabilityNotesPopup ────────────────────────────────────────────────────
+
+function AvailabilityNotesPopup({
+  open,
+  joiner,
+  branchId,
+  onClose,
+}: {
+  open: boolean;
+  joiner: Joiner | null;
+  branchId: string;
+  onClose: () => void;
+}) {
+  const { toast } = useToast();
+  const [availability, setAvailability] = useState("");
+  const [notes, setNotes] = useState("");
+
+  useEffect(() => {
+    if (open && joiner) {
+      setAvailability(joiner.availability ?? "");
+      setNotes(joiner.notes ?? "");
+    }
+  }, [open, joiner?.id]);
+
+  const mutation = useMutation({
+    mutationFn: async () => {
+      if (!joiner) return;
+      const res = await fetch(
+        toAbsoluteUrl(`/api/capacity-outlook/joiners/${joiner.id}?branchId=${branchId}`),
+        {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ availability, notes }),
+        }
+      );
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.message || 'Failed to save');
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/capacity-outlook'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/capacity-outlook/joiners'] });
+      toast({ title: "Saved", description: "Availability and notes updated." });
+      onClose();
+    },
+    onError: (err: Error) => {
+      toast({ variant: "destructive", title: "Error", description: err.message });
+    },
+  });
+
+  if (!joiner) return null;
+
+  return (
+    <Dialog open={open} onOpenChange={v => { if (!v) onClose(); }}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-500 to-violet-600 flex items-center justify-center">
+              <CalendarDays className="w-4 h-4 text-white" />
+            </div>
+            <div>
+              <div className="text-base">{joiner.candidateName}</div>
+              <div className="text-xs font-normal text-muted-foreground capitalize">{joiner.employmentType} · {joiner.stage}</div>
+            </div>
+          </DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-4 py-1">
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium">Availability</label>
+            <Textarea
+              placeholder="e.g. Mon–Fri mornings, weekends available…"
+              rows={3}
+              value={availability}
+              onChange={e => setAvailability(e.target.value)}
+              className="resize-none"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium">Notes</label>
+            <Textarea
+              placeholder="Optional notes…"
+              rows={3}
+              value={notes}
+              onChange={e => setNotes(e.target.value)}
+              className="resize-none"
+            />
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>Cancel</Button>
+          <Button
+            onClick={() => mutation.mutate()}
+            disabled={mutation.isPending}
+            className="bg-violet-600 hover:bg-violet-700 text-white"
+          >
+            {mutation.isPending ? "Saving…" : "Save"}
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );
@@ -745,6 +841,7 @@ export default function CapacityOutlookPage() {
   const [hardDeletingLeaverId, setHardDeletingLeaverId] = useState<string | null>(null);
   const [hardDeletingJoinerId, setHardDeletingJoinerId] = useState<string | null>(null);
   const [deletingJoinerId, setDeletingJoinerId] = useState<string | null>(null);
+  const [availabilityPopupJoiner, setAvailabilityPopupJoiner] = useState<Joiner | null>(null);
   const [activeTab, setActiveTab] = useState<'leavers' | 'pipeline'>('pipeline');
   const [monthlyViewOpen, setMonthlyViewOpen] = useState(false);
 
@@ -1503,14 +1600,17 @@ export default function CapacityOutlookPage() {
                           <TableHead>Contracted Hrs</TableHead>
                           <SortHead col="postcode" label="Postcode" current={joinerSort} onSort={toggleJoinerSort} />
                           <SortHead col="stage" label="Stage" current={joinerSort} onSort={toggleJoinerSort} />
-                          <TableHead>Notes</TableHead>
                           {isScheduler && <TableHead className="text-right">Actions</TableHead>}
                         </TableRow>
                       </TableHeader>
                       <TableBody>
                         {sortBy(pipelineJoiners, joinerSort.col, joinerSort.dir).map(j => (
                           <TableRow key={j.id} className={isStale14Days(j) ? "bg-red-50/60 dark:bg-red-950/20" : undefined}>
-                            <TableCell className={`font-medium ${getGenderColorClass(j.gender ?? undefined)}`}>{j.candidateName}</TableCell>
+                            <TableCell
+                              className={`font-medium cursor-pointer select-none ${getGenderColorClass(j.gender ?? undefined)}`}
+                              onDoubleClick={() => setAvailabilityPopupJoiner(j)}
+                              title="Double-click to edit availability & notes"
+                            >{j.candidateName}</TableCell>
                             <TableCell>
                               <Badge variant="outline" className="capitalize text-xs">{j.employmentType}</Badge>
                             </TableCell>
@@ -1538,7 +1638,6 @@ export default function CapacityOutlookPage() {
                                 )}
                               </div>
                             </TableCell>
-                            <TableCell className="text-xs text-muted-foreground max-w-[200px] whitespace-pre-wrap">{j.notes || '—'}</TableCell>
                             {isScheduler && (
                               <TableCell className="text-right">
                                 <div className="flex items-center justify-end gap-1">
@@ -1576,14 +1675,17 @@ export default function CapacityOutlookPage() {
                             <TableHead>Contracted Hrs</TableHead>
                             <TableHead>Postcode</TableHead>
                             <TableHead>Stage</TableHead>
-                            <TableHead>Notes</TableHead>
                             {isScheduler && <TableHead className="text-right">Actions</TableHead>}
                           </TableRow>
                         </TableHeader>
                         <TableBody>
                           {hiredJoiners.map(j => (
                             <TableRow key={j.id}>
-                              <TableCell className={`font-medium ${getGenderColorClass(j.gender ?? undefined)}`}>{j.candidateName}</TableCell>
+                              <TableCell
+                                className={`font-medium cursor-pointer select-none ${getGenderColorClass(j.gender ?? undefined)}`}
+                                onDoubleClick={() => setAvailabilityPopupJoiner(j)}
+                                title="Double-click to edit availability & notes"
+                              >{j.candidateName}</TableCell>
                               <TableCell>
                                 <Badge variant="outline" className="capitalize text-xs">{j.employmentType}</Badge>
                               </TableCell>
@@ -1593,7 +1695,6 @@ export default function CapacityOutlookPage() {
                               <TableCell>
                                 {j.stage ? <Badge className="text-xs capitalize">{j.stage}</Badge> : '—'}
                               </TableCell>
-                              <TableCell className="text-xs text-muted-foreground max-w-[200px] whitespace-pre-wrap">{j.notes || '—'}</TableCell>
                               {isScheduler && (
                                 <TableCell className="text-right">
                                   <div className="flex items-center justify-end gap-1">
@@ -1655,14 +1756,17 @@ export default function CapacityOutlookPage() {
                                       <TableHead>Desired Hrs/wk</TableHead>
                                       <TableHead>Contracted Hrs</TableHead>
                                       <TableHead>Hired</TableHead>
-                                      <TableHead>Notes</TableHead>
                                       {isAdmin && <TableHead className="text-right">Actions</TableHead>}
                                     </TableRow>
                                   </TableHeader>
                                   <TableBody>
                                     {rows.map(j => (
                                       <TableRow key={j.id} className="opacity-60 hover:opacity-100 transition-opacity">
-                                        <TableCell className="font-medium">{j.candidateName}</TableCell>
+                                        <TableCell
+                                          className={`font-medium cursor-pointer select-none ${getGenderColorClass(j.gender ?? undefined)}`}
+                                          onDoubleClick={() => setAvailabilityPopupJoiner(j)}
+                                          title="Double-click to edit availability & notes"
+                                        >{j.candidateName}</TableCell>
                                         <TableCell>
                                           <Badge className="text-xs bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-300 dark:border-emerald-800">Hired</Badge>
                                         </TableCell>
@@ -1672,7 +1776,6 @@ export default function CapacityOutlookPage() {
                                         <TableCell>{j.desiredWeeklyHours === 0 ? <Badge variant="outline" className="text-xs text-indigo-600 border-indigo-200 bg-indigo-50">Bank</Badge> : `${j.desiredWeeklyHours}h`}</TableCell>
                                         <TableCell>{j.contractedHours != null ? `${j.contractedHours}h` : '—'}</TableCell>
                                         <TableCell>{formatDate(j.hiredAt)}</TableCell>
-                                        <TableCell className="text-xs text-muted-foreground max-w-[200px] whitespace-pre-wrap">{j.notes || '—'}</TableCell>
                                         {isAdmin && (
                                           <TableCell className="text-right">
                                             <div className="flex items-center justify-end gap-1">
@@ -1725,6 +1828,14 @@ export default function CapacityOutlookPage() {
           branchId={branchId}
         />
       )}
+
+      {/* Availability & notes popup */}
+      <AvailabilityNotesPopup
+        open={!!availabilityPopupJoiner}
+        joiner={availabilityPopupJoiner}
+        branchId={selectedBranchId ?? ''}
+        onClose={() => setAvailabilityPopupJoiner(null)}
+      />
 
       {/* Delete leaver confirm */}
       <AlertDialog open={!!deletingLeaverId} onOpenChange={v => { if (!v) setDeletingLeaverId(null); }}>
