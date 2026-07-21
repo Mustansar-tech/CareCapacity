@@ -142,7 +142,7 @@ function DraggableTimelineVisit({ visit, empName, xLeft, wPx, grad, borderColor,
       style={{
         position: 'absolute', top: 12, left: xLeft, width: cW, height: 50,
         borderRadius: 8, padding: '5px 8px 5px 18px', background: grad,
-        color: '#0F172A',
+        color: lightText ? '#fff' : '#0F172A',
         border: borderColor || undefined,
         cursor: isDragging ? 'grabbing' : 'pointer', overflow: 'visible',
         boxShadow: isSelected ? '0 0 0 2px white, 0 0 0 4px #2563EB' : '0 2px 8px rgba(15,23,42,.14)',
@@ -155,9 +155,9 @@ function DraggableTimelineVisit({ visit, empName, xLeft, wPx, grad, borderColor,
       {/* Grip handle */}
       <div {...listeners} onClick={e => e.stopPropagation()} style={{ position: 'absolute', top: 0, left: 0, bottom: 0, width: 14, cursor: 'grab', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.4, fontSize: 9, touchAction: 'none', userSelect: 'none' }}>⠿</div>
       <div style={{ overflow: 'hidden', height: '100%' }}>
-        {cW >= 44 && <div style={{ fontSize: cW < 70 ? 10 : 12, fontWeight: 800, lineHeight: 1.1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: '#0F172A' }}>{visit.clientName}</div>}
-        {cW >= 54 && <div style={{ fontSize: cW < 80 ? 9 : 10, fontWeight: 600, lineHeight: 1.1, color: '#1E293B' }}>{visit.startTime}–{visit.endTime}</div>}
-        {cW >= 80 && visit.serviceType && <div style={{ fontSize: 9, fontWeight: 500, lineHeight: 1.1, color: '#334155', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', opacity: 0.8 }}>{visit.serviceType}</div>}
+        {cW >= 44 && <div style={{ fontSize: cW < 70 ? 10 : 12, fontWeight: 800, lineHeight: 1.1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: lightText ? '#fff' : '#0F172A' }}>{visit.clientName}</div>}
+        {cW >= 54 && <div style={{ fontSize: cW < 80 ? 9 : 10, fontWeight: 600, lineHeight: 1.1, color: lightText ? 'rgba(255,255,255,0.85)' : '#1E293B' }}>{visit.startTime}–{visit.endTime}</div>}
+        {cW >= 80 && visit.serviceType && <div style={{ fontSize: 9, fontWeight: 500, lineHeight: 1.1, color: lightText ? 'rgba(255,255,255,0.7)' : '#334155', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', opacity: 0.8 }}>{visit.serviceType}</div>}
       </div>
 
       {/* ── Main context menu ── */}
@@ -1804,10 +1804,10 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
 
                         {/* Visit block */}
                         <div style={{ position: 'absolute', top: 8, left: xLeft, width: Math.max(48, wPx), height: 50, borderRadius: 8, background: visitGradient(visit), border: visitBorder(visit), display: 'flex', flexDirection: 'column', padding: '5px 7px', overflow: 'hidden', zIndex: 4, boxShadow: '0 1px 4px rgba(0,0,0,.06)' }}>
-                          <div style={{ fontSize: 10, fontWeight: 800, color: '#0F172A', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', lineHeight: 1.2 }}>{visit.clientName}</div>
-                          <div style={{ fontSize: 9, fontWeight: 600, color: '#1E293B', lineHeight: 1.3 }}>{visit.startTime}–{visit.endTime}</div>
+                          <div style={{ fontSize: 10, fontWeight: 800, color: 'white', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', lineHeight: 1.2 }}>{visit.clientName}</div>
+                          <div style={{ fontSize: 9, fontWeight: 600, color: 'rgba(255,255,255,.85)', lineHeight: 1.3 }}>{visit.startTime}–{visit.endTime}</div>
                           {visit.serviceType && (
-                            <div style={{ fontSize: 8, color: '#334155', marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{visit.serviceType.split('/')[0].trim()}</div>
+                            <div style={{ fontSize: 8, color: 'rgba(255,255,255,.7)', marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{visit.serviceType.split('/')[0].trim()}</div>
                           )}
                         </div>
 
@@ -2051,10 +2051,10 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                         const grad  = empGradientMap.get(entry.empName) ?? EMP_GRADIENTS[0];
                         return (
                           <div key={`a-${bi}`} style={{ position: 'absolute', top: topPx, left: xLeft, width: Math.max(52, wPx), height: BLOCK_H, borderRadius: 8, background: grad, border: '1.5px solid rgba(255,255,255,0.25)', display: 'flex', flexDirection: 'column', padding: '5px 7px', overflow: 'hidden', zIndex: 4, boxShadow: '0 2px 6px rgba(0,0,0,.15)' }}>
-                            <div style={{ fontSize: 11, fontWeight: 800, color: '#0F172A', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', lineHeight: 1.2 }}>{entry.empName}</div>
-                            <div style={{ fontSize: 10, fontWeight: 600, color: '#1E293B', lineHeight: 1.3 }}>{entry.visit.startTime}–{entry.visit.endTime}</div>
+                            <div style={{ fontSize: 11, fontWeight: 800, color: 'white', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', lineHeight: 1.2, textShadow: '0 1px 2px rgba(0,0,0,.2)' }}>{entry.empName}</div>
+                            <div style={{ fontSize: 10, fontWeight: 600, color: 'rgba(255,255,255,.9)', lineHeight: 1.3 }}>{entry.visit.startTime}–{entry.visit.endTime}</div>
                             {entry.visit.serviceType && (
-                              <div style={{ fontSize: 9, color: '#334155', marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{entry.visit.serviceType.split('/')[0].trim()}</div>
+                              <div style={{ fontSize: 9, color: 'rgba(255,255,255,.75)', marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{entry.visit.serviceType.split('/')[0].trim()}</div>
                             )}
                           </div>
                         );
@@ -2064,10 +2064,10 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                         const wPx   = durationToW(v.startTime, v.endTime);
                         return (
                           <div key={`u-${bi}`} style={{ position: 'absolute', top: topPx, left: xLeft, width: Math.max(52, wPx), height: BLOCK_H, borderRadius: 8, background: 'linear-gradient(135deg,#EF4444,#DC2626)', border: '1.5px dashed rgba(255,255,255,0.4)', display: 'flex', flexDirection: 'column', padding: '5px 7px', overflow: 'hidden', zIndex: 4, boxShadow: '0 2px 6px rgba(239,68,68,.3)' }}>
-                            <div style={{ fontSize: 11, fontWeight: 800, color: '#0F172A', lineHeight: 1.2 }}>Unallocated</div>
-                            <div style={{ fontSize: 10, fontWeight: 600, color: '#1E293B', lineHeight: 1.3 }}>{v.startTime}–{v.endTime}</div>
+                            <div style={{ fontSize: 11, fontWeight: 800, color: 'white', lineHeight: 1.2, textShadow: '0 1px 2px rgba(0,0,0,.2)' }}>Unallocated</div>
+                            <div style={{ fontSize: 10, fontWeight: 600, color: 'rgba(255,255,255,.9)', lineHeight: 1.3 }}>{v.startTime}–{v.endTime}</div>
                             {v.serviceType && (
-                              <div style={{ fontSize: 9, color: '#334155', marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{v.serviceType.split('/')[0].trim()}</div>
+                              <div style={{ fontSize: 9, color: 'rgba(255,255,255,.75)', marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{v.serviceType.split('/')[0].trim()}</div>
                             )}
                           </div>
                         );
@@ -2510,10 +2510,10 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
                                 boxShadow: entry.isUnallocated ? '0 2px 6px rgba(239,68,68,.3)' : '0 2px 6px rgba(0,0,0,.15)',
                               }}
                             >
-                              <div style={{ fontSize: 11, fontWeight: 800, color: '#0F172A', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', lineHeight: 1.2 }}>{displayName}</div>
-                              <div style={{ fontSize: 10, fontWeight: 600, color: '#1E293B', lineHeight: 1.3 }}>{entry.visit.startTime}–{entry.visit.endTime}</div>
+                              <div style={{ fontSize: 11, fontWeight: 800, color: 'white', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', lineHeight: 1.2, textShadow: '0 1px 2px rgba(0,0,0,.2)' }}>{displayName}</div>
+                              <div style={{ fontSize: 10, fontWeight: 600, color: 'rgba(255,255,255,.9)', lineHeight: 1.3 }}>{entry.visit.startTime}–{entry.visit.endTime}</div>
                               {entry.visit.serviceType && (
-                                <div style={{ fontSize: 9, color: '#334155', marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{entry.visit.serviceType.split('/')[0].trim()}</div>
+                                <div style={{ fontSize: 9, color: 'rgba(255,255,255,.75)', marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{entry.visit.serviceType.split('/')[0].trim()}</div>
                               )}
                             </div>
                           );
