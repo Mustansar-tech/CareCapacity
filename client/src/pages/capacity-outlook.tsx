@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
+import { getGenderColorClass } from "@/utils/gender-colors";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, toAbsoluteUrl } from "@/lib/queryClient";
 import { useForm } from "react-hook-form";
@@ -1318,7 +1319,6 @@ export default function CapacityOutlookPage() {
                           <SortHead col="employeeName" label="Name" current={leaverSort} onSort={toggleLeaverSort} />
                           <TableHead>Status</TableHead>
                           <TableHead>Emp No</TableHead>
-                          <TableHead>Gender</TableHead>
                           <SortHead col="employmentType" label="Type" current={leaverSort} onSort={toggleLeaverSort} />
                           <SortHead col="weeklyHours" label="Desired Hrs/wk" current={leaverSort} onSort={toggleLeaverSort} />
                           <TableHead>Contracted Hrs</TableHead>
@@ -1332,12 +1332,11 @@ export default function CapacityOutlookPage() {
                       <TableBody>
                         {sortBy(onNotice, leaverSort.col, leaverSort.dir).map(l => (
                           <TableRow key={l.id}>
-                            <TableCell className="font-medium">{l.employeeName}</TableCell>
+                            <TableCell className={`font-medium ${getGenderColorClass(l.gender ?? undefined)}`}>{l.employeeName}</TableCell>
                             <TableCell>
                               <Badge className="text-xs bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-800">On Notice</Badge>
                             </TableCell>
                             <TableCell className="font-mono text-xs">{l.employeeNo || '—'}</TableCell>
-                            <TableCell className="capitalize">{l.gender ?? '—'}</TableCell>
                             <TableCell>
                               <Badge variant="outline" className="capitalize text-xs">{l.employmentType}</Badge>
                             </TableCell>
@@ -1382,7 +1381,6 @@ export default function CapacityOutlookPage() {
                             <TableHead>Name</TableHead>
                             <TableHead>Status</TableHead>
                             <TableHead>Emp No</TableHead>
-                            <TableHead>Gender</TableHead>
                             <TableHead>Type</TableHead>
                             <TableHead>Desired Hrs/wk</TableHead>
                             <TableHead>Contracted Hrs</TableHead>
@@ -1396,12 +1394,11 @@ export default function CapacityOutlookPage() {
                         <TableBody>
                           {alreadyGone.map(l => (
                             <TableRow key={l.id}>
-                              <TableCell className="font-medium">{l.employeeName}</TableCell>
+                              <TableCell className={`font-medium ${getGenderColorClass(l.gender ?? undefined)}`}>{l.employeeName}</TableCell>
                               <TableCell>
                                 <Badge className="text-xs bg-red-100 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-800">Terminated</Badge>
                               </TableCell>
                               <TableCell className="font-mono text-xs">{l.employeeNo || '—'}</TableCell>
-                              <TableCell className="capitalize">{l.gender ?? '—'}</TableCell>
                               <TableCell>
                                 <Badge variant="outline" className="capitalize text-xs">{l.employmentType}</Badge>
                               </TableCell>
@@ -1534,7 +1531,6 @@ export default function CapacityOutlookPage() {
                       <TableHeader>
                         <TableRow>
                           <SortHead col="candidateName" label="Name" current={joinerSort} onSort={toggleJoinerSort} />
-                          <TableHead>Gender</TableHead>
                           <SortHead col="employmentType" label="Type" current={joinerSort} onSort={toggleJoinerSort} />
                           <SortHead col="desiredWeeklyHours" label="Desired Hrs/wk" current={joinerSort} onSort={toggleJoinerSort} />
                           <TableHead>Contracted Hrs</TableHead>
@@ -1549,8 +1545,7 @@ export default function CapacityOutlookPage() {
                       <TableBody>
                         {sortBy(pipelineJoiners, joinerSort.col, joinerSort.dir).map(j => (
                           <TableRow key={j.id} className={isStale14Days(j) ? "bg-red-50/60 dark:bg-red-950/20" : undefined}>
-                            <TableCell className="font-medium">{j.candidateName}</TableCell>
-                            <TableCell className="capitalize">{j.gender ?? '—'}</TableCell>
+                            <TableCell className={`font-medium ${getGenderColorClass(j.gender ?? undefined)}`}>{j.candidateName}</TableCell>
                             <TableCell>
                               <Badge variant="outline" className="capitalize text-xs">{j.employmentType}</Badge>
                             </TableCell>
@@ -1613,7 +1608,6 @@ export default function CapacityOutlookPage() {
                         <TableHeader>
                           <TableRow className="bg-yellow-100/60 dark:bg-yellow-900/20">
                             <TableHead>Name</TableHead>
-                            <TableHead>Gender</TableHead>
                             <TableHead>Type</TableHead>
                             <TableHead>Desired Hrs/wk</TableHead>
                             <TableHead>Contracted Hrs</TableHead>
@@ -1628,8 +1622,7 @@ export default function CapacityOutlookPage() {
                         <TableBody>
                           {hiredJoiners.map(j => (
                             <TableRow key={j.id}>
-                              <TableCell className="font-medium">{j.candidateName}</TableCell>
-                              <TableCell className="capitalize">{j.gender ?? '—'}</TableCell>
+                              <TableCell className={`font-medium ${getGenderColorClass(j.gender ?? undefined)}`}>{j.candidateName}</TableCell>
                               <TableCell>
                                 <Badge variant="outline" className="capitalize text-xs">{j.employmentType}</Badge>
                               </TableCell>
