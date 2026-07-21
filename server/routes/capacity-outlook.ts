@@ -123,12 +123,20 @@ export function registerCapacityOutlookRoutes(app: Express): void {
       if (isNaN(year) || isNaN(month) || month < 1 || month > 12) {
         throw createAppError('Invalid year or month', 400);
       }
-      const { hoursIn, headsIn, hoursOut, headsOut } = req.body;
+      const { hoursIn, headsIn, hoursOut, headsOut, femaleHoursIn, maleHoursIn, femaleHeadsIn, maleHeadsIn, femaleHoursOut, maleHoursOut, femaleHeadsOut, maleHeadsOut } = req.body;
       const snapshot = await updateMonthlySnapshot(branchId, year, month, {
         hoursIn: Number(hoursIn) || 0,
         headsIn: Number(headsIn) || 0,
         hoursOut: Number(hoursOut) || 0,
         headsOut: Number(headsOut) || 0,
+        femaleHoursIn: femaleHoursIn != null ? Number(femaleHoursIn) : null,
+        maleHoursIn: maleHoursIn != null ? Number(maleHoursIn) : null,
+        femaleHeadsIn: femaleHeadsIn != null ? Number(femaleHeadsIn) : null,
+        maleHeadsIn: maleHeadsIn != null ? Number(maleHeadsIn) : null,
+        femaleHoursOut: femaleHoursOut != null ? Number(femaleHoursOut) : null,
+        maleHoursOut: maleHoursOut != null ? Number(maleHoursOut) : null,
+        femaleHeadsOut: femaleHeadsOut != null ? Number(femaleHeadsOut) : null,
+        maleHeadsOut: maleHeadsOut != null ? Number(maleHeadsOut) : null,
       });
       await auditLog(
         req.session?.userId ?? null,

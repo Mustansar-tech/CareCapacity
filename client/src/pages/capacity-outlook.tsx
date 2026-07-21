@@ -1956,6 +1956,10 @@ function MonthlyViewSheet({
   type MonthRow = {
     year: number; month: number;
     hoursIn: number; headsIn: number; hoursOut: number; headsOut: number;
+    femaleHoursIn?: number | null; maleHoursIn?: number | null;
+    femaleHeadsIn?: number | null; maleHeadsIn?: number | null;
+    femaleHoursOut?: number | null; maleHoursOut?: number | null;
+    femaleHeadsOut?: number | null; maleHeadsOut?: number | null;
     isLive: boolean; isClosed: boolean; isEmpty: boolean;
   };
 
@@ -2025,11 +2029,51 @@ function MonthlyViewSheet({
               <TableHeader>
                 <TableRow>
                   <TableHead>Month</TableHead>
-                  <TableHead className="text-emerald-700 dark:text-emerald-400">In (h/wk)</TableHead>
-                  <TableHead className="text-emerald-700 dark:text-emerald-400">Hires</TableHead>
-                  <TableHead className="text-red-600 dark:text-red-400">Out (h/wk)</TableHead>
-                  <TableHead className="text-red-600 dark:text-red-400">Leavers</TableHead>
-                  <TableHead>Net</TableHead>
+                  <TableHead className="text-emerald-700 dark:text-emerald-400">
+                    <div className="flex flex-col gap-0.5">
+                      <span>In (h/wk)</span>
+                      <span className="flex gap-2 text-[10px] font-normal">
+                        <span className="text-pink-500 dark:text-pink-400">♀</span>
+                        <span className="text-blue-500 dark:text-blue-400">♂</span>
+                      </span>
+                    </div>
+                  </TableHead>
+                  <TableHead className="text-emerald-700 dark:text-emerald-400">
+                    <div className="flex flex-col gap-0.5">
+                      <span>Hires</span>
+                      <span className="flex gap-2 text-[10px] font-normal">
+                        <span className="text-pink-500 dark:text-pink-400">♀</span>
+                        <span className="text-blue-500 dark:text-blue-400">♂</span>
+                      </span>
+                    </div>
+                  </TableHead>
+                  <TableHead className="text-red-600 dark:text-red-400">
+                    <div className="flex flex-col gap-0.5">
+                      <span>Out (h/wk)</span>
+                      <span className="flex gap-2 text-[10px] font-normal">
+                        <span className="text-pink-500 dark:text-pink-400">♀</span>
+                        <span className="text-blue-500 dark:text-blue-400">♂</span>
+                      </span>
+                    </div>
+                  </TableHead>
+                  <TableHead className="text-red-600 dark:text-red-400">
+                    <div className="flex flex-col gap-0.5">
+                      <span>Leavers</span>
+                      <span className="flex gap-2 text-[10px] font-normal">
+                        <span className="text-pink-500 dark:text-pink-400">♀</span>
+                        <span className="text-blue-500 dark:text-blue-400">♂</span>
+                      </span>
+                    </div>
+                  </TableHead>
+                  <TableHead>
+                    <div className="flex flex-col gap-0.5">
+                      <span>Net</span>
+                      <span className="flex gap-2 text-[10px] font-normal">
+                        <span className="text-pink-500 dark:text-pink-400">♀</span>
+                        <span className="text-blue-500 dark:text-blue-400">♂</span>
+                      </span>
+                    </div>
+                  </TableHead>
                   {isScheduler && <TableHead />}
                 </TableRow>
               </TableHeader>
@@ -2047,23 +2091,44 @@ function MonthlyViewSheet({
                   const displayHeadsOut = isEditing ? editValues.headsOut : row.headsOut;
                   const net = Math.round((displayHoursIn - displayHoursOut) * 10) / 10;
 
-                  // Gender split — only computable for the live row (individual records available)
+                  // Gender split — live row: compute from individual records; closed row: use stored snapshot fields
                   const currentMonthLeavers = allLeavers.filter(l => {
                     if (!l.lastWorkingDay) return false;
                     const d = new Date(l.lastWorkingDay + 'T00:00:00Z');
                     return d.getUTCFullYear() === row.year && d.getUTCMonth() + 1 === row.month;
                   });
-                  const femaleHiresH     = isLive ? Math.round(hiredJoiners.filter(j => j.gender?.toLowerCase() === 'female').reduce((s, j) => s + (j.desiredWeeklyHours ?? 0), 0) * 10) / 10 : 0;
-                  const maleHiresH       = isLive ? Math.round(hiredJoiners.filter(j => j.gender?.toLowerCase() === 'male').reduce((s, j) => s + (j.desiredWeeklyHours ?? 0), 0) * 10) / 10 : 0;
-                  const femaleLeaversH   = isLive ? Math.round(currentMonthLeavers.filter(l => l.gender?.toLowerCase() === 'female').reduce((s, l) => s + (l.weeklyHours ?? 0), 0) * 10) / 10 : 0;
-                  const maleLeaversH     = isLive ? Math.round(currentMonthLeavers.filter(l => l.gender?.toLowerCase() === 'male').reduce((s, l) => s + (l.weeklyHours ?? 0), 0) * 10) / 10 : 0;
-                  const femaleHiresCount   = isLive ? hiredJoiners.filter(j => j.gender?.toLowerCase() === 'female').length : 0;
-                  const maleHiresCount     = isLive ? hiredJoiners.filter(j => j.gender?.toLowerCase() === 'male').length : 0;
-                  const femaleLeaversCount = isLive ? currentMonthLeavers.filter(l => l.gender?.toLowerCase() === 'female').length : 0;
-                  const maleLeaversCount   = isLive ? currentMonthLeavers.filter(l => l.gender?.toLowerCase() === 'male').length : 0;
+                  const femaleHiresH: number = isLive
+                    ? Math.round(hiredJoiners.filter(j => j.gender?.toLowerCase() === 'female').reduce((s, j) => s + (j.desiredWeeklyHours ?? 0), 0) * 10) / 10
+                    : (row.femaleHoursIn ?? 0);
+                  const maleHiresH: number = isLive
+                    ? Math.round(hiredJoiners.filter(j => j.gender?.toLowerCase() === 'male').reduce((s, j) => s + (j.desiredWeeklyHours ?? 0), 0) * 10) / 10
+                    : (row.maleHoursIn ?? 0);
+                  const femaleLeaversH: number = isLive
+                    ? Math.round(currentMonthLeavers.filter(l => l.gender?.toLowerCase() === 'female').reduce((s, l) => s + (l.weeklyHours ?? 0), 0) * 10) / 10
+                    : (row.femaleHoursOut ?? 0);
+                  const maleLeaversH: number = isLive
+                    ? Math.round(currentMonthLeavers.filter(l => l.gender?.toLowerCase() === 'male').reduce((s, l) => s + (l.weeklyHours ?? 0), 0) * 10) / 10
+                    : (row.maleHoursOut ?? 0);
+                  const femaleHiresCount: number = isLive
+                    ? hiredJoiners.filter(j => j.gender?.toLowerCase() === 'female').length
+                    : (row.femaleHeadsIn ?? 0);
+                  const maleHiresCount: number = isLive
+                    ? hiredJoiners.filter(j => j.gender?.toLowerCase() === 'male').length
+                    : (row.maleHeadsIn ?? 0);
+                  const femaleLeaversCount: number = isLive
+                    ? currentMonthLeavers.filter(l => l.gender?.toLowerCase() === 'female').length
+                    : (row.femaleHeadsOut ?? 0);
+                  const maleLeaversCount: number = isLive
+                    ? currentMonthLeavers.filter(l => l.gender?.toLowerCase() === 'male').length
+                    : (row.maleHeadsOut ?? 0);
                   const femaleNet = Math.round((femaleHiresH - femaleLeaversH) * 10) / 10;
                   const maleNet   = Math.round((maleHiresH   - maleLeaversH)   * 10) / 10;
-                  const showGenderSplit = isLive && (femaleHiresH > 0 || maleHiresH > 0 || femaleLeaversH > 0 || maleLeaversH > 0);
+                  // Show gender split if live (always has data) or closed with stored gender data
+                  const hasStoredGender = !isLive && isClosed && (
+                    row.femaleHoursIn != null || row.maleHoursIn != null ||
+                    row.femaleHoursOut != null || row.maleHoursOut != null
+                  );
+                  const showGenderSplit = isLive || hasStoredGender;
 
                   return (
                     <TableRow

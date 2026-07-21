@@ -437,6 +437,12 @@ export async function closeMonth(
   );
   const hoursIn = round2(hiredThisMonth.reduce((s, j) => s + (j.desiredWeeklyHours ?? 0), 0));
   const headsIn = hiredThisMonth.length;
+  const femaleHiresThisMonth = hiredThisMonth.filter(j => j.gender?.toLowerCase() === 'female');
+  const maleHiresThisMonth   = hiredThisMonth.filter(j => j.gender?.toLowerCase() === 'male');
+  const femaleHoursIn  = round2(femaleHiresThisMonth.reduce((s, j) => s + (j.desiredWeeklyHours ?? 0), 0));
+  const maleHoursIn    = round2(maleHiresThisMonth.reduce((s, j) => s + (j.desiredWeeklyHours ?? 0), 0));
+  const femaleHeadsIn  = femaleHiresThisMonth.length;
+  const maleHeadsIn    = maleHiresThisMonth.length;
 
   const allLeavers = await getLeavers(branchId, true);
   const leaversThisMonth = allLeavers.filter(l =>
@@ -444,6 +450,14 @@ export async function closeMonth(
   );
   const hoursOut = round2(leaversThisMonth.reduce((s, l) => s + (l.weeklyHours ?? 0), 0));
   const headsOut = leaversThisMonth.length;
+  const femaleLeaversThisMonth = leaversThisMonth.filter(l => l.gender?.toLowerCase() === 'female');
+  const maleLeaversThisMonth   = leaversThisMonth.filter(l => l.gender?.toLowerCase() === 'male');
+  const femaleHoursOut  = round2(femaleLeaversThisMonth.reduce((s, l) => s + (l.weeklyHours ?? 0), 0));
+  const maleHoursOut    = round2(maleLeaversThisMonth.reduce((s, l) => s + (l.weeklyHours ?? 0), 0));
+  const femaleHeadsOut  = femaleLeaversThisMonth.length;
+  const maleHeadsOut    = maleLeaversThisMonth.length;
+
+  const genderFields = { femaleHoursIn, maleHoursIn, femaleHeadsIn, maleHeadsIn, femaleHoursOut, maleHoursOut, femaleHeadsOut, maleHeadsOut };
 
   const existing = await db
     .select()
@@ -458,7 +472,7 @@ export async function closeMonth(
   if (existing.length > 0) {
     const [row] = await db
       .update(monthlyCapacitySnapshots)
-      .set({ hoursIn, headsIn, hoursOut, headsOut, snapshotCreatedAt: new Date() })
+      .set({ hoursIn, headsIn, hoursOut, headsOut, ...genderFields, snapshotCreatedAt: new Date() })
       .where(and(
         eq(monthlyCapacitySnapshots.branchId, branchId),
         eq(monthlyCapacitySnapshots.year, year),
@@ -469,7 +483,7 @@ export async function closeMonth(
   } else {
     const [row] = await db
       .insert(monthlyCapacitySnapshots)
-      .values({ branchId, year, month, hoursIn, headsIn, hoursOut, headsOut })
+      .values({ branchId, year, month, hoursIn, headsIn, hoursOut, headsOut, ...genderFields })
       .returning();
     snapshot = row;
   }
@@ -515,7 +529,13 @@ export async function updateMonthlySnapshot(
   branchId: string,
   year: number,
   month: number,
-  data: { hoursIn: number; headsIn: number; hoursOut: number; headsOut: number },
+  data: {
+    hoursIn: number; headsIn: number; hoursOut: number; headsOut: number;
+    femaleHoursIn?: number | null; maleHoursIn?: number | null;
+    femaleHeadsIn?: number | null; maleHeadsIn?: number | null;
+    femaleHoursOut?: number | null; maleHoursOut?: number | null;
+    femaleHeadsOut?: number | null; maleHeadsOut?: number | null;
+  },
 ): Promise<MonthlySnapshot> {
   const [row] = await db
     .insert(monthlyCapacitySnapshots)
