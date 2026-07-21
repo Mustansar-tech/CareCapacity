@@ -2029,51 +2029,11 @@ function MonthlyViewSheet({
               <TableHeader>
                 <TableRow>
                   <TableHead>Month</TableHead>
-                  <TableHead className="text-emerald-700 dark:text-emerald-400">
-                    <div className="flex flex-col gap-0.5">
-                      <span>In (h/wk)</span>
-                      <span className="flex gap-2 text-[10px] font-normal">
-                        <span className="text-pink-500 dark:text-pink-400">♀</span>
-                        <span className="text-blue-500 dark:text-blue-400">♂</span>
-                      </span>
-                    </div>
-                  </TableHead>
-                  <TableHead className="text-emerald-700 dark:text-emerald-400">
-                    <div className="flex flex-col gap-0.5">
-                      <span>Hires</span>
-                      <span className="flex gap-2 text-[10px] font-normal">
-                        <span className="text-pink-500 dark:text-pink-400">♀</span>
-                        <span className="text-blue-500 dark:text-blue-400">♂</span>
-                      </span>
-                    </div>
-                  </TableHead>
-                  <TableHead className="text-red-600 dark:text-red-400">
-                    <div className="flex flex-col gap-0.5">
-                      <span>Out (h/wk)</span>
-                      <span className="flex gap-2 text-[10px] font-normal">
-                        <span className="text-pink-500 dark:text-pink-400">♀</span>
-                        <span className="text-blue-500 dark:text-blue-400">♂</span>
-                      </span>
-                    </div>
-                  </TableHead>
-                  <TableHead className="text-red-600 dark:text-red-400">
-                    <div className="flex flex-col gap-0.5">
-                      <span>Leavers</span>
-                      <span className="flex gap-2 text-[10px] font-normal">
-                        <span className="text-pink-500 dark:text-pink-400">♀</span>
-                        <span className="text-blue-500 dark:text-blue-400">♂</span>
-                      </span>
-                    </div>
-                  </TableHead>
-                  <TableHead>
-                    <div className="flex flex-col gap-0.5">
-                      <span>Net</span>
-                      <span className="flex gap-2 text-[10px] font-normal">
-                        <span className="text-pink-500 dark:text-pink-400">♀</span>
-                        <span className="text-blue-500 dark:text-blue-400">♂</span>
-                      </span>
-                    </div>
-                  </TableHead>
+                  <TableHead className="text-emerald-700 dark:text-emerald-400">In (h/wk)</TableHead>
+                  <TableHead className="text-emerald-700 dark:text-emerald-400">Hires</TableHead>
+                  <TableHead className="text-red-600 dark:text-red-400">Out (h/wk)</TableHead>
+                  <TableHead className="text-red-600 dark:text-red-400">Leavers</TableHead>
+                  <TableHead>Net</TableHead>
                   {isScheduler && <TableHead />}
                 </TableRow>
               </TableHeader>
@@ -2160,8 +2120,8 @@ function MonthlyViewSheet({
                           />
                         ) : showGenderSplit ? (
                           <div className="flex flex-col gap-0.5">
-                            <span className="font-bold text-pink-500 dark:text-pink-400">♀ {femaleHiresH > 0 ? `+${femaleHiresH}h` : '—'}</span>
-                            <span className="font-bold text-blue-500 dark:text-blue-400">♂ {maleHiresH > 0 ? `+${maleHiresH}h` : '—'}</span>
+                            <span className="font-bold text-pink-500 dark:text-pink-400">{femaleHiresH > 0 ? `+${femaleHiresH}h` : '—'}</span>
+                            <span className="font-bold text-blue-500 dark:text-blue-400">{maleHiresH > 0 ? `+${maleHiresH}h` : '—'}</span>
                           </div>
                         ) : (
                           <span className="font-semibold text-emerald-700 dark:text-emerald-400">{displayHoursIn > 0 ? `+${displayHoursIn}h` : '—'}</span>
@@ -2179,8 +2139,8 @@ function MonthlyViewSheet({
                           />
                         ) : showGenderSplit ? (
                           <div className="flex flex-col gap-0.5">
-                            <span className="font-bold text-pink-500 dark:text-pink-400">♀ {femaleHiresCount || '—'}</span>
-                            <span className="font-bold text-blue-500 dark:text-blue-400">♂ {maleHiresCount || '—'}</span>
+                            <span className="font-bold text-pink-500 dark:text-pink-400">{femaleHiresCount || '—'}</span>
+                            <span className="font-bold text-blue-500 dark:text-blue-400">{maleHiresCount || '—'}</span>
                           </div>
                         ) : (
                           <span className="text-emerald-600 dark:text-emerald-400">{displayHeadsIn > 0 ? displayHeadsIn : '—'}</span>
@@ -2198,8 +2158,8 @@ function MonthlyViewSheet({
                           />
                         ) : showGenderSplit ? (
                           <div className="flex flex-col gap-0.5">
-                            <span className="font-bold text-pink-500 dark:text-pink-400">♀ {femaleLeaversH > 0 ? `${femaleLeaversH}h` : '—'}</span>
-                            <span className="font-bold text-blue-500 dark:text-blue-400">♂ {maleLeaversH > 0 ? `${maleLeaversH}h` : '—'}</span>
+                            <span className="font-bold text-pink-500 dark:text-pink-400">{femaleLeaversH > 0 ? `${femaleLeaversH}h` : '—'}</span>
+                            <span className="font-bold text-blue-500 dark:text-blue-400">{maleLeaversH > 0 ? `${maleLeaversH}h` : '—'}</span>
                           </div>
                         ) : (
                           <span className="font-semibold text-red-600 dark:text-red-400">{displayHoursOut > 0 ? `${displayHoursOut}h` : '—'}</span>
@@ -2217,8 +2177,8 @@ function MonthlyViewSheet({
                           />
                         ) : showGenderSplit ? (
                           <div className="flex flex-col gap-0.5">
-                            <span className="font-bold text-pink-500 dark:text-pink-400">♀ {femaleLeaversCount || '—'}</span>
-                            <span className="font-bold text-blue-500 dark:text-blue-400">♂ {maleLeaversCount || '—'}</span>
+                            <span className="font-bold text-pink-500 dark:text-pink-400">{femaleLeaversCount || '—'}</span>
+                            <span className="font-bold text-blue-500 dark:text-blue-400">{maleLeaversCount || '—'}</span>
                           </div>
                         ) : (
                           <span className="text-red-500 dark:text-red-400">{displayHeadsOut > 0 ? displayHeadsOut : '—'}</span>
@@ -2230,10 +2190,10 @@ function MonthlyViewSheet({
                         {showGenderSplit ? (
                           <div className="flex flex-col gap-0.5">
                             <span className={`font-bold ${femaleNet > 0 ? 'text-pink-500 dark:text-pink-400' : femaleNet < 0 ? 'text-pink-700 dark:text-pink-300' : 'text-pink-400'}`}>
-                              ♀ {femaleNet === 0 ? '±0h' : femaleNet > 0 ? `+${femaleNet}h` : `${femaleNet}h`}
+                              {femaleNet === 0 ? '±0h' : femaleNet > 0 ? `+${femaleNet}h` : `${femaleNet}h`}
                             </span>
                             <span className={`font-bold ${maleNet > 0 ? 'text-blue-500 dark:text-blue-400' : maleNet < 0 ? 'text-blue-700 dark:text-blue-300' : 'text-blue-400'}`}>
-                              ♂ {maleNet === 0 ? '±0h' : maleNet > 0 ? `+${maleNet}h` : `${maleNet}h`}
+                              {maleNet === 0 ? '±0h' : maleNet > 0 ? `+${maleNet}h` : `${maleNet}h`}
                             </span>
                           </div>
                         ) : (
