@@ -407,15 +407,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
 
   const dayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
-  // Reload the correct "last generated" stamp whenever branch or week changes
-  useEffect(() => {
-    if (!selectedBranchId || !weekStart) { setLastGeneratedAt(null); return; }
-    try {
-      const key = `scheduleLastGenerated_${selectedBranchId}_${weekStart}`;
-      const stored = localStorage.getItem(key);
-      setLastGeneratedAt(stored ? new Date(stored) : null);
-    } catch { setLastGeneratedAt(null); }
-  }, [selectedBranchId, weekStart]);
+  // lastGeneratedAt is derived from the DB record (savedSchedule.generatedAt), not localStorage
 
   // Default selected day to today if today is within the viewed week
   useEffect(() => {
@@ -716,12 +708,9 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
 
       // Show the schedule immediately (car routes already corrected, walker Haversine estimates pending)
       setWeeklySchedule(correctedResult);
-      const now = new Date();
-      setLastGeneratedAt(now);
-      try {
-        const key = `scheduleLastGenerated_${selectedBranchId}_${weekStart}`;
-        localStorage.setItem(key, now.toISOString());
-      } catch { /* ignore */ }
+      // Set an immediate optimistic timestamp; the DB round-trip will overwrite it
+      // with the authoritative generatedAt value once the save query invalidates
+      setLastGeneratedAt(new Date());
 
       // ── Phase 2: Apply Haversine heuristic to walker/public routes ──
       // Collect only the routes that were actually assigned to walker/public employees.
@@ -866,6 +855,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
     clientLogger.log("🧹 Data or week changed - clearing local schedule state");
     setWeeklySchedule(null);
     setSelectedEmployee(null);
+    setLastGeneratedAt(null);
   }, [data, weekStart]);
 
   useEffect(() => {
@@ -883,10 +873,13 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
           employeesUtilized: 0,
         },
       });
+      // Derive saved timestamp from the DB record — authoritative and branch/week-specific
+      setLastGeneratedAt(savedSchedule.generatedAt ? new Date(savedSchedule.generatedAt) : null);
     } else if (!isFetchingSchedule) {
       // No saved schedule for this week - clear the state
       clientLogger.log(`📅 No saved schedule found for week ${weekStart} to ${weekEnd}`);
       setWeeklySchedule(null);
+      setLastGeneratedAt(null);
     }
   }, [savedSchedule, weekStart, weekEnd, isFetchingSchedule]);
 
@@ -2187,7 +2180,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
         )}
         {!saveScheduleMutation.isPending && lastGeneratedAt && (
           <span style={{ fontSize: 11, color: '#475569', whiteSpace: 'nowrap', flexShrink: 0 }}>
-            Saved · {lastGeneratedAt.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
+            Schedule saved: {lastGeneratedAt.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}, {lastGeneratedAt.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
           </span>
         )}
 
@@ -3103,7 +3096,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
         <div style={{ flex: 1 }} />
         {lastGeneratedAt && (
           <span style={{ color: '#475569' }}>
-            Auto-saved · {lastGeneratedAt.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
+            Schedule saved: {lastGeneratedAt.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}, {lastGeneratedAt.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
           </span>
         )}
       </div>
