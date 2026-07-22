@@ -1663,21 +1663,21 @@ export default function CapacityOutlookPage() {
                               </div>
                             </TableCell>
                             <TableCell>
-                              {j.trainingDate ? (() => {
-                                const days = j.trainingDate.split(',').map(s => s.trim()).filter(Boolean);
+                              {(() => {
+                                const days = (j.trainingDate ?? '').split(',').map(s => s.trim()).filter(Boolean);
                                 return (
                                   <div className="flex flex-col gap-1">
                                     <span
                                       className="flex items-center gap-1"
-                                      title={days.length > 0 ? `Days ${days.join(', ')} of 4 attended` : 'No training days recorded'}
+                                      title={days.length > 0 ? `Days ${days.join(', ')} of 4 attended` : 'No training days attended yet'}
                                     >
                                       {[1,2,3,4].map(d => (
                                         <span
                                           key={d}
-                                          className={`w-5 h-5 rounded-full border text-[10px] font-bold flex items-center justify-center ${
+                                          className={`w-5 h-5 rounded-full text-[10px] font-bold flex items-center justify-center ${
                                             days.includes(String(d))
-                                              ? 'bg-violet-500 border-violet-500 text-white'
-                                              : 'border-border text-muted-foreground/40'
+                                              ? 'bg-emerald-500 text-white'
+                                              : 'bg-red-400 text-white'
                                           }`}
                                         >{d}</span>
                                       ))}
@@ -1689,7 +1689,7 @@ export default function CapacityOutlookPage() {
                                     )}
                                   </div>
                                 );
-                              })() : <span className="text-muted-foreground/40 text-xs">—</span>}
+                              })()}
                             </TableCell>
                             {isScheduler && (
                               <TableCell className="text-right">
