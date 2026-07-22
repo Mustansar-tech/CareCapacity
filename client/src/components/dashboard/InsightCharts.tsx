@@ -1,16 +1,12 @@
 import { useMemo } from "react";
 import {
-  ComposedChart, Bar, Line, XAxis, YAxis, Tooltip,
+  ComposedChart, Bar, BarChart, Line, XAxis, YAxis, Tooltip,
   ResponsiveContainer, PieChart, Pie, Cell, Legend, Label,
 } from "recharts";
 import { TrendingDown, BriefcaseMedical, AlertTriangle, Umbrella } from "lucide-react";
-import type { ProcessingResult } from "@shared/schema";
+import type { ProcessingResult, CapacityAnalysisSummary } from "@shared/schema";
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
-
-function abbrevDay(dateStr: string) {
-  return new Date(dateStr).toLocaleDateString("en-GB", { weekday: "short", timeZone: "UTC" });
-}
 
 function fmt(n: number) { return Math.round(n * 10) / 10; }
 
@@ -18,94 +14,147 @@ function formatName(n: string) {
   return n.includes(", ") ? n.split(", ").reverse().join(" ") : n;
 }
 
-// ── Chart 1: Daily Capacity vs Demand ─────────────────────────────────────────
+function getWeekLabel(dateStr: string) {
+  const d = new Date(dateStr);
+  const day = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+  day.setUTCDate(day.getUTCDate() + 4 - (day.getUTCDay() || 7));
+  const yearStart = new Date(Date.UTC(day.getUTCFullYear(), 0, 1));
+  const weekNum = Math.ceil((((day.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
+  const shortDate = new Date(dateStr).toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "UTC" });
+  return { weekNum, label: `Wk ${weekNum}`, subLabel: shortDate };
+}
 
-function DailyCapacityChart({ data }: { data: ProcessingResult }) {
-  const chartData = useMemo(() =>
-    (data.dailySummary ?? [])
-      .slice()
-      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
-      .map(day => ({
-        day: abbrevDay(day.date),
-        net: fmt(day.netCapacity ?? 0),
-        required: fmt(day.clientRequired ?? 0),
-        scheduled: fmt(day.clientScheduledHours ?? 0),
-        shortage: (day.clientRequired ?? 0) > (day.netCapacity ?? 0),
-      }))
-  , [data]);
+// ── Chart 1: 4-Week Story ─────────────────────────────────────────────────────
 
-  const shortDays = chartData.filter(d => d.shortage);
+function FourWeekChart({
+  data,
+  allHistoryData,
+}: {
+  data: ProcessingResult;
+  allHistoryData?: CapacityAnalysisSummary[];
+}) {
+  const chartData = useMemo(() => {
+    const history = (allHistoryData ?? [])
+      .filter(h => h.weekStartDate && h.kpis)
+      .sort((a, b) => new Date(a.weekStartDate!).getTime() - new Date(b.weekStartDate!).getTime());
+
+    // Use last 4 unique weeks from history (the current week is the latest entry)
+    const last4 = history.slice(-4);
+
+    return last4.map(h => {
+      const { weekNum, label, subLabel } = getWeekLabel(h.weekStartDate!);
+      return {
+        label,
+        subLabel,
+        weekNum,
+        net: fmt(h.kpis.netCapacitySum ?? 0),
+        required: fmt(h.kpis.clientRequiredSum ?? 0),
+        scheduled: fmt(h.kpis.clientScheduledHoursSum ?? 0),
+        isCurrent: h.weekStartDate === data.dailySummary?.[0]?.date?.slice(0, 10),
+      };
+    });
+  }, [allHistoryData, data]);
 
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (!active || !payload?.length) return null;
     const d = payload[0]?.payload;
     return (
       <div className="bg-popover border border-border rounded-lg px-3 py-2 text-xs shadow-lg">
-        <div className="font-semibold text-foreground mb-1">{label}</div>
+        <div className="font-semibold text-foreground mb-1">{label} · {d?.subLabel}</div>
         <div className="space-y-0.5">
           <div className="flex justify-between gap-4">
-            <span className="text-muted-foreground">Net capacity</span>
+            <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-sm bg-[#2c4f26] inline-block" />Net capacity</span>
             <span className="font-medium">{d?.net}h</span>
           </div>
           <div className="flex justify-between gap-4">
-            <span className="text-muted-foreground">Client required</span>
+            <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-sm bg-amber-500 inline-block" />Client required</span>
             <span className="font-medium text-amber-600">{d?.required}h</span>
           </div>
           <div className="flex justify-between gap-4">
-            <span className="text-muted-foreground">Client scheduled</span>
+            <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-sm bg-emerald-500 inline-block" />Scheduled</span>
             <span className="font-medium text-emerald-600">{d?.scheduled}h</span>
           </div>
-          {d?.shortage && <div className="text-red-500 font-semibold pt-0.5">⚠ Capacity short</div>}
         </div>
       </div>
     );
   };
 
+  if (chartData.length < 2) {
+    return (
+      <div className="bg-card border border-border rounded-xl p-4 shadow-sm flex flex-col justify-between h-full">
+        <div>
+          <h3 className="text-sm font-semibold text-foreground">4-Week Story</h3>
+          <p className="text-[11px] text-muted-foreground mt-0.5">Capacity, demand & scheduling trend</p>
+        </div>
+        <div className="flex-1 flex items-center justify-center py-6">
+          <p className="text-xs text-muted-foreground">Upload data for more weeks to see the trend.</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="bg-card border border-border rounded-xl p-4 shadow-sm flex flex-col">
       <div className="flex items-start justify-between mb-1">
         <div>
-          <h3 className="text-sm font-semibold text-foreground">Daily Capacity vs Demand</h3>
-          <p className="text-[11px] text-muted-foreground mt-0.5">Available hours vs what clients need each day</p>
+          <h3 className="text-sm font-semibold text-foreground">4-Week Story</h3>
+          <p className="text-[11px] text-muted-foreground mt-0.5">Capacity, demand & scheduling over recent weeks</p>
         </div>
-        <div className="flex flex-col items-end gap-1 text-[10px] text-muted-foreground shrink-0 ml-2">
-          <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-[#2c4f26] inline-block" />Capacity</span>
-          <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-red-500 inline-block" />Shortage</span>
-          <span className="flex items-center gap-1"><span className="w-6 border-t-2 border-dashed border-amber-500 inline-block" />Required</span>
+        <div className="flex flex-col gap-1 text-[10px] text-muted-foreground shrink-0 ml-2">
+          <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-[#2c4f26] inline-block" />Net cap</span>
+          <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-amber-500 inline-block" />Required</span>
+          <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-emerald-500 inline-block" />Scheduled</span>
         </div>
       </div>
-      <div className="h-44 mt-2 flex-1">
+      <div className="h-48 mt-2">
         <ResponsiveContainer width="100%" height="100%">
-          <ComposedChart data={chartData} barSize={26} margin={{ top: 4, right: 4, left: -16, bottom: 0 }}>
-            <XAxis dataKey="day" tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} />
+          <BarChart
+            data={chartData}
+            barGap={2}
+            barCategoryGap="28%"
+            margin={{ top: 4, right: 4, left: -16, bottom: 0 }}
+          >
+            <XAxis
+              dataKey="label"
+              tick={({ x, y, payload }: any) => {
+                const d = chartData.find(c => c.label === payload.value);
+                return (
+                  <g transform={`translate(${x},${y})`}>
+                    <text x={0} y={0} dy={10} textAnchor="middle" fontSize={11} fill={d?.isCurrent ? "#2c4f26" : "var(--muted-foreground)"} fontWeight={d?.isCurrent ? 700 : 400}>
+                      {payload.value}
+                    </text>
+                    <text x={0} y={0} dy={22} textAnchor="middle" fontSize={9} fill="var(--muted-foreground)">
+                      {d?.subLabel}
+                    </text>
+                  </g>
+                );
+              }}
+              interval={0}
+              height={36}
+              axisLine={false}
+              tickLine={false}
+            />
             <YAxis tick={{ fontSize: 10, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} />
             <Tooltip content={<CustomTooltip />} cursor={{ fill: "rgba(0,0,0,0.04)", rx: 4 }} />
-            <Bar dataKey="net" radius={[3, 3, 0, 0]}>
+            <Bar dataKey="net" name="Net cap" radius={[3, 3, 0, 0]}>
               {chartData.map((entry, i) => (
-                <Cell key={i} fill={entry.shortage ? "#ef4444" : "#2c4f26"} />
+                <Cell key={i} fill={entry.isCurrent ? "#2c4f26" : "#4a7c40"} opacity={entry.isCurrent ? 1 : 0.55} />
               ))}
             </Bar>
-            <Line
-              dataKey="required"
-              type="step"
-              stroke="#f59e0b"
-              strokeWidth={1.5}
-              strokeDasharray="5 3"
-              dot={false}
-              activeDot={false}
-            />
-          </ComposedChart>
+            <Bar dataKey="required" name="Required" radius={[3, 3, 0, 0]}>
+              {chartData.map((entry, i) => (
+                <Cell key={i} fill="#f59e0b" opacity={entry.isCurrent ? 1 : 0.5} />
+              ))}
+            </Bar>
+            <Bar dataKey="scheduled" name="Scheduled" radius={[3, 3, 0, 0]}>
+              {chartData.map((entry, i) => (
+                <Cell key={i} fill="#10b981" opacity={entry.isCurrent ? 1 : 0.5} />
+              ))}
+            </Bar>
+          </BarChart>
         </ResponsiveContainer>
       </div>
-      {shortDays.length > 0 && (
-        <div className="mt-2 flex gap-1 flex-wrap">
-          {shortDays.map(d => (
-            <span key={d.day} className="text-[10px] bg-red-50 dark:bg-red-950 text-red-600 dark:text-red-400 px-1.5 py-0.5 rounded-full font-medium">
-              {d.day} short by {fmt(d.required - d.net)}h
-            </span>
-          ))}
-        </div>
-      )}
+      <p className="text-[10px] text-muted-foreground mt-1 text-right">Current week highlighted</p>
     </div>
   );
 }
@@ -160,20 +209,10 @@ function UtilisationDonut({ data }: { data: ProcessingResult }) {
     if (cx == null || cy == null) return null;
     return (
       <g>
-        <text
-          x={cx} y={cy - 7}
-          textAnchor="middle"
-          style={{ fontSize: 20, fontWeight: 700, fill: "currentColor" }}
-          className="fill-foreground"
-        >
+        <text x={cx} y={cy - 7} textAnchor="middle" style={{ fontSize: 20, fontWeight: 700 }} className="fill-foreground">
           {utilizationPct}%
         </text>
-        <text
-          x={cx} y={cy + 11}
-          textAnchor="middle"
-          style={{ fontSize: 10 }}
-          className="fill-muted-foreground"
-        >
+        <text x={cx} y={cy + 11} textAnchor="middle" style={{ fontSize: 10 }} className="fill-muted-foreground">
           utilised
         </text>
       </g>
@@ -244,7 +283,7 @@ function TopDrains({ data }: { data: ProcessingResult }) {
         const hours = Math.min(emp.hours || 0, cap);
         if (hours === 0) return;
         const rec = map.get(emp.employeeName) ?? { sick: 0, unavail: 0, holiday: 0 };
-        if (SICK_STATUSES.has(emp.status))    rec.sick    += hours;
+        if (SICK_STATUSES.has(emp.status))         rec.sick    += hours;
         else if (UNAVAIL_STATUSES.has(emp.status)) rec.unavail += hours;
         else if (HOLIDAY_STATUSES.has(emp.status)) rec.holiday += hours;
         map.set(emp.employeeName, rec);
@@ -307,9 +346,12 @@ function TopDrains({ data }: { data: ProcessingResult }) {
 
 // ── Main export ────────────────────────────────────────────────────────────────
 
-interface InsightChartsProps { data: ProcessingResult }
+interface InsightChartsProps {
+  data: ProcessingResult;
+  allHistoryData?: CapacityAnalysisSummary[];
+}
 
-export function InsightCharts({ data }: InsightChartsProps) {
+export function InsightCharts({ data, allHistoryData }: InsightChartsProps) {
   return (
     <div className="px-6 pb-6 pt-2">
       <div className="flex items-center gap-2 mb-4">
@@ -318,7 +360,7 @@ export function InsightCharts({ data }: InsightChartsProps) {
         <span className="text-[11px] text-muted-foreground">— the story behind the numbers</span>
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <DailyCapacityChart data={data} />
+        <FourWeekChart data={data} allHistoryData={allHistoryData} />
         <UtilisationDonut data={data} />
         <TopDrains data={data} />
       </div>
