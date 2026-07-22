@@ -231,12 +231,12 @@ function SidebarItem({ item, collapsed, isPinned, isActive, onTogglePin }: Sideb
             "flex items-center gap-2.5 rounded-md mx-2 transition-all duration-100 outline-none select-none",
             collapsed ? "px-2 py-2 justify-center" : "px-2.5 py-1.5",
             isActive
-              ? "bg-primary/10 text-primary font-medium"
-              : "text-foreground/70 hover:bg-muted hover:text-foreground",
+              ? "bg-white/20 text-white font-medium"
+              : "text-white/65 hover:bg-white/10 hover:text-white",
           ].join(" ")}
           title={collapsed ? item.label : undefined}
         >
-          <item.icon className={`w-4 h-4 shrink-0 ${isActive ? "text-primary" : ""}`} />
+          <item.icon className="w-4 h-4 shrink-0" />
           {!collapsed && (
             <span className="text-sm flex-1 truncate">{item.label}</span>
           )}
@@ -251,14 +251,14 @@ function SidebarItem({ item, collapsed, isPinned, isActive, onTogglePin }: Sideb
           title={isPinned ? "Unpin" : "Pin"}
         >
           <Star
-            className={`w-3 h-3 ${isPinned ? "fill-amber-500 text-amber-500" : "text-muted-foreground/50 hover:text-amber-400"}`}
+            className={`w-3 h-3 ${isPinned ? "fill-amber-400 text-amber-400" : "text-white/30 hover:text-amber-400"}`}
           />
         </button>
       )}
 
       {/* Tooltip for collapsed mode */}
       {collapsed && hovered && (
-        <div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 z-50 px-2 py-1 bg-popover border border-border text-foreground text-xs rounded shadow-md whitespace-nowrap pointer-events-none">
+        <div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 z-50 px-2 py-1 bg-gray-900 text-white text-xs rounded shadow-md whitespace-nowrap pointer-events-none">
           {item.label}
         </div>
       )}
@@ -286,20 +286,20 @@ function UserAvatar({ collapsed }: { collapsed: boolean }) {
       <DropdownMenuTrigger asChild>
         <button
           className={[
-            "flex items-center gap-2.5 rounded-lg p-2 w-full transition-colors hover:bg-muted outline-none",
+            "flex items-center gap-2.5 rounded-lg p-2 w-full transition-colors hover:bg-white/10 outline-none",
             collapsed ? "justify-center" : "",
           ].join(" ")}
         >
-          <div className="h-7 w-7 rounded-full bg-primary/15 text-primary flex items-center justify-center text-[11px] font-bold shrink-0">
+          <div className="h-7 w-7 rounded-full bg-white/20 text-white flex items-center justify-center text-[11px] font-bold shrink-0">
             {initials}
           </div>
           {!collapsed && (
             <>
               <div className="flex-1 text-left min-w-0">
-                <div className="text-xs font-medium text-foreground truncate">{user.displayName}</div>
-                <div className="text-[10px] text-muted-foreground truncate">{user.email}</div>
+                <div className="text-xs font-medium text-white/90 truncate">{user.displayName}</div>
+                <div className="text-[10px] text-white/45 truncate">{user.email}</div>
               </div>
-              <ChevronDown className="w-3 h-3 text-muted-foreground shrink-0" />
+              <ChevronDown className="w-3 h-3 text-white/35 shrink-0" />
             </>
           )}
         </button>
@@ -392,9 +392,10 @@ export function Sidebar() {
     <>
       <aside
         className={[
-          "h-screen flex flex-col shrink-0 border-r border-border bg-[#fafaf9] dark:bg-gray-900 transition-all duration-200 overflow-hidden",
+          "h-screen flex flex-col shrink-0 transition-all duration-200 overflow-hidden",
           collapsed ? "w-[56px]" : "w-[220px]",
         ].join(" ")}
+        style={{ background: "#2c4f26" }}
       >
         {/* ── App header ── */}
         <div className={[
@@ -408,19 +409,19 @@ export function Sidebar() {
             <img
               src={homeInsteadLogo}
               alt="Home Instead"
-              className={`object-contain rounded shrink-0 ${collapsed ? "h-7 w-7" : "h-6 w-6"}`}
+              className={`object-contain rounded shrink-0 opacity-90 ${collapsed ? "h-7 w-7" : "h-6 w-6"}`}
             />
             {!collapsed && (
               <div className="min-w-0">
-                <div className="text-sm font-semibold text-foreground truncate leading-tight">Care Capacity</div>
-                <div className="text-[10px] text-muted-foreground truncate leading-tight">Home Instead</div>
+                <div className="text-sm font-semibold text-white truncate leading-tight">Care Capacity</div>
+                <div className="text-[10px] text-white/50 truncate leading-tight">Home Instead</div>
               </div>
             )}
           </button>
           {!collapsed && (
             <button
               onClick={toggleCollapsed}
-              className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-colors shrink-0"
+              className="p-1 rounded text-white/40 hover:text-white hover:bg-white/10 transition-colors shrink-0"
               title="Collapse sidebar"
             >
               <PanelLeftClose className="w-4 h-4" />
@@ -440,7 +441,7 @@ export function Sidebar() {
           <button
             onClick={() => setPaletteOpen(true)}
             className={[
-              "w-full flex items-center gap-2 rounded-lg border border-border bg-background text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors",
+              "w-full flex items-center gap-2 rounded-lg border border-white/15 bg-white/10 text-white/60 hover:text-white hover:bg-white/15 transition-colors",
               collapsed ? "p-2 justify-center" : "px-3 py-1.5",
             ].join(" ")}
             title="Search (⌘K)"
@@ -449,7 +450,7 @@ export function Sidebar() {
             {!collapsed && (
               <>
                 <span className="flex-1 text-left text-xs">Search...</span>
-                <kbd className="text-[10px] font-mono bg-muted px-1 py-0.5 rounded border border-border/50 leading-none">
+                <kbd className="text-[10px] font-mono bg-white/10 text-white/50 px-1 py-0.5 rounded border border-white/10 leading-none">
                   ⌘K
                 </kbd>
               </>
@@ -463,7 +464,7 @@ export function Sidebar() {
           {pinnedItems.length > 0 && (
             <div>
               {!collapsed && (
-                <div className="px-4 pb-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/70">
+                <div className="px-4 pb-1 text-[10px] font-semibold uppercase tracking-widest text-white/35">
                   Pinned
                 </div>
               )}
@@ -486,12 +487,12 @@ export function Sidebar() {
           {visibleGroups.map(group => (
             <div key={group.label}>
               {!collapsed && (
-                <div className="px-4 pb-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/70">
+                <div className="px-4 pb-1 text-[10px] font-semibold uppercase tracking-widest text-white/35">
                   {group.label}
                 </div>
               )}
               {collapsed && pinnedItems.length > 0 && (
-                <div className="mx-2 mb-1 border-t border-border/50" />
+                <div className="mx-2 mb-1 border-t border-white/10" />
               )}
               <div className="space-y-0.5">
                 {group.items.map(item => (
@@ -510,12 +511,12 @@ export function Sidebar() {
         </nav>
 
         {/* ── Footer ── */}
-        <div className="shrink-0 border-t border-border px-1 pt-2 pb-2 space-y-1">
+        <div className="shrink-0 border-t border-white/10 px-1 pt-2 pb-2 space-y-1">
           {/* Expand button when collapsed */}
           {collapsed && (
             <button
               onClick={toggleCollapsed}
-              className="w-full flex justify-center p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-md transition-colors"
+              className="w-full flex justify-center p-2 text-white/40 hover:text-white hover:bg-white/10 rounded-md transition-colors"
               title="Expand sidebar"
             >
               <PanelLeftOpen className="w-4 h-4" />
@@ -526,7 +527,7 @@ export function Sidebar() {
           <button
             onClick={() => setHelpOpen(true)}
             className={[
-              "w-full flex items-center gap-2.5 rounded-md px-2 py-1.5 text-muted-foreground/70 hover:text-foreground hover:bg-muted transition-colors",
+              "w-full flex items-center gap-2.5 rounded-md px-2 py-1.5 text-white/50 hover:text-white hover:bg-white/10 transition-colors",
               collapsed ? "justify-center" : "",
             ].join(" ")}
             title={collapsed ? "Help" : undefined}
