@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useEffect, useMemo } from "react";
 import { clientLogger } from '@/lib/logger';
 import { useLocation, useSearch } from "wouter";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { queryClient, toAbsoluteUrl } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -19,6 +19,7 @@ import { useWeek } from "@/contexts/WeekContext";
 
 import { DailyCapacityTab } from "@/components/dashboard/DailyCapacityTab";
 import { OverviewTab } from "@/components/dashboard/OverviewTab";
+import { SmartHero } from "@/components/dashboard/SmartHero";
 import { computeGhLoss, type GhLossResult } from "@/utils/dashboard-utils";
 
 export default function Dashboard() {
@@ -68,6 +69,29 @@ export default function Dashboard() {
       (data as any).ghLossRawSummary ?? undefined,
     );
   }, [filteredData, processedData]);
+
+  const currentWeekStartDate = useMemo(() => {
+    const data = filteredData || processedData;
+    try {
+      const d = data?.dailySummary?.[0]?.date;
+      return d ? d.slice(0, 10) : null;
+    } catch { return null; }
+  }, [filteredData, processedData]);
+
+  const { data: lastSyncData } = useQuery<{ uploadedAt: string | null }>({
+    queryKey: ["/api/pp/last-sync", selectedBranchId, currentWeekStartDate],
+    queryFn: async () => {
+      if (!selectedBranchId) return { uploadedAt: null };
+      const url = currentWeekStartDate
+        ? `/api/pp/last-sync/${selectedBranchId}?weekStartDate=${currentWeekStartDate}`
+        : `/api/pp/last-sync/${selectedBranchId}`;
+      const res = await fetch(toAbsoluteUrl(url), { credentials: "include" });
+      if (!res.ok) return { uploadedAt: null };
+      return res.json();
+    },
+    enabled: !!selectedBranchId,
+    staleTime: 60_000,
+  });
 
   useEffect(() => {
     const handleReset = () => {
@@ -168,18 +192,18 @@ export default function Dashboard() {
 
   return (
     <div className="h-full w-full bg-background scroll-modern flex flex-col overflow-hidden" data-testid="dashboard-container">
-      {/* Hero Section — Only show on Overview tab */}
+      {/* Smart Hero — always visible on overview tab */}
       {activeTab === "overview" && (
-        <div className="bg-gradient-to-br from-primary/5 via-secondary/5 to-tertiary/5 border-b border-card-border shrink-0">
-          <div className="w-full px-lg py-6 text-center">
-            <h1 className="font-display text-5xl font-semibold bg-gradient-to-r from-blue-600 to-emerald-600 bg-clip-text text-transparent mb-2">
-              Welcome to Care Capacity Dashboard
-            </h1>
-            <p className="text-xl text-muted-foreground max-w-3xl mx-auto leading-relaxed">
-              Intelligent workforce capacity analysis for optimal care scheduling and resource management
-            </p>
-          </div>
-        </div>
+        <SmartHero
+          processedData={filteredData || processedData}
+          allHistoryData={allHistoryData}
+          lastSyncedAt={lastSyncData?.uploadedAt ?? null}
+          selectedWeekId={selectedWeekId}
+          handleWeekChange={handleWeekChange}
+          onUploadClick={() => setShowUploadPanel(!showUploadPanel)}
+          onProcessClick={() => navigate('/app/people-planner')}
+          isLoadingLatest={isLoadingLatest}
+        />
       )}
 
       {/* Main Content Area */}
@@ -187,26 +211,7 @@ export default function Dashboard() {
 
         {/* Upload Section - no-data state */}
         {!processedData && (
-          <div className="mb-4 flex flex-wrap gap-3 animate-fade-in">
-            <Button
-              onClick={() => setShowUploadPanel(!showUploadPanel)}
-              variant="outline"
-              className="glass-card hover:shadow-lg transition-all duration-200 h-10 px-5"
-              data-testid="toggle-upload-panel"
-            >
-              <Upload className="w-4 h-4 mr-2" />
-              {showUploadPanel ? 'Hide Upload Panel' : 'Upload New Data'}
-            </Button>
-            <Button
-              onClick={() => navigate('/app/people-planner')}
-              variant="outline"
-              className="glass-card hover:shadow-lg transition-all duration-200 h-10 px-5 border-violet-200 dark:border-violet-800 text-violet-700 dark:text-violet-300 hover:bg-violet-50 dark:hover:bg-violet-950"
-              title="Automatically download reports from People Planner"
-            >
-              <Bot className="w-4 h-4 mr-2" />
-              Process Data
-            </Button>
-          </div>
+          <div className="mb-2" />
         )}
 
         {!processedData && showUploadPanel && (
@@ -435,10 +440,6 @@ export default function Dashboard() {
                   setFilteredData={setFilteredData}
                   setSelectedDate={setSelectedDate}
                   setFiles={setFiles}
-                  selectedWeekId={selectedWeekId}
-                  handleWeekChange={handleWeekChange}
-                  allHistoryData={allHistoryData}
-                  navigate={navigate}
                 />
               </TabsContent>
 

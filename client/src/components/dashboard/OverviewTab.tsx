@@ -1,14 +1,8 @@
 import { useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { toAbsoluteUrl } from "@/lib/queryClient";
-import { useBranch } from "@/contexts/BranchContext";
-import { clientLogger } from '@/lib/logger';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Dialog,
   DialogContent,
@@ -17,11 +11,11 @@ import {
 } from "@/components/ui/dialog";
 import {
   Upload, FileSpreadsheet, AlertTriangle, CheckCircle,
-  TrendingUp, Users, Clock, Calendar, RefreshCw, Target, Bot
+  TrendingUp, Users, Clock, Calendar, RefreshCw, Target,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { MetricCardSkeleton } from "@/components/loading-skeleton";
-import type { ProcessingResult, CapacityAnalysisSummary } from "@shared/schema";
+import type { ProcessingResult } from "@shared/schema";
 import { computeGhLoss, type GhLossResult } from "@/utils/dashboard-utils";
 
 interface FilesState {
@@ -47,10 +41,6 @@ interface OverviewTabProps {
   setFilteredData: (data: ProcessingResult | null) => void;
   setSelectedDate: (date: string | null) => void;
   setFiles: (files: FilesState) => void;
-  selectedWeekId: string | null;
-  handleWeekChange: (value: string) => void;
-  allHistoryData: CapacityAnalysisSummary[] | undefined;
-  navigate: (path: string) => void;
 }
 
 export function OverviewTab({
@@ -69,40 +59,12 @@ export function OverviewTab({
   setFilteredData,
   setSelectedDate,
   setFiles,
-  selectedWeekId,
-  handleWeekChange,
-  allHistoryData,
-  navigate,
 }: OverviewTabProps) {
   const { toast } = useToast();
   const [ghLossModalOpen, setGhLossModalOpen] = useState(false);
-  const { selectedBranchId } = useBranch();
 
   const data = filteredData || processedData;
 
-  // Derive the Monday start date of whichever week is currently displayed
-  const currentWeekStartDate = (() => {
-    try {
-      const d = data?.dailySummary?.[0]?.date;
-      return d ? d.slice(0, 10) : null;
-    } catch { return null; }
-  })();
-
-  const { data: lastSyncData } = useQuery<{ uploadedAt: string | null; weekStartDate?: string | null; weekEndDate?: string }>({
-    queryKey: ["/api/pp/last-sync", selectedBranchId, currentWeekStartDate],
-    queryFn: async () => {
-      if (!selectedBranchId) return { uploadedAt: null };
-      const url = currentWeekStartDate
-        ? `/api/pp/last-sync/${selectedBranchId}?weekStartDate=${currentWeekStartDate}`
-        : `/api/pp/last-sync/${selectedBranchId}`;
-      const res = await fetch(toAbsoluteUrl(url), { credentials: "include" });
-      if (!res.ok) return { uploadedAt: null };
-      return res.json();
-    },
-    enabled: !!selectedBranchId,
-    staleTime: 60_000,
-    refetchInterval: 5 * 60_000,
-  });
   const [sicknessModalOpen, setSicknessModalOpen] = useState(false);
   const [unavailModalOpen, setUnavailModalOpen] = useState(false);
   const [holidayModalOpen, setHolidayModalOpen] = useState(false);
@@ -179,27 +141,6 @@ export function OverviewTab({
 
   return (
     <>
-      {/* Action bar */}
-      <div className="flex flex-wrap gap-3 animate-fade-in">
-        <Button
-          onClick={() => setShowUploadPanel(!showUploadPanel)}
-          variant="outline"
-          className="glass-card hover:shadow-lg transition-all duration-200 h-9 px-4 text-sm"
-          data-testid="toggle-upload-panel"
-        >
-          <Upload className="w-3.5 h-3.5 mr-2" />
-          {showUploadPanel ? 'Hide Upload Panel' : 'Upload New Data'}
-        </Button>
-        <Button
-          onClick={() => navigate('/app/people-planner')}
-          variant="outline"
-          className="glass-card hover:shadow-lg transition-all duration-200 h-9 px-4 text-sm border-violet-200 dark:border-violet-800 text-violet-700 dark:text-violet-300 hover:bg-violet-50 dark:hover:bg-violet-950"
-          title="Automatically download reports from People Planner"
-        >
-          <Bot className="w-3.5 h-3.5 mr-2" />
-          Process Data
-        </Button>
-      </div>
       {/* File Upload Section */}
       {showUploadPanel && (
         <Card className="mb-6 glass hover-lift animate-slide-up" data-testid="upload-section-overview">
@@ -362,133 +303,6 @@ export function OverviewTab({
           </CardContent>
         </Card>
       )}
-      {/* Data Period Information */}
-      <Card className="mb-6 glass hover-lift animate-slide-up" data-testid="data-period-info-overview">
-        <CardContent className="p-6 pt-[8px] pb-[8px]">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-6">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-lg">
-                  <Calendar className="w-5 h-5 text-white" />
-                </div>
-                <div className="flex-1">
-                  <div className="font-bold text-lg bg-gradient-to-r from-gray-900 to-gray-600 dark:from-white dark:to-gray-300 bg-clip-text text-transparent mb-2">
-                    Select Week:
-                  </div>
-                  <Select
-                    value={selectedWeekId || "latest"}
-                    onValueChange={handleWeekChange}
-                  >
-                    <SelectTrigger className="w-80" data-testid="week-selector" aria-label="Select week">
-                      <SelectValue placeholder="Select a week" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="latest">
-                        Current Week{(() => {
-                          try {
-                            const now = new Date();
-                            const day = now.getUTCDay();
-                            const diff = day === 0 ? -6 : 1 - day;
-                            const mon = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + diff));
-                            const sun = new Date(mon);
-                            sun.setUTCDate(mon.getUTCDate() + 6);
-                            return ` (${mon.toLocaleDateString('en-GB')} – ${sun.toLocaleDateString('en-GB')})`;
-                          } catch {
-                            return '';
-                          }
-                        })()}
-                      </SelectItem>
-                      {(() => {
-                        // 15-week window: 2 past weeks + current week + 13 future weeks
-                        const now = new Date();
-                        const day = now.getUTCDay();
-                        const diff = day === 0 ? -6 : 1 - day;
-                        const currentMonday = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + diff));
-                        const lowerCutoff = new Date(currentMonday);
-                        lowerCutoff.setUTCDate(lowerCutoff.getUTCDate() - 14);
-                        const upperCutoff = new Date(currentMonday);
-                        upperCutoff.setUTCDate(upperCutoff.getUTCDate() + 13 * 7);
-                        return allHistoryData
-                          ?.filter((a) => {
-                            if (!a.weekStartDate) return false;
-                            const d = new Date(a.weekStartDate);
-                            return d >= lowerCutoff && d <= upperCutoff;
-                          })
-                          .map((analysis) => {
-                            try {
-                              if (!analysis.weekStartDate || !analysis.weekEndDate) return null;
-                              const startDate = new Date(analysis.weekStartDate).toLocaleDateString('en-GB');
-                              const endDate = new Date(analysis.weekEndDate).toLocaleDateString('en-GB');
-                              const monthYear = new Date(analysis.weekStartDate).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-                              return (
-                                <SelectItem key={analysis.id} value={analysis.id}>
-                                  Week of {startDate} - {endDate} ({monthYear})
-                                </SelectItem>
-                              );
-                            } catch (error) {
-                              clientLogger.error('Error rendering week option:', error);
-                              return null;
-                            }
-                          })
-                          .filter(Boolean);
-                      })()}
-                    </SelectContent>
-                  </Select>
-                  <div className="flex items-center gap-3 mt-1">
-                    <span className="text-sm text-gray-600 dark:text-gray-400 font-medium">
-                      {(() => {
-                        try {
-                          if (!data?.dailySummary || data.dailySummary.length === 0) return '';
-                          const startDate = new Date(data.dailySummary[0].date);
-                          return startDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-                        } catch (error) {
-                          clientLogger.error('Error formatting month year:', error);
-                          return '';
-                        }
-                      })()}
-                    </span>
-                    {lastSyncData?.uploadedAt && (
-                      <span className="text-xs text-gray-400 dark:text-gray-500 flex items-center gap-1">
-                        <Clock className="w-3 h-3 flex-shrink-0" />
-                        Last synced:{" "}
-                        {new Date(lastSyncData.uploadedAt).toLocaleString('en-GB', {
-                          weekday: 'short',
-                          day: 'numeric',
-                          month: 'short',
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        })}
-                      </span>
-                    )}
-                  </div>
-                </div>
-              </div>
-              <div className="flex items-center gap-3">
-                <Badge variant="outline" className="flex items-center gap-2 py-2 px-3 bg-white dark:bg-gray-800">
-                  <Clock className="w-4 h-4" />
-                  <span className="font-medium">{data?.dailySummary.length || 0} days</span>
-                </Badge>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="ghost"
-                size="sm"
-                aria-label="Refresh dashboard data"
-                onClick={() => {
-                  toast({
-                    title: "Data Refreshed",
-                    description: "Dashboard data has been updated."
-                  });
-                }}
-                className="hover:bg-blue-50 dark:hover:bg-blue-900/20"
-              >
-                <RefreshCw className="w-4 h-4" aria-hidden="true" />
-              </Button>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
       {/* Metric Cards */}
       {isProcessing || processMutation.isPending ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
