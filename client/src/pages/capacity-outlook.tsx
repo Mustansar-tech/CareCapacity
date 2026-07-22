@@ -1382,7 +1382,7 @@ export default function CapacityOutlookPage() {
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button size="sm" className="bg-red-600 hover:bg-red-700 text-white gap-1.5">
-                      <Minus className="w-3.5 h-3.5" /> −
+                      <Minus className="w-3.5 h-3.5" /> Leaver
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-52">
@@ -1399,7 +1399,7 @@ export default function CapacityOutlookPage() {
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5">
-                      <Plus className="w-3.5 h-3.5" /> +
+                      <Plus className="w-3.5 h-3.5" /> Joiner
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-52">
