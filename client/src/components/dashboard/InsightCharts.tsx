@@ -3,7 +3,8 @@ import {
   ComposedChart, Bar, Line, XAxis, YAxis, Tooltip,
   ResponsiveContainer, PieChart, Pie, Cell, Legend, Label,
 } from "recharts";
-import { TrendingDown, BriefcaseMedical, AlertTriangle, Umbrella } from "lucide-react";
+import { TrendingDown, BriefcaseMedical, AlertTriangle, Umbrella, Info } from "lucide-react";
+import { Tooltip as UITooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import type { ProcessingResult, CapacityAnalysisSummary } from "@shared/schema";
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
@@ -274,15 +275,36 @@ function UtilisationDonut({ data }: { data: ProcessingResult }) {
         <text x={cx} y={cy + 11} textAnchor="middle" style={{ fontSize: 10 }} className="fill-muted-foreground">
           utilised
         </text>
+        {utilizationPct > 100 && (
+          <text x={cx} y={cy + 25} textAnchor="middle" style={{ fontSize: 9 }} className="fill-amber-500">
+            ⚠ over capacity
+          </text>
+        )}
       </g>
     );
   };
 
   return (
     <div className="bg-card border border-border rounded-xl p-4 shadow-sm flex flex-col h-full">
-      <div className="mb-1">
-        <h3 className="text-sm font-semibold text-foreground">Capacity Breakdown</h3>
-        <p className="text-[11px] text-muted-foreground mt-0.5">How net capacity is allocated and lost this week</p>
+      <div className="mb-1 flex items-start justify-between gap-2">
+        <div>
+          <h3 className="text-sm font-semibold text-foreground">Capacity Breakdown</h3>
+          <p className="text-[11px] text-muted-foreground mt-0.5">How net capacity is allocated and lost this week</p>
+        </div>
+        <TooltipProvider>
+          <UITooltip>
+            <TooltipTrigger asChild>
+              <button className="shrink-0 mt-0.5 text-muted-foreground hover:text-foreground transition-colors">
+                <Info className="w-3.5 h-3.5" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="left" className="max-w-[240px] text-xs leading-relaxed">
+              <p className="font-semibold mb-1">What does "% utilised" mean?</p>
+              <p>Client scheduled hours ÷ net capacity. Net capacity is contracted hours after removing sickness, holidays and unavailability.</p>
+              <p className="mt-1.5 text-amber-500 font-medium">Over 100% means more care hours were booked than the capacity model expected — usually staff working overtime or the model being conservative. Not necessarily a problem.</p>
+            </TooltipContent>
+          </UITooltip>
+        </TooltipProvider>
       </div>
       <div className="flex-1 min-h-0 mt-1">
         <ResponsiveContainer width="100%" height="100%">
