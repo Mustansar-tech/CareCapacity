@@ -311,7 +311,7 @@ export function SmartHero({
 
         <div className="flex items-start gap-6 flex-wrap lg:flex-nowrap">
           {/* ── Left: narrative + controls ── */}
-          <div className="shrink-0 w-[360px]">
+          <div className="flex-1 min-w-[320px]">
             {data && narrative && cfg ? (
               <>
                 {/* Status + week context */}
