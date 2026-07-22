@@ -440,7 +440,6 @@ export default function Dashboard() {
                   setFilteredData={setFilteredData}
                   setSelectedDate={setSelectedDate}
                   setFiles={setFiles}
-                  allHistoryData={allHistoryData}
                 />
               </TabsContent>
 
