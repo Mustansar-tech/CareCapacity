@@ -1362,8 +1362,11 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
     let h = 0; for (const c of name) h = (h * 31 + c.charCodeAt(0)) & 0xffff;
     return AVATAR_GRADIENTS[h % AVATAR_GRADIENTS.length];
   };
-  const avatarInitials = (name: string) =>
-    name.trim().split(/\s+/).map(n => n[0]).slice(0, 2).join('').toUpperCase();
+  const avatarInitials = (name: string) => {
+    const parts = name.trim().split(/\s+/);
+    const first = parts[0] ?? '';
+    return first.substring(0, 2).toUpperCase();
+  };
 
   const genderColor = (name: string) => {
     const g = (employeeGenderMap.get(name) || '').toLowerCase();

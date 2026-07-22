@@ -463,7 +463,7 @@ export function SchedulingTab({ data, selectedDate, onDateChange }: SchedulingTa
                       <div className="flex items-start justify-between mb-4">
                         <div className="flex items-center gap-3">
                           <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold text-white ${getGenderColorClass(employee.employeeName)}`}>
-                            {employee.employeeName.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()}
+                            {employee.employeeName.trim().split(/\s+/)[0].substring(0, 2).toUpperCase()}
                           </div>
                           <div>
                             <h4 className={`font-semibold ${getGenderColorClass(employee.employeeName)}`}>
