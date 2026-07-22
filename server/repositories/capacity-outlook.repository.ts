@@ -174,6 +174,14 @@ export async function createJoiner(data: Omit<InsertJoiner, 'stage'> & { stage: 
   return row;
 }
 
+export async function getJoinerById(id: string, branchId: string): Promise<Joiner | null> {
+  const [row] = await db
+    .select()
+    .from(joiners)
+    .where(and(eq(joiners.id, id), eq(joiners.branchId, branchId)));
+  return row ?? null;
+}
+
 export async function updateJoiner(
   id: string,
   branchId: string,

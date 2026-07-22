@@ -86,9 +86,8 @@ function daysSince(dateStr: string): number {
   return Math.floor((Date.now() - d) / 86400000);
 }
 
-function isStale14Days(j: { stage: string; completedStages?: string[] | null; trainingDate?: string | null }): boolean {
-  const hasTraining = j.completedStages ? j.completedStages.includes('Training Attended') : j.stage === 'Training Attended';
-  return hasTraining && !!j.trainingDate && daysSince(j.trainingDate) >= 14;
+function isStale14Days(j: { trainingDay2Date?: string | null }): boolean {
+  return !!j.trainingDay2Date && daysSince(j.trainingDay2Date) >= 14;
 }
 
 // ── RAG helpers ───────────────────────────────────────────────────────────────
@@ -1629,6 +1628,7 @@ export default function CapacityOutlookPage() {
                           <TableHead>Contracted</TableHead>
                           <SortHead col="postcode" label="Postcode" current={joinerSort} onSort={toggleJoinerSort} />
                           <SortHead col="stage" label="Stage" current={joinerSort} onSort={toggleJoinerSort} />
+                          <SortHead col="trainingDate" label="Training" current={joinerSort} onSort={toggleJoinerSort} />
                           {isScheduler && <TableHead className="text-right">Actions</TableHead>}
                         </TableRow>
                       </TableHeader>
@@ -1660,23 +1660,36 @@ export default function CapacityOutlookPage() {
                                       : "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300",
                                   ].join(' ')}>{m}</Badge>
                                 ))}
-                                {j.trainingDate && (() => {
-                                  const days = j.trainingDate.split(',').map(s => s.trim()).filter(Boolean);
-                                  if (days.length === 0) return null;
-                                  return (
-                                    <span className="flex items-center gap-0.5 ml-0.5" title={`Training: day${days.length > 1 ? 's' : ''} ${days.join(', ')} of 4`}>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              {j.trainingDate ? (() => {
+                                const days = j.trainingDate.split(',').map(s => s.trim()).filter(Boolean);
+                                return (
+                                  <div className="flex flex-col gap-1">
+                                    <span
+                                      className="flex items-center gap-1"
+                                      title={days.length > 0 ? `Days ${days.join(', ')} of 4 attended` : 'No training days recorded'}
+                                    >
                                       {[1,2,3,4].map(d => (
-                                        <span key={d} className={`w-2 h-2 rounded-full ${days.includes(String(d)) ? 'bg-violet-500' : 'bg-muted-foreground/25'}`} />
+                                        <span
+                                          key={d}
+                                          className={`w-5 h-5 rounded-full border text-[10px] font-bold flex items-center justify-center ${
+                                            days.includes(String(d))
+                                              ? 'bg-violet-500 border-violet-500 text-white'
+                                              : 'border-border text-muted-foreground/40'
+                                          }`}
+                                        >{d}</span>
                                       ))}
                                     </span>
-                                  );
-                                })()}
-                                {isStale14Days(j) && (
-                                  <Badge className="text-xs bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300 border-red-200 dark:border-red-700 gap-1">
-                                    <AlertTriangle className="w-3 h-3" /> Stale
-                                  </Badge>
-                                )}
-                              </div>
+                                    {isStale14Days(j) && (
+                                      <Badge className="text-xs bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300 border-red-200 dark:border-red-700 gap-1 w-fit">
+                                        <AlertTriangle className="w-3 h-3" /> Stale
+                                      </Badge>
+                                    )}
+                                  </div>
+                                );
+                              })() : <span className="text-muted-foreground/40 text-xs">—</span>}
                             </TableCell>
                             {isScheduler && (
                               <TableCell className="text-right">

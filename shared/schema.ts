@@ -846,6 +846,7 @@ export const joiners = pgTable("joiners", {
   contractedHours: real("contracted_hours"),
   postcode: text("postcode"),
   trainingDate: text("training_date"),
+  trainingDay2Date: text("training_day2_date"),
   expectedStartDate: text("expected_start_date"),
   completedStages: text("completed_stages").array(),
   stage: text("stage").notNull(),

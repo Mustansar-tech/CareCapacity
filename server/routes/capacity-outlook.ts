@@ -14,6 +14,7 @@ import {
   hardDeleteLeaver,
   createJoiner,
   updateJoiner,
+  getJoinerById,
   deleteJoiner,
   hardDeleteJoiner,
   getOutlookDetail,
@@ -298,6 +299,11 @@ export function registerCapacityOutlookRoutes(app: Express): void {
         ? new Date().toISOString().split('T')[0]
         : (data.hiredAt ?? null);
 
+      // Auto-set trainingDay2Date when Day 2 is included in trainingDate
+      const trainingDays = (data.trainingDate ?? '').split(',').map(s => s.trim()).filter(Boolean);
+      const day2Selected = trainingDays.includes('2');
+      const trainingDay2Date = day2Selected ? new Date().toISOString().split('T')[0] : null;
+
       const joiner = await createJoiner({
         ...data,
         stage,
@@ -305,6 +311,7 @@ export function registerCapacityOutlookRoutes(app: Express): void {
         completedStages,
         confidenceWeight,
         hiredAt,
+        trainingDay2Date,
         createdBy: req.session?.userId ?? null,
       });
 
@@ -345,9 +352,33 @@ export function registerCapacityOutlookRoutes(app: Express): void {
         ? new Date().toISOString().split('T')[0]
         : (data.hiredAt ?? undefined);
 
-      const updated = await updateJoiner(id, branchId, {
+      // Auto-manage trainingDay2Date: set it the first time Day 2 is selected; clear it if Day 2 is removed
+      const newTrainingDays = (data.trainingDate ?? '').split(',').map(s => s.trim()).filter(Boolean);
+      const day2Now = newTrainingDays.includes('2');
+      let trainingDay2Date: string | null | undefined = undefined; // undefined = don't touch
+      if ('trainingDate' in data) {
+        const existing = await getJoinerById(id, branchId);
+        const prevTrainingDays = (existing?.trainingDate ?? '').split(',').map(s => s.trim()).filter(Boolean);
+        const day2Before = prevTrainingDays.includes('2');
+        if (day2Now && !day2Before) {
+          trainingDay2Date = new Date().toISOString().split('T')[0]; // first time Day 2 selected
+        } else if (!day2Now && day2Before) {
+          trainingDay2Date = null; // Day 2 removed — reset the clock
+        } else if (day2Now && day2Before) {
+          trainingDay2Date = existing?.trainingDay2Date ?? null; // already set — preserve
+        } else {
+          trainingDay2Date = null;
+        }
+      }
+
+      const updatePayload: Parameters<typeof updateJoiner>[2] = {
         ...data, stage, status, completedStages, confidenceWeight, hiredAt,
-      });
+      };
+      if (trainingDay2Date !== undefined) {
+        updatePayload.trainingDay2Date = trainingDay2Date ?? undefined;
+      }
+
+      const updated = await updateJoiner(id, branchId, updatePayload);
       if (!updated) throw createAppError('Joiner not found or access denied', 404);
 
       await auditLog(
