@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { InsightCharts } from "./InsightCharts";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -563,6 +564,10 @@ export function OverviewTab({
           </div>
         </div>
       )}
+
+      {/* ── Intelligence View: charts below the KPI cards ── */}
+      {data && <InsightCharts data={data} />}
+
       {/* Desired Hours Info Modal */}
       <Dialog open={desiredHoursModalOpen} onOpenChange={setDesiredHoursModalOpen}>
         <DialogContent className="max-w-sm w-full">

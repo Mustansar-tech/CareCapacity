@@ -225,22 +225,21 @@ function SidebarItem({ item, collapsed, isPinned, isActive, onTogglePin }: Sideb
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
-      <Link href={href}>
-        <a
-          className={[
-            "flex items-center gap-2.5 rounded-md mx-2 transition-all duration-100 outline-none select-none",
-            collapsed ? "px-2 py-2 justify-center" : "px-2.5 py-1.5",
-            isActive
-              ? "bg-white/20 text-white font-medium"
-              : "text-white/65 hover:bg-white/10 hover:text-white",
-          ].join(" ")}
-          title={collapsed ? item.label : undefined}
-        >
-          <item.icon className="w-4 h-4 shrink-0" />
-          {!collapsed && (
-            <span className="text-sm flex-1 truncate">{item.label}</span>
-          )}
-        </a>
+      <Link
+        href={href}
+        className={[
+          "flex items-center gap-2.5 rounded-md mx-2 transition-all duration-100 outline-none select-none",
+          collapsed ? "px-2 py-2 justify-center" : "px-2.5 py-1.5",
+          isActive
+            ? "bg-white/20 text-white font-medium"
+            : "text-white/65 hover:bg-white/10 hover:text-white",
+        ].join(" ")}
+        title={collapsed ? item.label : undefined}
+      >
+        <item.icon className="w-4 h-4 shrink-0" />
+        {!collapsed && (
+          <span className="text-sm flex-1 truncate">{item.label}</span>
+        )}
       </Link>
 
       {/* Pin button — only visible on hover, only when not collapsed */}
