@@ -306,266 +306,230 @@ export function OverviewTab({
           </CardContent>
         </Card>
       )}
-      {/* Metric Cards */}
+      {/* ── Compact KPI strip ── */}
       {isProcessing || processMutation.isPending ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
-          {Array.from({ length: 10 }).map((_, i) => (
-            <MetricCardSkeleton key={i} />
-          ))}
+        <div className="px-6 pb-2">
+          <div className="grid grid-cols-5 xl:grid-cols-10 gap-2">
+            {Array.from({ length: 10 }).map((_, i) => (
+              <MetricCardSkeleton key={i} />
+            ))}
+          </div>
         </div>
-      ) : (
-        <div className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
+      ) : data ? (
+        <div className="px-6 pb-2">
+          <div className="grid grid-cols-5 xl:grid-cols-10 gap-2">
+
             {/* 1. Desired Hours */}
-            <Card
-              className="glass hover-lift animate-scale-in cursor-pointer"
+            <button
               data-testid="card-desired-total"
               onDoubleClick={() => setDesiredHoursModalOpen(true)}
               title="Double-click to see details"
+              className="text-left bg-card border border-border rounded-lg px-3 py-2 hover:bg-muted/50 transition-colors cursor-pointer"
             >
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-medium flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-green-400 to-green-500 flex items-center justify-center">
-                    <Clock className="w-4 h-4 text-white" />
-                  </div>
-                  <span className="text-gray-700 dark:text-gray-300">Desired Hours</span>
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-xl font-bold bg-gradient-to-r from-green-500 to-green-700 bg-clip-text text-transparent mb-1" data-testid="text-desired-sum">
-                  {data?.kpis.totalDesiredHoursSum || 0}h
+              <div className="flex items-center gap-1.5 mb-1">
+                <div className="w-5 h-5 rounded-md bg-gradient-to-br from-green-400 to-green-500 flex items-center justify-center shrink-0">
+                  <Clock className="w-3 h-3 text-white" />
                 </div>
-                <div className="text-xs text-gray-500 dark:text-gray-400">Total weekly desired</div>
-              </CardContent>
-            </Card>
+                <span className="text-[10px] text-muted-foreground font-medium truncate">Desired</span>
+              </div>
+              <div className="text-sm font-bold bg-gradient-to-r from-green-500 to-green-700 bg-clip-text text-transparent" data-testid="text-desired-sum">
+                {data.kpis.totalDesiredHoursSum || 0}h
+              </div>
+              <div className="text-[10px] text-muted-foreground mt-0.5">weekly target</div>
+            </button>
 
             {/* 2. Unavailability */}
-            <Card
-              className="glass hover-lift animate-scale-in cursor-pointer select-none"
+            <button
               data-testid="card-unavailability"
               onDoubleClick={() => setUnavailModalOpen(true)}
               title="Double-click to see breakdown"
+              className="text-left bg-card border border-border rounded-lg px-3 py-2 hover:bg-muted/50 transition-colors cursor-pointer select-none"
             >
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-medium flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-red-400 to-red-600 flex items-center justify-center">
-                    <AlertTriangle className="w-4 h-4 text-white" />
-                  </div>
-                  <span className="text-gray-700 dark:text-gray-300">Unavailability</span>
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-xl font-bold bg-gradient-to-r from-red-500 to-red-700 bg-clip-text text-transparent mb-1" data-testid="text-unavailability-sum">
-                  {data?.kpis.unavailabilitySum}h
+              <div className="flex items-center gap-1.5 mb-1">
+                <div className="w-5 h-5 rounded-md bg-gradient-to-br from-red-400 to-red-600 flex items-center justify-center shrink-0">
+                  <AlertTriangle className="w-3 h-3 text-white" />
                 </div>
-                <div className="text-xs text-gray-500 dark:text-gray-400">
-                  {unavailBreakdown.items.length} CP{unavailBreakdown.items.length === 1 ? "" : "s"} unavailable
-                </div>
-              </CardContent>
-            </Card>
+                <span className="text-[10px] text-muted-foreground font-medium truncate">Unavailable</span>
+              </div>
+              <div className="text-sm font-bold bg-gradient-to-r from-red-500 to-red-700 bg-clip-text text-transparent" data-testid="text-unavailability-sum">
+                {data.kpis.unavailabilitySum}h
+              </div>
+              <div className="text-[10px] text-muted-foreground mt-0.5">
+                {unavailBreakdown.items.length} CP{unavailBreakdown.items.length === 1 ? "" : "s"}
+              </div>
+            </button>
 
             {/* 3. Sickness */}
-            <Card
-              className="glass hover-lift animate-scale-in cursor-pointer select-none"
+            <button
               data-testid="card-sickness"
               onDoubleClick={() => setSicknessModalOpen(true)}
               title="Double-click to see breakdown"
+              className="text-left bg-card border border-border rounded-lg px-3 py-2 hover:bg-muted/50 transition-colors cursor-pointer select-none"
             >
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-medium flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-slate-400 to-slate-600 flex items-center justify-center">
-                    <AlertTriangle className="w-4 h-4 text-white" />
-                  </div>
-                  <span className="text-gray-700 dark:text-gray-300">Sickness</span>
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-xl font-bold bg-gradient-to-r from-slate-500 to-slate-700 bg-clip-text text-transparent mb-1" data-testid="text-sickness-sum">
-                  {data?.kpis.sicknessSum}h
+              <div className="flex items-center gap-1.5 mb-1">
+                <div className="w-5 h-5 rounded-md bg-gradient-to-br from-slate-400 to-slate-600 flex items-center justify-center shrink-0">
+                  <AlertTriangle className="w-3 h-3 text-white" />
                 </div>
-                <div className="text-xs text-gray-500 dark:text-gray-400">
-                  {sicknessBreakdown.items.length} CP{sicknessBreakdown.items.length === 1 ? "" : "s"} off sick
-                </div>
-              </CardContent>
-            </Card>
+                <span className="text-[10px] text-muted-foreground font-medium truncate">Sickness</span>
+              </div>
+              <div className="text-sm font-bold bg-gradient-to-r from-slate-500 to-slate-700 bg-clip-text text-transparent" data-testid="text-sickness-sum">
+                {data.kpis.sicknessSum}h
+              </div>
+              <div className="text-[10px] text-muted-foreground mt-0.5">
+                {sicknessBreakdown.items.length} CP{sicknessBreakdown.items.length === 1 ? "" : "s"} sick
+              </div>
+            </button>
 
             {/* 4. Holidays */}
-            <Card
-              className="glass hover-lift animate-scale-in cursor-pointer"
+            <button
               data-testid="card-holidays"
               onDoubleClick={() => setHolidayModalOpen(true)}
               title="Double-click to see breakdown"
+              className="text-left bg-card border border-border rounded-lg px-3 py-2 hover:bg-muted/50 transition-colors cursor-pointer"
             >
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-medium flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-400 to-purple-600 flex items-center justify-center">
-                    <Calendar className="w-4 h-4 text-white" />
-                  </div>
-                  <span className="text-gray-700 dark:text-gray-300">Holidays</span>
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-xl font-bold bg-gradient-to-r from-purple-500 to-purple-700 bg-clip-text text-transparent mb-1" data-testid="text-holidays-sum">
-                  {data?.kpis.holidaysSum || 0}h
+              <div className="flex items-center gap-1.5 mb-1">
+                <div className="w-5 h-5 rounded-md bg-gradient-to-br from-purple-400 to-purple-600 flex items-center justify-center shrink-0">
+                  <Calendar className="w-3 h-3 text-white" />
                 </div>
-                <div className="text-xs text-gray-500 dark:text-gray-400">
-                  {holidayBreakdown.items.length} CP{holidayBreakdown.items.length === 1 ? "" : "s"} on holiday
-                </div>
-              </CardContent>
-            </Card>
+                <span className="text-[10px] text-muted-foreground font-medium truncate">Holidays</span>
+              </div>
+              <div className="text-sm font-bold bg-gradient-to-r from-purple-500 to-purple-700 bg-clip-text text-transparent" data-testid="text-holidays-sum">
+                {data.kpis.holidaysSum || 0}h
+              </div>
+              <div className="text-[10px] text-muted-foreground mt-0.5">
+                {holidayBreakdown.items.length} CP{holidayBreakdown.items.length === 1 ? "" : "s"} off
+              </div>
+            </button>
 
             {/* 5. Net Capacity */}
-            <Card
-              className="glass hover-lift animate-scale-in cursor-pointer"
+            <button
               data-testid="card-net-capacity"
               onDoubleClick={() => setNetCapacityModalOpen(true)}
               title="Double-click to see details"
+              className="text-left bg-card border border-border rounded-lg px-3 py-2 hover:bg-muted/50 transition-colors cursor-pointer"
             >
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-medium flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-amber-500 to-amber-600 flex items-center justify-center">
-                    <Users className="w-4 h-4 text-white" />
-                  </div>
-                  <span className="text-gray-700 dark:text-gray-300">Net Capacity</span>
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-xl font-bold bg-gradient-to-r from-amber-600 to-amber-800 bg-clip-text text-transparent mb-1" data-testid="text-net-capacity-sum">
-                  {data?.kpis.netCapacitySum}h
+              <div className="flex items-center gap-1.5 mb-1">
+                <div className="w-5 h-5 rounded-md bg-gradient-to-br from-amber-500 to-amber-600 flex items-center justify-center shrink-0">
+                  <Users className="w-3 h-3 text-white" />
                 </div>
-                <div className="text-xs text-gray-500 dark:text-gray-400">Total available hours</div>
-              </CardContent>
-            </Card>
+                <span className="text-[10px] text-muted-foreground font-medium truncate">Net Capacity</span>
+              </div>
+              <div className="text-sm font-bold bg-gradient-to-r from-amber-600 to-amber-800 bg-clip-text text-transparent" data-testid="text-net-capacity-sum">
+                {data.kpis.netCapacitySum}h
+              </div>
+              <div className="text-[10px] text-muted-foreground mt-0.5">available hours</div>
+            </button>
 
-            {/* 6. Client Required / Domiciliary Hours */}
-            <Card
-              className="glass hover-lift animate-scale-in cursor-pointer"
+            {/* 6. Domiciliary / Client Required */}
+            <button
               data-testid="card-client-required"
               onDoubleClick={() => setDomiciliaryModalOpen(true)}
               title="Double-click to see details"
+              className="text-left bg-card border border-border rounded-lg px-3 py-2 hover:bg-muted/50 transition-colors cursor-pointer"
             >
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-medium flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center">
-                    <Clock className="w-4 h-4 text-white" />
-                  </div>
-                  <span className="text-gray-700 dark:text-gray-300">Domiciliary Hours</span>
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-xl font-bold bg-gradient-to-r from-emerald-600 to-emerald-800 bg-clip-text text-transparent mb-1" data-testid="text-client-required-sum">
-                  {data?.kpis.clientRequiredSum}h
+              <div className="flex items-center gap-1.5 mb-1">
+                <div className="w-5 h-5 rounded-md bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center shrink-0">
+                  <Clock className="w-3 h-3 text-white" />
                 </div>
-                <div className="text-xs text-gray-500 dark:text-gray-400">client care Hours</div>
-              </CardContent>
-            </Card>
+                <span className="text-[10px] text-muted-foreground font-medium truncate">Dom. Hours</span>
+              </div>
+              <div className="text-sm font-bold bg-gradient-to-r from-emerald-600 to-emerald-800 bg-clip-text text-transparent" data-testid="text-client-required-sum">
+                {data.kpis.clientRequiredSum}h
+              </div>
+              <div className="text-[10px] text-muted-foreground mt-0.5">client care</div>
+            </button>
 
-            {/* 6b. Client Scheduled Hours */}
-            <Card
-              className="glass hover-lift animate-scale-in cursor-pointer"
+            {/* 7. Client Scheduled */}
+            <button
               data-testid="card-client-scheduled"
               onDoubleClick={() => setClientScheduledModalOpen(true)}
               title="Double-click to see details"
+              className="text-left bg-card border border-border rounded-lg px-3 py-2 hover:bg-muted/50 transition-colors cursor-pointer"
             >
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-medium flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-teal-500 to-teal-600 flex items-center justify-center">
-                    <Clock className="w-4 h-4 text-white" />
-                  </div>
-                  <span className="text-gray-700 dark:text-gray-300">Client Scheduled</span>
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-xl font-bold bg-gradient-to-r from-teal-600 to-teal-800 bg-clip-text text-transparent mb-1" data-testid="text-client-scheduled-sum">
-                  {data?.kpis.clientScheduledHoursSum}h
+              <div className="flex items-center gap-1.5 mb-1">
+                <div className="w-5 h-5 rounded-md bg-gradient-to-br from-teal-500 to-teal-600 flex items-center justify-center shrink-0">
+                  <Clock className="w-3 h-3 text-white" />
                 </div>
-                <div className="text-xs text-gray-500 dark:text-gray-400">Hours scheduled to meet demand</div>
-              </CardContent>
-            </Card>
+                <span className="text-[10px] text-muted-foreground font-medium truncate">Scheduled</span>
+              </div>
+              <div className="text-sm font-bold bg-gradient-to-r from-teal-600 to-teal-800 bg-clip-text text-transparent" data-testid="text-client-scheduled-sum">
+                {data.kpis.clientScheduledHoursSum}h
+              </div>
+              <div className="text-[10px] text-muted-foreground mt-0.5">client hours</div>
+            </button>
 
-            {/* 7. Other Scheduled */}
-            <Card
-              className="glass hover-lift animate-scale-in cursor-pointer"
+            {/* 8. Other Scheduled */}
+            <button
               data-testid="card-other-scheduled"
               onDoubleClick={() => setOtherScheduledModalOpen(true)}
               title="Double-click to see details"
+              className="text-left bg-card border border-border rounded-lg px-3 py-2 hover:bg-muted/50 transition-colors cursor-pointer"
             >
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-medium flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-400 to-indigo-600 flex items-center justify-center shadow-lg shadow-indigo-200 dark:shadow-none">
-                    <Clock className="w-4 h-4 text-white" />
-                  </div>
-                  <span className="text-gray-700 dark:text-gray-300">Other Scheduled</span>
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-xl font-bold bg-gradient-to-r from-indigo-500 to-indigo-700 bg-clip-text text-transparent mb-1" data-testid="text-other-scheduled-sum">
-                  {data?.kpis.otherScheduledHoursSum}h
+              <div className="flex items-center gap-1.5 mb-1">
+                <div className="w-5 h-5 rounded-md bg-gradient-to-br from-indigo-400 to-indigo-600 flex items-center justify-center shrink-0">
+                  <Clock className="w-3 h-3 text-white" />
                 </div>
-                <div className="text-xs text-gray-500 dark:text-gray-400">Non-client hours</div>
-              </CardContent>
-            </Card>
+                <span className="text-[10px] text-muted-foreground font-medium truncate">Other Sched.</span>
+              </div>
+              <div className="text-sm font-bold bg-gradient-to-r from-indigo-500 to-indigo-700 bg-clip-text text-transparent" data-testid="text-other-scheduled-sum">
+                {data.kpis.otherScheduledHoursSum}h
+              </div>
+              <div className="text-[10px] text-muted-foreground mt-0.5">non-client</div>
+            </button>
 
-            {/* 8. Capacity After Scheduling */}
-            <Card
-              className="glass hover-lift animate-scale-in cursor-pointer"
+            {/* 9. Capacity After Scheduling */}
+            <button
               data-testid="card-capacity-after-scheduling"
               onDoubleClick={() => setCapacityAfterModalOpen(true)}
               title="Double-click to see details"
+              className="text-left bg-card border border-border rounded-lg px-3 py-2 hover:bg-muted/50 transition-colors cursor-pointer"
             >
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-medium flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-green-500 to-green-600 flex items-center justify-center">
-                    <TrendingUp className="w-4 h-4 text-white" />
-                  </div>
-                  <span className="text-gray-700 dark:text-gray-300">Capacity After Scheduling</span>
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-xl font-bold bg-gradient-to-r from-green-600 to-green-800 bg-clip-text text-transparent mb-1" data-testid="text-capacity-after-scheduling-sum">
-                  {(() => {
-                    const sum = data?.dailySummary.reduce((acc, day) => {
-                      const employees = data?.employeesByDate[day.date] || [];
-                      const daySum = employees.reduce((acc, emp) => {
-                        const val = emp.netCapacity - emp.scheduledHours;
-                        return acc + (val >= 1 ? Math.floor(val) : 0);
-                      }, 0);
-                      return acc + daySum;
-                    }, 0) || 0;
-                    return sum;
-                  })()}h
+              <div className="flex items-center gap-1.5 mb-1">
+                <div className="w-5 h-5 rounded-md bg-gradient-to-br from-green-500 to-green-600 flex items-center justify-center shrink-0">
+                  <TrendingUp className="w-3 h-3 text-white" />
                 </div>
-                <div className="text-xs text-gray-500 dark:text-gray-400">Total remaining capacity</div>
-              </CardContent>
-            </Card>
+                <span className="text-[10px] text-muted-foreground font-medium truncate">After Sched.</span>
+              </div>
+              <div className="text-sm font-bold bg-gradient-to-r from-green-600 to-green-800 bg-clip-text text-transparent" data-testid="text-capacity-after-scheduling-sum">
+                {(() => {
+                  const sum = data.dailySummary.reduce((acc, day) => {
+                    const employees = data.employeesByDate[day.date] || [];
+                    const daySum = employees.reduce((acc, emp) => {
+                      const val = emp.netCapacity - emp.scheduledHours;
+                      return acc + (val >= 1 ? Math.floor(val) : 0);
+                    }, 0);
+                    return acc + daySum;
+                  }, 0) || 0;
+                  return sum;
+                })()}h
+              </div>
+              <div className="text-[10px] text-muted-foreground mt-0.5">remaining</div>
+            </button>
 
-            {/* 9. GH Loss */}
-            <Card
-              className="glass hover-lift animate-scale-in cursor-pointer select-none"
+            {/* 10. GH Loss */}
+            <button
               data-testid="card-gh-loss"
               onDoubleClick={() => setGhLossModalOpen(true)}
               title="Double-click to see breakdown"
+              className="text-left bg-card border border-border rounded-lg px-3 py-2 hover:bg-muted/50 transition-colors cursor-pointer select-none"
             >
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-medium flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-rose-500 to-rose-600 flex items-center justify-center">
-                    <TrendingUp className="w-4 h-4 text-white rotate-180" />
-                  </div>
-                  <span className="text-gray-700 dark:text-gray-300">GH Loss</span>
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-xl font-bold bg-gradient-to-r from-rose-500 to-rose-700 bg-clip-text text-transparent mb-1" data-testid="text-gh-loss-total">
-                  {ghLossData.totalLoss}h
+              <div className="flex items-center gap-1.5 mb-1">
+                <div className="w-5 h-5 rounded-md bg-gradient-to-br from-rose-500 to-rose-600 flex items-center justify-center shrink-0">
+                  <TrendingUp className="w-3 h-3 text-white rotate-180" />
                 </div>
-                <div className="text-xs text-gray-500 dark:text-gray-400">
-                  {ghLossData.items.length} staff with loss
-                </div>
-              </CardContent>
-            </Card>
+                <span className="text-[10px] text-muted-foreground font-medium truncate">GH Loss</span>
+              </div>
+              <div className="text-sm font-bold bg-gradient-to-r from-rose-500 to-rose-700 bg-clip-text text-transparent" data-testid="text-gh-loss-total">
+                {ghLossData.totalLoss}h
+              </div>
+              <div className="text-[10px] text-muted-foreground mt-0.5">
+                {ghLossData.items.length} staff
+              </div>
+            </button>
+
           </div>
         </div>
-      )}
+      ) : null}
 
       {/* ── Intelligence View: charts below the KPI cards ── */}
       {data && <InsightCharts data={data} allHistoryData={allHistoryData} />}
