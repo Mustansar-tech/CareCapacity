@@ -5,6 +5,7 @@ import {
 import {
   TrendingUp, TrendingDown, Minus, Upload, Bot,
   Calendar, RefreshCw, AlertTriangle, CheckCircle, Zap, Building2,
+  ChevronLeft, ChevronRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -354,40 +355,80 @@ export function SmartHero({
                   </Button>
 
                   {data && weekLabel && (
-                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground border border-border rounded-md px-2.5 h-8 bg-background">
-                      <Calendar className="w-3.5 h-3.5 flex-shrink-0" />
-                      <Select value={selectedWeekId || "latest"} onValueChange={handleWeekChange}>
-                        <SelectTrigger className="border-0 p-0 h-auto text-xs font-medium text-foreground bg-transparent shadow-none focus:ring-0 w-auto min-w-[10rem] max-w-[14rem]">
-                          <SelectValue>
-                            Week {weekLabel.weekNum} · {weekLabel.range}
-                          </SelectValue>
-                        </SelectTrigger>
-                        <SelectContent align="start">
-                          <SelectItem value="latest">Current Week</SelectItem>
-                          {(() => {
-                            const now = new Date();
-                            const day = now.getUTCDay();
-                            const diff = day === 0 ? -6 : 1 - day;
-                            const mon = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + diff));
-                            const lo = new Date(mon); lo.setUTCDate(lo.getUTCDate() - 14);
-                            const hi = new Date(mon); hi.setUTCDate(hi.getUTCDate() + 13 * 7);
-                            return allHistoryData
-                              ?.filter(a => { if (!a.weekStartDate) return false; const d = new Date(a.weekStartDate); return d >= lo && d <= hi; })
-                              .map(a => {
-                                try {
-                                  if (!a.weekStartDate || !a.weekEndDate) return null;
-                                  const { range, weekNum } = formatWeekRange(a.weekStartDate, a.weekEndDate);
-                                  return (
-                                    <SelectItem key={a.id} value={a.id}>
-                                      {weekNum ? `Week ${weekNum} · ` : ""}{range}
-                                    </SelectItem>
-                                  );
-                                } catch { return null; }
-                              })
-                              .filter(Boolean);
-                          })()}
-                        </SelectContent>
-                      </Select>
+                    <div className="flex items-center gap-1">
+                      {/* ← Previous week */}
+                      <button
+                        onClick={() => {
+                          const prev = sortedHistory[currentIndex - 1];
+                          if (prev) handleWeekChange(prev.id);
+                        }}
+                        disabled={currentIndex <= 0}
+                        title="Previous week"
+                        className="w-7 h-8 flex items-center justify-center rounded-md border border-border bg-background hover:bg-muted disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                      >
+                        <ChevronLeft className="w-3.5 h-3.5" />
+                      </button>
+
+                      {/* Week label + dropdown */}
+                      <div className="flex items-center gap-1.5 text-xs text-muted-foreground border border-border rounded-md px-2.5 h-8 bg-background">
+                        <Calendar className="w-3.5 h-3.5 flex-shrink-0" />
+                        <Select value={selectedWeekId || "latest"} onValueChange={handleWeekChange}>
+                          <SelectTrigger className="border-0 p-0 h-auto text-xs font-medium text-foreground bg-transparent shadow-none focus:ring-0 w-auto min-w-[10rem] max-w-[14rem]">
+                            <SelectValue>
+                              Week {weekLabel.weekNum} · {weekLabel.range}
+                            </SelectValue>
+                          </SelectTrigger>
+                          <SelectContent align="start">
+                            <SelectItem value="latest">Current Week</SelectItem>
+                            {(() => {
+                              const now = new Date();
+                              const day = now.getUTCDay();
+                              const diff = day === 0 ? -6 : 1 - day;
+                              const mon = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + diff));
+                              const lo = new Date(mon); lo.setUTCDate(lo.getUTCDate() - 14);
+                              const hi = new Date(mon); hi.setUTCDate(hi.getUTCDate() + 13 * 7);
+                              return allHistoryData
+                                ?.filter(a => { if (!a.weekStartDate) return false; const d = new Date(a.weekStartDate); return d >= lo && d <= hi; })
+                                .map(a => {
+                                  try {
+                                    if (!a.weekStartDate || !a.weekEndDate) return null;
+                                    const { range, weekNum } = formatWeekRange(a.weekStartDate, a.weekEndDate);
+                                    return (
+                                      <SelectItem key={a.id} value={a.id}>
+                                        {weekNum ? `Week ${weekNum} · ` : ""}{range}
+                                      </SelectItem>
+                                    );
+                                  } catch { return null; }
+                                })
+                                .filter(Boolean);
+                            })()}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      {/* → Next week */}
+                      <button
+                        onClick={() => {
+                          const next = sortedHistory[currentIndex + 1];
+                          if (next) handleWeekChange(next.id);
+                        }}
+                        disabled={currentIndex >= sortedHistory.length - 1}
+                        title="Next week"
+                        className="w-7 h-8 flex items-center justify-center rounded-md border border-border bg-background hover:bg-muted disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                      >
+                        <ChevronRight className="w-3.5 h-3.5" />
+                      </button>
+
+                      {/* Last sync */}
+                      {lastSyncedAt && (
+                        <span className="flex items-center gap-1 text-[10px] text-muted-foreground ml-1 whitespace-nowrap">
+                          <RefreshCw className="w-3 h-3 shrink-0" />
+                          {new Date(lastSyncedAt).toLocaleString("en-GB", {
+                            day: "numeric", month: "short",
+                            hour: "2-digit", minute: "2-digit",
+                          })}
+                        </span>
+                      )}
                     </div>
                   )}
                 </div>
