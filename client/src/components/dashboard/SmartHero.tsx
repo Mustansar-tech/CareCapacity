@@ -1,5 +1,7 @@
 import { useMemo } from "react";
-import { LineChart, Line, ResponsiveContainer, Tooltip } from "recharts";
+import {
+  BarChart, Bar, Cell, XAxis, YAxis, Tooltip, ResponsiveContainer,
+} from "recharts";
 import {
   TrendingUp, TrendingDown, Minus, Upload, Bot,
   Calendar, RefreshCw, AlertTriangle, CheckCircle, Zap, Building2,
@@ -174,14 +176,28 @@ export function SmartHero({
     currentIndex > 0 ? sortedHistory[currentIndex - 1] : undefined
   , [sortedHistory, currentIndex]);
 
-  const sparklineData = useMemo(() => {
+  const fourWeekData = useMemo(() => {
     const end   = currentIndex >= 0 ? currentIndex : sortedHistory.length - 1;
-    const start = Math.max(0, end - 6);
-    return sortedHistory.slice(start, end + 1).map((h, i, arr) => ({
-      label:  h.weekStartDate ? new Date(h.weekStartDate).toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "UTC" }) : `Week ${i + 1}`,
-      net:    Math.round((h.kpis?.netCapacitySum ?? 0) * 10) / 10,
-      isLast: i === arr.length - 1,
-    }));
+    const start = Math.max(0, end - 3);
+    return sortedHistory.slice(start, end + 1).map((h, i, arr) => {
+      const d = h.weekStartDate ? new Date(h.weekStartDate) : null;
+      // ISO week number
+      let weekNum: number | null = null;
+      if (d) {
+        const tmp = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+        tmp.setUTCDate(tmp.getUTCDate() + 4 - (tmp.getUTCDay() || 7));
+        const yr = new Date(Date.UTC(tmp.getUTCFullYear(), 0, 1));
+        weekNum = Math.ceil((((tmp.getTime() - yr.getTime()) / 86400000) + 1) / 7);
+      }
+      return {
+        label:     weekNum ? `Wk ${weekNum}` : `Wk ${i + 1}`,
+        subLabel:  d ? d.toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "UTC" }) : "",
+        net:       Math.round((h.kpis?.netCapacitySum ?? 0) * 10) / 10,
+        required:  Math.round((h.kpis?.clientRequiredSum ?? 0) * 10) / 10,
+        scheduled: Math.round((h.kpis?.clientScheduledHoursSum ?? 0) * 10) / 10,
+        isCurrent: i === arr.length - 1,
+      };
+    });
   }, [sortedHistory, currentIndex]);
 
   const narrative = useMemo(() => {
@@ -398,62 +414,126 @@ export function SmartHero({
             )}
           </div>
 
-          {/* ── Right: sparkline card ── */}
+          {/* ── Right: 4-week performance chart ── */}
           {narrative && cfg && (
-            <div className="shrink-0 w-56 border border-border rounded-xl bg-card p-4 shadow-sm">
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
-                  Net Capacity · This Week
-                </span>
+            <div className="shrink-0 w-72 border border-border rounded-xl bg-card p-4 shadow-sm">
+              <div className="flex items-center justify-between mb-2">
+                <div>
+                  <span className="text-[11px] font-semibold text-foreground">4-Week Performance</span>
+                  <p className="text-[10px] text-muted-foreground leading-none mt-0.5">Capacity vs demand trend</p>
+                </div>
                 {narrative.wowPct !== null && (
-                  <span className={`flex items-center gap-0.5 text-[10px] font-bold rounded-full px-1.5 py-0.5 ${
+                  <span className={`flex items-center gap-0.5 text-[10px] font-bold rounded-full px-1.5 py-0.5 shrink-0 ${
                     narrative.wowPct > 0
                       ? "bg-emerald-50 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400"
                       : "bg-red-50 dark:bg-red-950 text-red-600 dark:text-red-400"
                   }`}>
                     <WoWIcon className="w-2.5 h-2.5" />
-                    {narrative.wowPct > 0 ? "+" : ""}{narrative.wowPct}%
+                    {narrative.wowPct > 0 ? "+" : ""}{narrative.wowPct}% vs prev wk
                   </span>
                 )}
               </div>
-              <div className="flex items-baseline gap-1 mb-0.5">
-                <span className="text-3xl font-bold text-foreground tracking-tight">{narrative.net}</span>
-                <span className="text-base font-semibold text-muted-foreground">h</span>
-              </div>
-              <div className="text-xs text-muted-foreground mb-1">
-                out of <strong className="text-foreground">{narrative.desired}h</strong> desired
-              </div>
-              <div className="mb-3">
-                <div className="flex justify-between text-[10px] mb-0.5">
-                  <span className="text-muted-foreground">Supply</span>
-                  <span className={`font-semibold ${cfg.headlineClass}`}>{narrative.supplyPct}%</span>
-                </div>
-                <div className="h-1.5 rounded-full bg-border overflow-hidden">
-                  <div className={`h-full rounded-full ${cfg.bar}`} style={{ width: `${Math.min(narrative.supplyPct, 100)}%` }} />
-                </div>
-              </div>
-              {sparklineData.length > 1 && (
-                <div className="h-12 w-full">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={sparklineData}>
-                      <Tooltip
-                        content={({ active, payload }) => {
-                          if (!active || !payload?.length) return null;
-                          return (
-                            <div className="bg-popover border border-border rounded px-2 py-1 text-xs shadow-md">
-                              <div className="font-medium text-foreground">{payload[0].payload.label}</div>
-                              <div className="text-muted-foreground">{payload[0].value}h</div>
-                            </div>
-                          );
-                        }}
-                      />
-                      <Line type="monotone" dataKey="net" stroke="#d97706" strokeWidth={1.5} dot={false} activeDot={{ r: 3, fill: "#d97706" }} />
-                    </LineChart>
-                  </ResponsiveContainer>
-                  <div className="flex justify-between text-[10px] text-muted-foreground mt-0.5 px-0.5">
-                    <span>{sparklineData.length > 1 ? `${sparklineData.length - 1} wks ago` : ""}</span>
-                    <span>Now</span>
+
+              {fourWeekData.length > 1 ? (
+                <>
+                  <div className="h-36">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart
+                        data={fourWeekData}
+                        barGap={1}
+                        barCategoryGap="22%"
+                        margin={{ top: 2, right: 2, left: -20, bottom: 0 }}
+                      >
+                        <XAxis
+                          dataKey="label"
+                          tick={({ x, y, payload }: any) => {
+                            const d = fourWeekData.find(c => c.label === payload.value);
+                            return (
+                              <g transform={`translate(${x},${y})`}>
+                                <text x={0} y={0} dy={10} textAnchor="middle" fontSize={10}
+                                  fill={d?.isCurrent ? "#2c4f26" : "var(--muted-foreground)"}
+                                  fontWeight={d?.isCurrent ? 700 : 400}>
+                                  {payload.value}
+                                </text>
+                                {d?.subLabel && (
+                                  <text x={0} y={0} dy={20} textAnchor="middle" fontSize={8.5} fill="var(--muted-foreground)">
+                                    {d.subLabel}
+                                  </text>
+                                )}
+                              </g>
+                            );
+                          }}
+                          interval={0}
+                          height={30}
+                          axisLine={false}
+                          tickLine={false}
+                        />
+                        <YAxis tick={{ fontSize: 9, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} />
+                        <Tooltip
+                          content={({ active, payload, label }: any) => {
+                            if (!active || !payload?.length) return null;
+                            const d = payload[0]?.payload;
+                            return (
+                              <div className="bg-popover border border-border rounded-lg px-2.5 py-2 text-xs shadow-lg">
+                                <div className="font-semibold text-foreground mb-1">{label} · {d?.subLabel}</div>
+                                <div className="space-y-0.5">
+                                  <div className="flex justify-between gap-3">
+                                    <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-[#2c4f26] inline-block" />Net cap</span>
+                                    <span className="font-medium">{d?.net}h</span>
+                                  </div>
+                                  <div className="flex justify-between gap-3">
+                                    <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-amber-500 inline-block" />Required</span>
+                                    <span className="font-medium text-amber-600">{d?.required}h</span>
+                                  </div>
+                                  <div className="flex justify-between gap-3">
+                                    <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-emerald-500 inline-block" />Scheduled</span>
+                                    <span className="font-medium text-emerald-600">{d?.scheduled}h</span>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          }}
+                          cursor={{ fill: "rgba(0,0,0,0.04)", rx: 4 }}
+                        />
+                        <Bar dataKey="net" name="Net cap" radius={[2, 2, 0, 0]}>
+                          {fourWeekData.map((entry, i) => (
+                            <Cell key={i} fill={entry.isCurrent ? "#2c4f26" : "#4a7c40"} opacity={entry.isCurrent ? 1 : 0.5} />
+                          ))}
+                        </Bar>
+                        <Bar dataKey="required" name="Required" radius={[2, 2, 0, 0]}>
+                          {fourWeekData.map((entry, i) => (
+                            <Cell key={i} fill="#f59e0b" opacity={entry.isCurrent ? 1 : 0.5} />
+                          ))}
+                        </Bar>
+                        <Bar dataKey="scheduled" name="Scheduled" radius={[2, 2, 0, 0]}>
+                          {fourWeekData.map((entry, i) => (
+                            <Cell key={i} fill="#10b981" opacity={entry.isCurrent ? 1 : 0.5} />
+                          ))}
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
                   </div>
+                  <div className="flex gap-3 mt-1.5 text-[10px] text-muted-foreground justify-end">
+                    <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-[#2c4f26] inline-block" />Net cap</span>
+                    <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-amber-500 inline-block" />Required</span>
+                    <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-emerald-500 inline-block" />Scheduled</span>
+                  </div>
+                  <p className="text-[9px] text-muted-foreground mt-1 text-right">Current week highlighted</p>
+                </>
+              ) : (
+                <div className="h-36 flex flex-col items-center justify-center gap-1">
+                  <div className="text-3xl font-bold text-foreground tracking-tight">{narrative.net}h</div>
+                  <div className="text-xs text-muted-foreground">net capacity this week</div>
+                  <div className="mt-2 w-full">
+                    <div className="flex justify-between text-[10px] mb-0.5">
+                      <span className="text-muted-foreground">Supply</span>
+                      <span className={`font-semibold ${cfg.headlineClass}`}>{narrative.supplyPct}%</span>
+                    </div>
+                    <div className="h-1.5 rounded-full bg-border overflow-hidden">
+                      <div className={`h-full rounded-full ${cfg.bar}`} style={{ width: `${Math.min(narrative.supplyPct, 100)}%` }} />
+                    </div>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground mt-2">Upload more weeks to see the trend</p>
                 </div>
               )}
             </div>
