@@ -1355,15 +1355,20 @@ export default function CapacityOutlookPage() {
   return (
     <div className="h-full w-full bg-background flex flex-col overflow-hidden">
       {/* Page header */}
-      <div className="bg-gradient-to-br from-primary/5 via-secondary/5 to-tertiary/5 border-b border-card-border shrink-0 px-6 py-4">
+      <div className="border-b border-card-border shrink-0 px-6 py-4" style={{background: 'linear-gradient(135deg, hsl(var(--background)) 0%, hsl(210 60% 97%) 50%, hsl(160 50% 96%) 100%)'}}>
         <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-emerald-600 bg-clip-text text-transparent">
-              Capacity Outlook
-            </h1>
-            <p className="text-sm text-muted-foreground mt-0.5">
-              Monthly rolling forecast — leavers vs pipeline joiners
-            </p>
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-emerald-500 flex items-center justify-center shadow-md">
+              <TrendingUp className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-emerald-600 bg-clip-text text-transparent">
+                Capacity Outlook
+              </h1>
+              <p className="text-sm text-muted-foreground mt-0.5">
+                Monthly rolling forecast — leavers vs pipeline joiners
+              </p>
+            </div>
           </div>
           <div className="flex items-center gap-2">
             <Button
@@ -1422,10 +1427,10 @@ export default function CapacityOutlookPage() {
         <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
 
           {/* Staff Leaving */}
-          <Card className="glass hover-lift animate-scale-in">
+          <Card className="hover-lift animate-scale-in border-l-4 border-l-red-400 bg-red-50/40 dark:bg-red-950/10">
             <CardHeader className="pb-2 pt-4 px-4">
-              <CardTitle className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
-                <div className="w-6 h-6 rounded-md bg-gradient-to-br from-red-500 to-red-600 flex items-center justify-center">
+              <CardTitle className="text-xs font-semibold text-red-700 dark:text-red-400 flex items-center gap-1.5">
+                <div className="w-6 h-6 rounded-md bg-gradient-to-br from-red-500 to-red-600 flex items-center justify-center shadow-sm">
                   <TrendingDown className="w-3.5 h-3.5 text-white" />
                 </div>
                 Staff Leaving
@@ -1472,10 +1477,10 @@ export default function CapacityOutlookPage() {
           </Card>
 
           {/* In Pipeline */}
-          <Card className="glass hover-lift animate-scale-in">
+          <Card className="hover-lift animate-scale-in border-l-4 border-l-emerald-400 bg-emerald-50/40 dark:bg-emerald-950/10">
             <CardHeader className="pb-2 pt-4 px-4">
-              <CardTitle className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
-                <div className="w-6 h-6 rounded-md bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center">
+              <CardTitle className="text-xs font-semibold text-emerald-700 dark:text-emerald-400 flex items-center gap-1.5">
+                <div className="w-6 h-6 rounded-md bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center shadow-sm">
                   <TrendingUp className="w-3.5 h-3.5 text-white" />
                 </div>
                 In Pipeline
@@ -1514,10 +1519,10 @@ export default function CapacityOutlookPage() {
           </Card>
 
           {/* Running Net */}
-          <Card className="glass hover-lift animate-scale-in">
+          <Card className="hover-lift animate-scale-in border-l-4 border-l-blue-400 bg-blue-50/40 dark:bg-blue-950/10">
             <CardHeader className="pb-2 pt-4 px-4">
-              <CardTitle className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
-                <div className="w-6 h-6 rounded-md bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center">
+              <CardTitle className="text-xs font-semibold text-blue-700 dark:text-blue-400 flex items-center gap-1.5">
+                <div className="w-6 h-6 rounded-md bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-sm">
                   <Minus className="w-3.5 h-3.5 text-white" />
                 </div>
                 Running Net
@@ -1552,10 +1557,10 @@ export default function CapacityOutlookPage() {
           </Card>
 
           {/* Risk */}
-          <Card className="glass hover-lift animate-scale-in">
+          <Card className={`hover-lift animate-scale-in border-l-4 ${cumKpi?.rag === 'red' ? 'border-l-red-500 bg-red-50/40 dark:bg-red-950/10' : cumKpi?.rag === 'amber' ? 'border-l-amber-400 bg-amber-50/40 dark:bg-amber-950/10' : 'border-l-emerald-400 bg-emerald-50/30 dark:bg-emerald-950/10'}`}>
             <CardHeader className="pb-2 pt-4 px-4">
-              <CardTitle className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
-                <div className={`w-6 h-6 rounded-md bg-gradient-to-br ${ragBgClass(cumKpi?.rag ?? 'green')} flex items-center justify-center`}>
+              <CardTitle className={`text-xs font-semibold flex items-center gap-1.5 ${cumKpi?.rag === 'red' ? 'text-red-700 dark:text-red-400' : cumKpi?.rag === 'amber' ? 'text-amber-700 dark:text-amber-400' : 'text-emerald-700 dark:text-emerald-400'}`}>
+                <div className={`w-6 h-6 rounded-md bg-gradient-to-br ${ragBgClass(cumKpi?.rag ?? 'green')} flex items-center justify-center shadow-sm`}>
                   <AlertTriangle className="w-3.5 h-3.5 text-white" />
                 </div>
                 Risk
@@ -1586,23 +1591,35 @@ export default function CapacityOutlookPage() {
         {/* ── Tabbed staff sections ──────────────────────────────────────────── */}
         <Card className="overflow-hidden border border-card-border shadow-sm">
           {/* Tab bar */}
-          <div className="flex border-b border-border bg-muted/20 overflow-x-auto">
+          <div className="flex border-b border-border bg-slate-50/80 dark:bg-slate-900/40 overflow-x-auto px-2 pt-2 gap-1">
             {([
-              { id: 'joiners' as const, label: 'All Joiners', count: allJoiners.length, icon: <TrendingUp className="w-3 h-3 text-white" />, activeBg: 'bg-emerald-500', activeText: 'text-emerald-700 dark:text-emerald-300', activeBorder: 'border-emerald-500', countCls: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300' },
-              { id: 'leavers' as const, label: 'All Leavers', count: allLeavers.length, icon: <TrendingDown className="w-3 h-3 text-white" />, activeBg: 'bg-red-500', activeText: 'text-red-700 dark:text-red-300', activeBorder: 'border-red-500', countCls: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300' },
-              { id: 'avail-increase' as const, label: 'Avail. Increase', count: (availChangesQuery.data ?? []).filter(r => r.changeType === 'increase').length, icon: <TrendingUp className="w-3 h-3 text-white" />, activeBg: 'bg-emerald-400', activeText: 'text-emerald-700 dark:text-emerald-300', activeBorder: 'border-emerald-400', countCls: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300' },
-              { id: 'avail-decrease' as const, label: 'Avail. Decrease', count: (availChangesQuery.data ?? []).filter(r => r.changeType === 'decrease').length, icon: <TrendingDown className="w-3 h-3 text-white" />, activeBg: 'bg-amber-500', activeText: 'text-amber-700 dark:text-amber-300', activeBorder: 'border-amber-500', countCls: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300' },
+              { id: 'joiners' as const, label: 'All Joiners', count: allJoiners.length,
+                activeBg: 'bg-emerald-500', activeTabBg: 'bg-emerald-50 dark:bg-emerald-950/40', activeText: 'text-emerald-700 dark:text-emerald-300', activeBorder: 'border-emerald-500', countCls: 'bg-emerald-500 text-white',
+                icon: <TrendingUp className="w-3 h-3" /> },
+              { id: 'leavers' as const, label: 'All Leavers', count: allLeavers.length,
+                activeBg: 'bg-red-500', activeTabBg: 'bg-red-50 dark:bg-red-950/40', activeText: 'text-red-700 dark:text-red-300', activeBorder: 'border-red-500', countCls: 'bg-red-500 text-white',
+                icon: <TrendingDown className="w-3 h-3" /> },
+              { id: 'avail-increase' as const, label: 'Avail. Increase', count: (availChangesQuery.data ?? []).filter(r => r.changeType === 'increase').length,
+                activeBg: 'bg-teal-500', activeTabBg: 'bg-teal-50 dark:bg-teal-950/40', activeText: 'text-teal-700 dark:text-teal-300', activeBorder: 'border-teal-500', countCls: 'bg-teal-500 text-white',
+                icon: <TrendingUp className="w-3 h-3" /> },
+              { id: 'avail-decrease' as const, label: 'Avail. Decrease', count: (availChangesQuery.data ?? []).filter(r => r.changeType === 'decrease').length,
+                activeBg: 'bg-amber-500', activeTabBg: 'bg-amber-50 dark:bg-amber-950/40', activeText: 'text-amber-700 dark:text-amber-300', activeBorder: 'border-amber-500', countCls: 'bg-amber-500 text-white',
+                icon: <TrendingDown className="w-3 h-3" /> },
             ]).map(tab => (
               <button
                 key={tab.id}
                 onClick={() => setActiveStaffTab(tab.id)}
-                className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${activeStaffTab === tab.id ? `${tab.activeBorder} ${tab.activeText} bg-background` : 'border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/40'}`}
+                className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-t-lg border-b-2 transition-all whitespace-nowrap ${
+                  activeStaffTab === tab.id
+                    ? `${tab.activeBorder} ${tab.activeText} ${tab.activeTabBg} shadow-sm`
+                    : 'border-transparent text-muted-foreground hover:text-foreground hover:bg-white/60 dark:hover:bg-white/5'
+                }`}
               >
-                <div className={`w-5 h-5 rounded flex items-center justify-center transition-colors ${activeStaffTab === tab.id ? tab.activeBg : 'bg-muted-foreground/30'}`}>
+                <div className={`w-5 h-5 rounded flex items-center justify-center transition-colors ${activeStaffTab === tab.id ? tab.activeBg + ' text-white' : 'bg-muted-foreground/20 text-muted-foreground'}`}>
                   {tab.icon}
                 </div>
                 {tab.label}
-                <span className={`inline-flex items-center justify-center rounded-full text-xs font-semibold px-1.5 py-0.5 min-w-[20px] transition-colors ${activeStaffTab === tab.id ? tab.countCls : 'bg-muted text-muted-foreground'}`}>
+                <span className={`inline-flex items-center justify-center rounded-full text-xs font-bold px-1.5 py-0.5 min-w-[20px] transition-colors ${activeStaffTab === tab.id ? tab.countCls : 'bg-muted text-muted-foreground'}`}>
                   {tab.count}
                 </span>
               </button>
