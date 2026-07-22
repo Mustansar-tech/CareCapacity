@@ -648,7 +648,7 @@ export function SmartHero({
                       {/* Gradient area fills — actuals */}
                       <Area
                         type="monotone" dataKey="net"
-                        stroke="#2c4f26" strokeWidth={2.5}
+                        stroke="#2c4f26" strokeWidth={3.5}
                         fill="url(#heroNetGrad)" fillOpacity={1}
                         dot={({ cx, cy, payload }: any) => {
                           if (payload.isProjected) return <g key={`dn-${payload.label}`} />;
@@ -665,7 +665,7 @@ export function SmartHero({
                       />
                       <Area
                         type="monotone" dataKey="required"
-                        stroke="#f59e0b" strokeWidth={2}
+                        stroke="#f59e0b" strokeWidth={3}
                         fill="url(#heroReqGrad)" fillOpacity={1}
                         dot={({ cx, cy, payload }: any) => {
                           if (payload.isProjected) return <g key={`dr-${payload.label}`} />;
