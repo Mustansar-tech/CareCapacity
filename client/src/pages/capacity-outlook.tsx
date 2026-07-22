@@ -1587,21 +1587,23 @@ export default function CapacityOutlookPage() {
         {/* ── Tabbed staff sections ──────────────────────────────────────────── */}
         <Card className="overflow-hidden border border-card-border shadow-sm">
           {/* Tab bar */}
-          <div className="flex items-center gap-2 px-4 py-3 border-b border-border bg-background flex-wrap">
+          <div className="flex border-b border-border bg-muted/20 overflow-x-auto">
             {([
-              { id: 'joiners' as const, label: 'Joiners', count: allJoiners.length, icon: <Plus className="w-3.5 h-3.5" />, activeSolid: 'bg-emerald-500 text-white hover:bg-emerald-600', inactiveStyle: 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-300 dark:hover:bg-emerald-900/50' },
-              { id: 'leavers' as const, label: 'Leavers', count: allLeavers.length, icon: <Minus className="w-3.5 h-3.5" />, activeSolid: 'bg-red-500 text-white hover:bg-red-600', inactiveStyle: 'bg-red-100 text-red-700 hover:bg-red-200 dark:bg-red-900/30 dark:text-red-300 dark:hover:bg-red-900/50' },
-              { id: 'avail-increase' as const, label: 'Avail. Increase', count: (availChangesQuery.data ?? []).filter(r => r.changeType === 'increase').length, icon: <Plus className="w-3.5 h-3.5" />, activeSolid: 'bg-teal-500 text-white hover:bg-teal-600', inactiveStyle: 'bg-teal-100 text-teal-700 hover:bg-teal-200 dark:bg-teal-900/30 dark:text-teal-300 dark:hover:bg-teal-900/50' },
-              { id: 'avail-decrease' as const, label: 'Avail. Decrease', count: (availChangesQuery.data ?? []).filter(r => r.changeType === 'decrease').length, icon: <Minus className="w-3.5 h-3.5" />, activeSolid: 'bg-amber-500 text-white hover:bg-amber-600', inactiveStyle: 'bg-amber-100 text-amber-700 hover:bg-amber-200 dark:bg-amber-900/30 dark:text-amber-300 dark:hover:bg-amber-900/50' },
+              { id: 'joiners' as const, label: 'All Joiners', count: allJoiners.length, icon: <TrendingUp className="w-3 h-3 text-white" />, activeBg: 'bg-emerald-500', activeText: 'text-emerald-700 dark:text-emerald-300', activeBorder: 'border-emerald-500', countCls: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300' },
+              { id: 'leavers' as const, label: 'All Leavers', count: allLeavers.length, icon: <TrendingDown className="w-3 h-3 text-white" />, activeBg: 'bg-red-500', activeText: 'text-red-700 dark:text-red-300', activeBorder: 'border-red-500', countCls: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300' },
+              { id: 'avail-increase' as const, label: 'Avail. Increase', count: (availChangesQuery.data ?? []).filter(r => r.changeType === 'increase').length, icon: <TrendingUp className="w-3 h-3 text-white" />, activeBg: 'bg-emerald-400', activeText: 'text-emerald-700 dark:text-emerald-300', activeBorder: 'border-emerald-400', countCls: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300' },
+              { id: 'avail-decrease' as const, label: 'Avail. Decrease', count: (availChangesQuery.data ?? []).filter(r => r.changeType === 'decrease').length, icon: <TrendingDown className="w-3 h-3 text-white" />, activeBg: 'bg-amber-500', activeText: 'text-amber-700 dark:text-amber-300', activeBorder: 'border-amber-500', countCls: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300' },
             ]).map(tab => (
               <button
                 key={tab.id}
                 onClick={() => setActiveStaffTab(tab.id)}
-                className={`inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 text-sm font-semibold transition-all whitespace-nowrap select-none ${activeStaffTab === tab.id ? tab.activeSolid : tab.inactiveStyle}`}
+                className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${activeStaffTab === tab.id ? `${tab.activeBorder} ${tab.activeText} bg-background` : 'border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/40'}`}
               >
-                {tab.icon}
+                <div className={`w-5 h-5 rounded flex items-center justify-center transition-colors ${activeStaffTab === tab.id ? tab.activeBg : 'bg-muted-foreground/30'}`}>
+                  {tab.icon}
+                </div>
                 {tab.label}
-                <span className={`inline-flex items-center justify-center rounded-full text-xs font-bold px-1.5 py-0.5 min-w-[20px] ${activeStaffTab === tab.id ? 'bg-white/25 text-inherit' : 'bg-black/10 dark:bg-white/10'}`}>
+                <span className={`inline-flex items-center justify-center rounded-full text-xs font-semibold px-1.5 py-0.5 min-w-[20px] transition-colors ${activeStaffTab === tab.id ? tab.countCls : 'bg-muted text-muted-foreground'}`}>
                   {tab.count}
                 </span>
               </button>
