@@ -429,7 +429,11 @@ export function Sidebar() {
         </div>
 
         {/* ── Branch selector ── */}
-        {!collapsed && (
+        {collapsed ? (
+          <div className="pb-2 flex justify-center">
+            <BranchSelector iconOnly />
+          </div>
+        ) : (
           <div className="px-3 pb-2">
             <BranchSelector compact />
           </div>

@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { MetricCardSkeleton } from "@/components/loading-skeleton";
-import type { ProcessingResult } from "@shared/schema";
+import type { ProcessingResult, CapacityAnalysisSummary } from "@shared/schema";
 import { computeGhLoss, type GhLossResult } from "@/utils/dashboard-utils";
 
 interface FilesState {
@@ -42,6 +42,7 @@ interface OverviewTabProps {
   setFilteredData: (data: ProcessingResult | null) => void;
   setSelectedDate: (date: string | null) => void;
   setFiles: (files: FilesState) => void;
+  allHistoryData?: CapacityAnalysisSummary[];
 }
 
 export function OverviewTab({
@@ -60,6 +61,7 @@ export function OverviewTab({
   setFilteredData,
   setSelectedDate,
   setFiles,
+  allHistoryData,
 }: OverviewTabProps) {
   const { toast } = useToast();
   const [ghLossModalOpen, setGhLossModalOpen] = useState(false);
@@ -330,7 +332,7 @@ export function OverviewTab({
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-3xl font-bold bg-gradient-to-r from-green-500 to-green-700 bg-clip-text text-transparent mb-1" data-testid="text-desired-sum">
+                <div className="text-xl font-bold bg-gradient-to-r from-green-500 to-green-700 bg-clip-text text-transparent mb-1" data-testid="text-desired-sum">
                   {data?.kpis.totalDesiredHoursSum || 0}h
                 </div>
                 <div className="text-xs text-gray-500 dark:text-gray-400">Total weekly desired</div>
@@ -353,7 +355,7 @@ export function OverviewTab({
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-3xl font-bold bg-gradient-to-r from-red-500 to-red-700 bg-clip-text text-transparent mb-1" data-testid="text-unavailability-sum">
+                <div className="text-xl font-bold bg-gradient-to-r from-red-500 to-red-700 bg-clip-text text-transparent mb-1" data-testid="text-unavailability-sum">
                   {data?.kpis.unavailabilitySum}h
                 </div>
                 <div className="text-xs text-gray-500 dark:text-gray-400">
@@ -378,7 +380,7 @@ export function OverviewTab({
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-3xl font-bold bg-gradient-to-r from-slate-500 to-slate-700 bg-clip-text text-transparent mb-1" data-testid="text-sickness-sum">
+                <div className="text-xl font-bold bg-gradient-to-r from-slate-500 to-slate-700 bg-clip-text text-transparent mb-1" data-testid="text-sickness-sum">
                   {data?.kpis.sicknessSum}h
                 </div>
                 <div className="text-xs text-gray-500 dark:text-gray-400">
@@ -403,7 +405,7 @@ export function OverviewTab({
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-3xl font-bold bg-gradient-to-r from-purple-500 to-purple-700 bg-clip-text text-transparent mb-1" data-testid="text-holidays-sum">
+                <div className="text-xl font-bold bg-gradient-to-r from-purple-500 to-purple-700 bg-clip-text text-transparent mb-1" data-testid="text-holidays-sum">
                   {data?.kpis.holidaysSum || 0}h
                 </div>
                 <div className="text-xs text-gray-500 dark:text-gray-400">
@@ -428,7 +430,7 @@ export function OverviewTab({
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-3xl font-bold bg-gradient-to-r from-amber-600 to-amber-800 bg-clip-text text-transparent mb-1" data-testid="text-net-capacity-sum">
+                <div className="text-xl font-bold bg-gradient-to-r from-amber-600 to-amber-800 bg-clip-text text-transparent mb-1" data-testid="text-net-capacity-sum">
                   {data?.kpis.netCapacitySum}h
                 </div>
                 <div className="text-xs text-gray-500 dark:text-gray-400">Total available hours</div>
@@ -451,7 +453,7 @@ export function OverviewTab({
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-3xl font-bold bg-gradient-to-r from-emerald-600 to-emerald-800 bg-clip-text text-transparent mb-1" data-testid="text-client-required-sum">
+                <div className="text-xl font-bold bg-gradient-to-r from-emerald-600 to-emerald-800 bg-clip-text text-transparent mb-1" data-testid="text-client-required-sum">
                   {data?.kpis.clientRequiredSum}h
                 </div>
                 <div className="text-xs text-gray-500 dark:text-gray-400">client care Hours</div>
@@ -474,7 +476,7 @@ export function OverviewTab({
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-3xl font-bold bg-gradient-to-r from-teal-600 to-teal-800 bg-clip-text text-transparent mb-1" data-testid="text-client-scheduled-sum">
+                <div className="text-xl font-bold bg-gradient-to-r from-teal-600 to-teal-800 bg-clip-text text-transparent mb-1" data-testid="text-client-scheduled-sum">
                   {data?.kpis.clientScheduledHoursSum}h
                 </div>
                 <div className="text-xs text-gray-500 dark:text-gray-400">Hours scheduled to meet demand</div>
@@ -497,7 +499,7 @@ export function OverviewTab({
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-3xl font-bold bg-gradient-to-r from-indigo-500 to-indigo-700 bg-clip-text text-transparent mb-1" data-testid="text-other-scheduled-sum">
+                <div className="text-xl font-bold bg-gradient-to-r from-indigo-500 to-indigo-700 bg-clip-text text-transparent mb-1" data-testid="text-other-scheduled-sum">
                   {data?.kpis.otherScheduledHoursSum}h
                 </div>
                 <div className="text-xs text-gray-500 dark:text-gray-400">Non-client hours</div>
@@ -520,7 +522,7 @@ export function OverviewTab({
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-3xl font-bold bg-gradient-to-r from-green-600 to-green-800 bg-clip-text text-transparent mb-1" data-testid="text-capacity-after-scheduling-sum">
+                <div className="text-xl font-bold bg-gradient-to-r from-green-600 to-green-800 bg-clip-text text-transparent mb-1" data-testid="text-capacity-after-scheduling-sum">
                   {(() => {
                     const sum = data?.dailySummary.reduce((acc, day) => {
                       const employees = data?.employeesByDate[day.date] || [];
@@ -553,7 +555,7 @@ export function OverviewTab({
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-3xl font-bold bg-gradient-to-r from-rose-500 to-rose-700 bg-clip-text text-transparent mb-1" data-testid="text-gh-loss-total">
+                <div className="text-xl font-bold bg-gradient-to-r from-rose-500 to-rose-700 bg-clip-text text-transparent mb-1" data-testid="text-gh-loss-total">
                   {ghLossData.totalLoss}h
                 </div>
                 <div className="text-xs text-gray-500 dark:text-gray-400">
@@ -566,7 +568,7 @@ export function OverviewTab({
       )}
 
       {/* ── Intelligence View: charts below the KPI cards ── */}
-      {data && <InsightCharts data={data} />}
+      {data && <InsightCharts data={data} allHistoryData={allHistoryData} />}
 
       {/* Desired Hours Info Modal */}
       <Dialog open={desiredHoursModalOpen} onOpenChange={setDesiredHoursModalOpen}>

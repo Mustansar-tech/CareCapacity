@@ -1,9 +1,14 @@
 import { useMemo } from "react";
 import { LineChart, Line, ResponsiveContainer, Tooltip } from "recharts";
-import { TrendingUp, TrendingDown, Minus, Upload, Bot, Calendar, RefreshCw, AlertTriangle, CheckCircle, Zap } from "lucide-react";
+import {
+  TrendingUp, TrendingDown, Minus, Upload, Bot,
+  Calendar, RefreshCw, AlertTriangle, CheckCircle, Zap, Building2,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { clientLogger } from "@/lib/logger";
+import { useAuth } from "@/contexts/AuthContext";
+import { useBranch } from "@/contexts/BranchContext";
 import type { ProcessingResult, CapacityAnalysisSummary } from "@shared/schema";
 
 interface SmartHeroProps {
@@ -17,98 +22,92 @@ interface SmartHeroProps {
   isLoadingLatest: boolean;
 }
 
+// ── Narrative builder ──────────────────────────────────────────────────────────
+
 function buildNarrative(data: ProcessingResult, prevWeekData: CapacityAnalysisSummary | undefined) {
-  const net = data.kpis.netCapacitySum ?? 0;
-  const desired = data.kpis.totalDesiredHoursSum ?? 0;
+  const net            = data.kpis.netCapacitySum ?? 0;
+  const desired        = data.kpis.totalDesiredHoursSum ?? 0;
   const clientRequired = data.kpis.clientRequiredSum ?? 0;
-  const clientScheduled = data.kpis.clientScheduledHoursSum ?? 0;
+  const clientSched    = data.kpis.clientScheduledHoursSum ?? 0;
 
-  const supplyPct = desired > 0 ? (net / desired) * 100 : 0;
-  const demandCoveragePct = clientRequired > 0 ? (clientScheduled / clientRequired) * 100 : 0;
-
-  const prevNet = prevWeekData?.kpis?.netCapacitySum ?? 0;
-  const wowPct = prevNet > 0 ? ((net - prevNet) / prevNet) * 100 : null;
+  const supplyPct       = desired > 0 ? (net / desired) * 100 : 0;
+  const demandCoverage  = clientRequired > 0 ? (clientSched / clientRequired) * 100 : 0;
+  const prevNet         = prevWeekData?.kpis?.netCapacitySum ?? 0;
+  const wowPct          = prevNet > 0 ? ((net - prevNet) / prevNet) * 100 : null;
 
   const activeCaregivers = (() => {
     if (!data.employeesByDate) return 0;
     const names = new Set<string>();
-    Object.values(data.employeesByDate).forEach(employees =>
-      employees.forEach(e => { if ((e.netCapacity ?? 0) > 0) names.add(e.employeeName); })
+    Object.values(data.employeesByDate).forEach(emps =>
+      emps.forEach(e => { if ((e.netCapacity ?? 0) > 0) names.add(e.employeeName); })
     );
     return names.size;
   })();
 
   const weekendGap = (() => {
-    if (!data.dailySummary || data.dailySummary.length === 0) return null;
-    const weekdays = data.dailySummary.filter(d => { const day = new Date(d.date).getUTCDay(); return day >= 1 && day <= 5; });
-    const weekend  = data.dailySummary.filter(d => { const day = new Date(d.date).getUTCDay(); return day === 0 || day === 6; });
-    if (weekdays.length === 0 || weekend.length === 0) return null;
-    const avgWeekday = weekdays.reduce((s, d) => s + (d.netCapacity ?? 0), 0) / weekdays.length;
-    const avgWeekend = weekend.reduce((s, d) => s + (d.netCapacity ?? 0), 0) / weekend.length;
-    return avgWeekday > 0 ? ((avgWeekday - avgWeekend) / avgWeekday) * 100 : null;
+    if (!data.dailySummary?.length) return null;
+    const wdAvg = data.dailySummary.filter(d => { const v = new Date(d.date).getUTCDay(); return v >= 1 && v <= 5; });
+    const weAvg = data.dailySummary.filter(d => { const v = new Date(d.date).getUTCDay(); return v === 0 || v === 6; });
+    if (!wdAvg.length || !weAvg.length) return null;
+    const avgWd = wdAvg.reduce((s, d) => s + (d.netCapacity ?? 0), 0) / wdAvg.length;
+    const avgWe = weAvg.reduce((s, d) => s + (d.netCapacity ?? 0), 0) / weAvg.length;
+    return avgWd > 0 ? ((avgWd - avgWe) / avgWd) * 100 : null;
   })();
 
-  // Short days
   const shortDays = (data.dailySummary ?? [])
     .filter(d => (d.clientRequired ?? 0) > (d.netCapacity ?? 0))
     .map(d => new Date(d.date).toLocaleDateString("en-GB", { weekday: "short", timeZone: "UTC" }));
 
   let status: "on track" | "under pressure" | "at risk" = "on track";
-  if (supplyPct < 65) { status = "at risk"; }
-  else if (supplyPct < 82) { status = "under pressure"; }
+  if (supplyPct < 65)       status = "at risk";
+  else if (supplyPct < 82)  status = "under pressure";
 
-  let insight = "";
+  let insight = "holding steady across the week";
   if (weekendGap !== null && weekendGap > 25)       insight = "with a weekend gap worth watching";
   else if (weekendGap !== null && weekendGap < -10) insight = "with strong weekend coverage";
   else if (wowPct !== null && wowPct > 3)           insight = "with capacity up vs last week";
   else if (wowPct !== null && wowPct < -3)          insight = "with capacity down vs last week";
-  else                                               insight = "holding steady across the week";
 
   return {
     status,
     headline: `Your week is ${status}, ${insight}.`,
-    net: Math.round(net * 10) / 10,
-    desired: Math.round(desired * 10) / 10,
-    supplyPct: Math.round(supplyPct * 10) / 10,
-    demandCoveragePct: Math.round(demandCoveragePct),
+    net:              Math.round(net * 10) / 10,
+    desired:          Math.round(desired * 10) / 10,
+    supplyPct:        Math.round(supplyPct * 10) / 10,
+    demandCoverage:   Math.round(demandCoverage),
     activeCaregivers,
-    wowPct: wowPct !== null ? Math.round(wowPct * 10) / 10 : null,
-    weekendGap,
+    wowPct:           wowPct !== null ? Math.round(wowPct * 10) / 10 : null,
     shortDays,
-    sickness: Math.round((data.kpis.sicknessSum ?? 0) * 10) / 10,
-    unavail:  Math.round((data.kpis.unavailabilitySum ?? 0) * 10) / 10,
-    holidays: Math.round((data.kpis.holidaysSum ?? 0) * 10) / 10,
+    drainHours: Math.round(((data.kpis.sicknessSum ?? 0) + (data.kpis.unavailabilitySum ?? 0) + (data.kpis.holidaysSum ?? 0)) * 10) / 10,
   };
 }
 
 function formatWeekRange(startDate: string, endDate: string) {
   try {
-    const start = new Date(startDate);
-    const end   = new Date(endDate);
+    const start    = new Date(startDate);
+    const end      = new Date(endDate);
     const startDay = start.getUTCDate();
     const endDay   = end.getUTCDate();
-    const month = start.toLocaleDateString("en-GB", { month: "short", timeZone: "UTC" });
-    const year  = start.getUTCFullYear();
-    const weekNum = (() => {
-      const d = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), start.getUTCDate()));
-      d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
-      const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-      return Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
-    })();
+    const month    = start.toLocaleDateString("en-GB", { month: "short", timeZone: "UTC" });
+    const year     = start.getUTCFullYear();
+    const d = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), start.getUTCDate()));
+    d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
+    const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+    const weekNum = Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
     return { range: `${startDay}–${endDay} ${month} ${year}`, weekNum };
   } catch {
     return { range: startDate, weekNum: null };
   }
 }
 
-// ── Status badge config ───────────────────────────────────────────────────────
+// ── Status badge config ────────────────────────────────────────────────────────
 
 const STATUS_CONFIG = {
   "on track": {
     icon: CheckCircle,
     label: "On Track",
     badge: "bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800",
-    headline: "text-emerald-600 dark:text-emerald-400",
+    headlineClass: "text-emerald-600 dark:text-emerald-400",
     bar: "bg-emerald-500",
     strip: "bg-emerald-500",
   },
@@ -116,7 +115,7 @@ const STATUS_CONFIG = {
     icon: AlertTriangle,
     label: "Under Pressure",
     badge: "bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-800",
-    headline: "text-amber-500 dark:text-amber-400",
+    headlineClass: "text-amber-500 dark:text-amber-400",
     bar: "bg-amber-500",
     strip: "bg-amber-500",
   },
@@ -124,11 +123,22 @@ const STATUS_CONFIG = {
     icon: Zap,
     label: "At Risk",
     badge: "bg-red-50 dark:bg-red-950/60 text-red-700 dark:text-red-400 border-red-200 dark:border-red-800",
-    headline: "text-red-600 dark:text-red-400",
+    headlineClass: "text-red-600 dark:text-red-400",
     bar: "bg-red-500",
     strip: "bg-red-500",
   },
 } as const;
+
+// ── Time-of-day greeting ───────────────────────────────────────────────────────
+
+function greeting() {
+  const h = new Date().getHours();
+  if (h < 12) return "Good morning";
+  if (h < 17) return "Good afternoon";
+  return "Good evening";
+}
+
+// ── Main component ────────────────────────────────────────────────────────────
 
 export function SmartHero({
   processedData,
@@ -138,9 +148,12 @@ export function SmartHero({
   handleWeekChange,
   onUploadClick,
   onProcessClick,
-  isLoadingLatest,
 }: SmartHeroProps) {
   const data = processedData;
+  const { user } = useAuth();
+  const { branches, selectedBranchId } = useBranch();
+  const selectedBranch = branches.find(b => b.id === selectedBranchId);
+  const firstName = user?.displayName?.split(" ")[0] ?? "";
 
   const sortedHistory = useMemo(() => {
     if (!allHistoryData) return [];
@@ -151,23 +164,22 @@ export function SmartHero({
 
   const currentIndex = useMemo(() => {
     if (!data || !sortedHistory.length) return -1;
-    const currentDate = data.dailySummary?.[0]?.date?.slice(0, 10);
-    if (!currentDate) return sortedHistory.length - 1;
-    const idx = sortedHistory.findIndex(h => h.weekStartDate === currentDate);
+    const d = data.dailySummary?.[0]?.date?.slice(0, 10);
+    if (!d) return sortedHistory.length - 1;
+    const idx = sortedHistory.findIndex(h => h.weekStartDate === d);
     return idx >= 0 ? idx : sortedHistory.length - 1;
   }, [data, sortedHistory]);
 
-  const prevWeekData = useMemo(() => {
-    if (currentIndex <= 0) return undefined;
-    return sortedHistory[currentIndex - 1];
-  }, [sortedHistory, currentIndex]);
+  const prevWeekData = useMemo(() =>
+    currentIndex > 0 ? sortedHistory[currentIndex - 1] : undefined
+  , [sortedHistory, currentIndex]);
 
   const sparklineData = useMemo(() => {
     const end   = currentIndex >= 0 ? currentIndex : sortedHistory.length - 1;
     const start = Math.max(0, end - 6);
     return sortedHistory.slice(start, end + 1).map((h, i, arr) => ({
-      label: h.weekStartDate ? new Date(h.weekStartDate).toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "UTC" }) : `Week ${i + 1}`,
-      net: Math.round((h.kpis?.netCapacitySum ?? 0) * 10) / 10,
+      label:  h.weekStartDate ? new Date(h.weekStartDate).toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "UTC" }) : `Week ${i + 1}`,
+      net:    Math.round((h.kpis?.netCapacitySum ?? 0) * 10) / 10,
       isLast: i === arr.length - 1,
     }));
   }, [sortedHistory, currentIndex]);
@@ -180,10 +192,10 @@ export function SmartHero({
 
   const weekLabel = useMemo(() => {
     if (!data?.dailySummary?.length) return null;
-    const startDate = data.dailySummary[0].date?.slice(0, 10);
-    const endDate   = data.dailySummary[data.dailySummary.length - 1].date?.slice(0, 10);
-    if (!startDate || !endDate) return null;
-    return formatWeekRange(startDate, endDate);
+    const s = data.dailySummary[0].date?.slice(0, 10);
+    const e = data.dailySummary[data.dailySummary.length - 1].date?.slice(0, 10);
+    if (!s || !e) return null;
+    return formatWeekRange(s, e);
   }, [data]);
 
   const WoWIcon = narrative?.wowPct == null ? Minus
@@ -199,14 +211,39 @@ export function SmartHero({
       {/* Status colour strip */}
       {cfg && <div className={`h-0.5 w-full ${cfg.strip}`} />}
 
-      <div className="w-full px-6 py-4">
-        <div className="flex items-start gap-6 flex-wrap lg:flex-nowrap">
+      <div className="w-full px-6 pt-4 pb-4">
+        {/* ── Welcome row ─────────────────────────────────────────────────── */}
+        <div className="flex items-center gap-2 mb-3">
+          {selectedBranch && (
+            <div className="flex items-center gap-1.5 bg-[#2c4f26]/8 dark:bg-white/5 rounded-lg px-2.5 py-1 border border-[#2c4f26]/15 dark:border-white/10">
+              <Building2 className="w-3 h-3 text-[#2c4f26] dark:text-emerald-400 shrink-0" />
+              <span className="text-xs font-semibold text-[#2c4f26] dark:text-emerald-400 truncate max-w-[200px]">
+                {selectedBranch.displayName}
+              </span>
+            </div>
+          )}
+          {firstName && (
+            <span className="text-sm text-muted-foreground">
+              {greeting()}, <strong className="text-foreground font-semibold">{firstName}</strong>
+            </span>
+          )}
+          {lastSyncedAt && (
+            <span className="ml-auto flex items-center gap-1 text-[11px] text-muted-foreground">
+              <RefreshCw className="w-3 h-3" />
+              {new Date(lastSyncedAt).toLocaleString("en-GB", {
+                weekday: "short", day: "numeric", month: "short",
+                hour: "2-digit", minute: "2-digit",
+              })}
+            </span>
+          )}
+        </div>
 
+        <div className="flex items-start gap-6 flex-wrap lg:flex-nowrap">
           {/* ── Left: narrative + controls ── */}
           <div className="flex-1 min-w-0">
             {data && narrative && cfg ? (
               <>
-                {/* Status badge */}
+                {/* Status + week context */}
                 <div className="flex items-center gap-2 mb-2">
                   <span className={`inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-full border ${cfg.badge}`}>
                     <StatusIcon className="w-3 h-3" />
@@ -220,36 +257,30 @@ export function SmartHero({
                 </div>
 
                 {/* Headline */}
-                <h1 className="text-2xl font-bold text-foreground leading-tight mb-1.5 tracking-tight">
+                <h1 className="text-[22px] font-bold text-foreground leading-tight mb-1.5 tracking-tight">
                   {(() => {
-                    const txt   = narrative.headline;
-                    const match = txt.match(/^(Your week is )([^,]+)(,.*)$/);
-                    if (!match) return txt;
-                    return (<>{match[1]}<span className={cfg.headline}>{match[2]}</span>{match[3]}</>);
+                    const m = narrative.headline.match(/^(Your week is )([^,]+)(,.*)$/);
+                    if (!m) return narrative.headline;
+                    return <>{m[1]}<span className={cfg.headlineClass}>{m[2]}</span>{m[3]}</>;
                   })()}
                 </h1>
 
                 {/* Sub-narrative */}
                 <p className="text-sm text-muted-foreground leading-relaxed mb-3">
-                  Net capacity is{" "}
-                  <strong className="text-foreground">{narrative.net}h</strong>
-                  {" "}across{" "}
+                  Net capacity is <strong className="text-foreground">{narrative.net}h</strong> across{" "}
                   <strong className="text-foreground">{narrative.activeCaregivers} caregivers</strong>
                   {narrative.wowPct !== null && (
                     <>, {narrative.wowPct > 0 ? "up" : "down"}{" "}
-                      <strong className={wowColor}>{Math.abs(narrative.wowPct)}%</strong>
-                      {" "}vs last week</>
+                      <strong className={wowColor}>{Math.abs(narrative.wowPct)}%</strong> vs last week</>
                   )}
-                  {narrative.demandCoveragePct > 0 && (
+                  {narrative.demandCoverage > 0 && (
                     <>. Client scheduling covers{" "}
-                      <strong className="text-foreground">{narrative.demandCoveragePct}%</strong>
-                      {" "}of demand</>
+                      <strong className="text-foreground">{narrative.demandCoverage}%</strong> of demand</>
                   )}.
                 </p>
 
-                {/* Inline stat chips */}
+                {/* Stat chips */}
                 <div className="flex flex-wrap gap-2 mb-3">
-                  {/* Supply */}
                   <div className="flex items-center gap-2 bg-muted/60 rounded-lg px-3 py-1.5">
                     <div className="text-right">
                       <div className="text-sm font-bold text-foreground">{narrative.supplyPct}%</div>
@@ -259,31 +290,31 @@ export function SmartHero({
                       <div className={`h-full rounded-full ${cfg.bar}`} style={{ width: `${Math.min(narrative.supplyPct, 100)}%` }} />
                     </div>
                   </div>
-                  {/* Demand coverage */}
-                  {narrative.demandCoveragePct > 0 && (
+
+                  {narrative.demandCoverage > 0 && (
                     <div className="flex items-center gap-2 bg-muted/60 rounded-lg px-3 py-1.5">
                       <div className="text-right">
-                        <div className="text-sm font-bold text-foreground">{narrative.demandCoveragePct}%</div>
+                        <div className="text-sm font-bold text-foreground">{narrative.demandCoverage}%</div>
                         <div className="text-[10px] text-muted-foreground leading-none">demand met</div>
                       </div>
                       <div className="w-16 h-1.5 rounded-full bg-border overflow-hidden">
-                        <div className="h-full rounded-full bg-blue-500" style={{ width: `${Math.min(narrative.demandCoveragePct, 100)}%` }} />
+                        <div className="h-full rounded-full bg-blue-500" style={{ width: `${Math.min(narrative.demandCoverage, 100)}%` }} />
                       </div>
                     </div>
                   )}
-                  {/* Capacity drain chip */}
-                  {(narrative.sickness + narrative.unavail + narrative.holidays) > 0 && (
+
+                  {narrative.drainHours > 0 && (
                     <div className="flex items-center gap-1.5 bg-muted/60 rounded-lg px-3 py-1.5">
                       <AlertTriangle className="w-3 h-3 text-red-500 shrink-0" />
                       <div>
-                        <div className="text-sm font-bold text-foreground">{Math.round((narrative.sickness + narrative.unavail + narrative.holidays) * 10) / 10}h</div>
+                        <div className="text-sm font-bold text-foreground">{narrative.drainHours}h</div>
                         <div className="text-[10px] text-muted-foreground leading-none">capacity lost</div>
                       </div>
                     </div>
                   )}
                 </div>
 
-                {/* Day risk pills */}
+                {/* Short day pills */}
                 {narrative.shortDays.length > 0 && (
                   <div className="flex items-center gap-1.5 flex-wrap mb-3">
                     <span className="text-[10px] text-muted-foreground font-medium">Short days:</span>
@@ -295,22 +326,13 @@ export function SmartHero({
                   </div>
                 )}
 
-                {/* Action buttons + controls */}
+                {/* Action bar */}
                 <div className="flex flex-wrap items-center gap-2">
-                  <Button
-                    onClick={onUploadClick}
-                    size="sm"
-                    className="h-8 px-4 text-xs bg-emerald-700 hover:bg-emerald-800 text-white border-0 shadow-sm"
-                  >
+                  <Button onClick={onUploadClick} size="sm" className="h-8 px-4 text-xs bg-emerald-700 hover:bg-emerald-800 text-white border-0 shadow-sm">
                     <Upload className="w-3.5 h-3.5 mr-1.5" />
                     Upload New Data
                   </Button>
-                  <Button
-                    onClick={onProcessClick}
-                    variant="outline"
-                    size="sm"
-                    className="h-8 px-4 text-xs border-border hover:bg-muted"
-                  >
+                  <Button onClick={onProcessClick} variant="outline" size="sm" className="h-8 px-4 text-xs border-border hover:bg-muted">
                     <Bot className="w-3.5 h-3.5 mr-1.5" />
                     Process Data
                   </Button>
@@ -330,23 +352,17 @@ export function SmartHero({
                             const now = new Date();
                             const day = now.getUTCDay();
                             const diff = day === 0 ? -6 : 1 - day;
-                            const currentMonday = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + diff));
-                            const lowerCutoff = new Date(currentMonday);
-                            lowerCutoff.setUTCDate(lowerCutoff.getUTCDate() - 14);
-                            const upperCutoff = new Date(currentMonday);
-                            upperCutoff.setUTCDate(upperCutoff.getUTCDate() + 13 * 7);
+                            const mon = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + diff));
+                            const lo = new Date(mon); lo.setUTCDate(lo.getUTCDate() - 14);
+                            const hi = new Date(mon); hi.setUTCDate(hi.getUTCDate() + 13 * 7);
                             return allHistoryData
-                              ?.filter(a => {
-                                if (!a.weekStartDate) return false;
-                                const d = new Date(a.weekStartDate);
-                                return d >= lowerCutoff && d <= upperCutoff;
-                              })
-                              .map(analysis => {
+                              ?.filter(a => { if (!a.weekStartDate) return false; const d = new Date(a.weekStartDate); return d >= lo && d <= hi; })
+                              .map(a => {
                                 try {
-                                  if (!analysis.weekStartDate || !analysis.weekEndDate) return null;
-                                  const { range, weekNum } = formatWeekRange(analysis.weekStartDate, analysis.weekEndDate);
+                                  if (!a.weekStartDate || !a.weekEndDate) return null;
+                                  const { range, weekNum } = formatWeekRange(a.weekStartDate, a.weekEndDate);
                                   return (
-                                    <SelectItem key={analysis.id} value={analysis.id}>
+                                    <SelectItem key={a.id} value={a.id}>
                                       {weekNum ? `Week ${weekNum} · ` : ""}{range}
                                     </SelectItem>
                                   );
@@ -358,21 +374,11 @@ export function SmartHero({
                       </Select>
                     </div>
                   )}
-
-                  {lastSyncedAt && (
-                    <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                      <RefreshCw className="w-3 h-3" />
-                      {new Date(lastSyncedAt).toLocaleString("en-GB", {
-                        weekday: "short", day: "numeric", month: "short",
-                        hour: "2-digit", minute: "2-digit",
-                      })}
-                    </span>
-                  )}
                 </div>
               </>
             ) : (
               <>
-                <h1 className="text-2xl font-bold text-foreground leading-tight mb-1.5 tracking-tight">
+                <h1 className="text-[22px] font-bold text-foreground leading-tight mb-1.5 tracking-tight">
                   Care Capacity Dashboard
                 </h1>
                 <p className="text-sm text-muted-foreground mb-3">
@@ -417,14 +423,13 @@ export function SmartHero({
               <div className="text-xs text-muted-foreground mb-1">
                 out of <strong className="text-foreground">{narrative.desired}h</strong> desired
               </div>
-              {/* Supply bar */}
               <div className="mb-3">
                 <div className="flex justify-between text-[10px] mb-0.5">
                   <span className="text-muted-foreground">Supply</span>
-                  <span className={`font-semibold ${cfg.headline}`}>{narrative.supplyPct}%</span>
+                  <span className={`font-semibold ${cfg.headlineClass}`}>{narrative.supplyPct}%</span>
                 </div>
                 <div className="h-1.5 rounded-full bg-border overflow-hidden">
-                  <div className={`h-full rounded-full transition-all ${cfg.bar}`} style={{ width: `${Math.min(narrative.supplyPct, 100)}%` }} />
+                  <div className={`h-full rounded-full ${cfg.bar}`} style={{ width: `${Math.min(narrative.supplyPct, 100)}%` }} />
                 </div>
               </div>
               {sparklineData.length > 1 && (
