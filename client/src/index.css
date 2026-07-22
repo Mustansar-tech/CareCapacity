@@ -3,71 +3,71 @@
 @tailwind utilities;
 
 :root {
-  /* Vibrant, solid color system */
-  --background: hsl(220 20% 97%);
-  --foreground: hsl(220 20% 10%);
-  --surface: hsl(220 20% 98%);
-  --surface-container: hsl(220 15% 94%);
-  --surface-container-high: hsl(220 15% 91%);
-  --surface-container-highest: hsl(220 15% 88%);
+  /* Calm, warm professional palette — deep teal identity */
+  --background: hsl(170 18% 97%);
+  --foreground: hsl(190 30% 12%);
+  --surface: hsl(170 18% 98%);
+  --surface-container: hsl(170 14% 93%);
+  --surface-container-high: hsl(170 12% 90%);
+  --surface-container-highest: hsl(170 10% 87%);
   
-  /* Cards — pure white with clear border */
+  /* Cards — pure white with soft teal-tinted border */
   --card: hsl(0 0% 100%);
-  --card-foreground: hsl(220 20% 10%);
-  --card-border: hsl(220 15% 88%);
+  --card-foreground: hsl(190 30% 12%);
+  --card-border: hsl(170 14% 88%);
   
-  /* Interactive elements — vivid blue */
-  --primary: hsl(214 100% 46%);
-  --primary-container: hsl(214 100% 92%);
+  /* Interactive elements — deep confident teal */
+  --primary: hsl(174 62% 27%);
+  --primary-container: hsl(172 45% 91%);
   --primary-foreground: hsl(0 0% 100%);
-  --on-primary-container: hsl(214 100% 22%);
+  --on-primary-container: hsl(175 60% 16%);
   
-  --secondary: hsl(147 72% 34%);
-  --secondary-container: hsl(147 72% 90%);
+  --secondary: hsl(150 45% 32%);
+  --secondary-container: hsl(148 42% 90%);
   --secondary-foreground: hsl(0 0% 100%);
-  --on-secondary-container: hsl(147 72% 14%);
+  --on-secondary-container: hsl(150 50% 14%);
   
-  --tertiary: hsl(266 85% 55%);
-  --tertiary-container: hsl(266 85% 92%);
+  --tertiary: hsl(222 47% 42%);
+  --tertiary-container: hsl(222 47% 92%);
   --tertiary-foreground: hsl(0 0% 100%);
   
-  /* Semantic colors — solid, vivid */
-  --success: hsl(142 70% 32%);
-  --success-container: hsl(142 70% 90%);
-  --warning: hsl(38 95% 44%);
-  --warning-container: hsl(38 95% 92%);
-  --error: hsl(0 80% 52%);
-  --error-container: hsl(0 80% 92%);
+  /* Semantic colors — clear but not shouty */
+  --success: hsl(150 55% 30%);
+  --success-container: hsl(148 45% 90%);
+  --warning: hsl(35 90% 40%);
+  --warning-container: hsl(38 90% 92%);
+  --error: hsl(356 68% 46%);
+  --error-container: hsl(356 70% 93%);
   
-  /* Neutral tones — less grey, more blue-tinted */
-  --muted: hsl(220 15% 91%);
-  --muted-foreground: hsl(220 12% 28%);
-  --border: hsl(220 15% 85%);
-  --input: hsl(220 20% 98%);
-  --ring: hsl(214 100% 46%);
+  /* Neutral tones — teal-tinted, warm */
+  --muted: hsl(170 14% 91%);
+  --muted-foreground: hsl(190 14% 32%);
+  --border: hsl(170 13% 85%);
+  --input: hsl(170 18% 98%);
+  --ring: hsl(174 62% 30%);
   
   /* Surface variants */
   --popover: hsl(0 0% 100%);
-  --popover-foreground: hsl(220 20% 10%);
-  --accent: hsl(214 100% 92%);
-  --accent-foreground: hsl(214 100% 22%);
+  --popover-foreground: hsl(190 30% 12%);
+  --accent: hsl(172 45% 91%);
+  --accent-foreground: hsl(175 60% 16%);
   
   /* Legacy compatibility */
-  --destructive: hsl(358 75% 59%);
+  --destructive: hsl(356 68% 50%);
   --destructive-foreground: hsl(0 0% 100%);
   
-  /* Enhanced chart colors */
-  --chart-1: hsl(214 100% 59%);
-  --chart-2: hsl(147 100% 37%);
-  --chart-3: hsl(45 93% 47%);
-  --chart-4: hsl(266 85% 58%);
-  --chart-5: hsl(358 75% 59%);
-  --chart-6: hsl(195 100% 42%);
+  /* Harmonised chart colors */
+  --chart-1: hsl(174 62% 34%);
+  --chart-2: hsl(150 50% 38%);
+  --chart-3: hsl(35 90% 46%);
+  --chart-4: hsl(222 47% 50%);
+  --chart-5: hsl(356 62% 55%);
+  --chart-6: hsl(192 70% 38%);
   
   /* Typography system */
   --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --font-mono: "SF Mono", "Monaco", "Inconsolata", "Roboto Mono", monospace;
-  --font-display: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-display: "Plus Jakarta Sans", "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
   
   /* Border radius scale */
   --radius: 12px;
@@ -102,66 +102,66 @@
 }
 
 .dark {
-  /* Google Material Design 3.0 Dark Theme */
-  --background: hsl(210 11% 6%);
-  --foreground: hsl(210 6% 93%);
-  --surface: hsl(210 11% 8%);
-  --surface-container: hsl(210 11% 11%);
-  --surface-container-high: hsl(210 11% 14%);
-  --surface-container-highest: hsl(210 11% 17%);
+  /* Deep teal-tinted dark theme */
+  --background: hsl(192 22% 7%);
+  --foreground: hsl(170 12% 92%);
+  --surface: hsl(192 20% 9%);
+  --surface-container: hsl(192 18% 12%);
+  --surface-container-high: hsl(192 16% 15%);
+  --surface-container-highest: hsl(192 14% 18%);
   
   /* Cards with subtle depth */
-  --card: hsl(210 11% 11%);
-  --card-foreground: hsl(210 6% 93%);
-  --card-border: hsl(210 11% 17%);
+  --card: hsl(192 18% 11%);
+  --card-foreground: hsl(170 12% 92%);
+  --card-border: hsl(192 14% 18%);
   
   /* Interactive elements */
-  --primary: hsl(214 100% 70%);
-  --primary-container: hsl(214 100% 15%);
-  --primary-foreground: hsl(210 11% 6%);
-  --on-primary-container: hsl(214 100% 85%);
+  --primary: hsl(172 55% 58%);
+  --primary-container: hsl(174 50% 15%);
+  --primary-foreground: hsl(192 22% 7%);
+  --on-primary-container: hsl(172 50% 82%);
   
-  --secondary: hsl(147 100% 48%);
-  --secondary-container: hsl(147 100% 12%);
-  --secondary-foreground: hsl(210 11% 6%);
-  --on-secondary-container: hsl(147 100% 80%);
+  --secondary: hsl(150 45% 55%);
+  --secondary-container: hsl(150 45% 13%);
+  --secondary-foreground: hsl(192 22% 7%);
+  --on-secondary-container: hsl(148 42% 80%);
   
-  --tertiary: hsl(266 85% 68%);
-  --tertiary-container: hsl(266 85% 18%);
-  --tertiary-foreground: hsl(210 11% 6%);
+  --tertiary: hsl(222 60% 70%);
+  --tertiary-container: hsl(222 45% 18%);
+  --tertiary-foreground: hsl(192 22% 7%);
   
   /* Semantic colors */
-  --success: hsl(142 76% 48%);
-  --success-container: hsl(142 76% 15%);
-  --warning: hsl(45 93% 58%);
-  --warning-container: hsl(45 93% 18%);
-  --error: hsl(358 75% 68%);
-  --error-container: hsl(358 75% 18%);
+  --success: hsl(150 50% 52%);
+  --success-container: hsl(150 50% 13%);
+  --warning: hsl(38 85% 58%);
+  --warning-container: hsl(38 80% 15%);
+  --error: hsl(356 70% 66%);
+  --error-container: hsl(356 55% 17%);
   
   /* Neutral tones */
-  --muted: hsl(210 11% 17%);
-  --muted-foreground: hsl(210 6% 63%);
-  --border: hsl(210 11% 17%);
-  --input: hsl(210 11% 14%);
-  --ring: hsl(214 100% 70%);
+  --muted: hsl(192 14% 17%);
+  --muted-foreground: hsl(180 8% 64%);
+  --border: hsl(192 14% 18%);
+  --input: hsl(192 16% 14%);
+  --ring: hsl(172 55% 58%);
   
   /* Surface variants */
-  --popover: hsl(210 11% 11%);
-  --popover-foreground: hsl(210 6% 93%);
-  --accent: hsl(214 100% 15%);
-  --accent-foreground: hsl(214 100% 85%);
+  --popover: hsl(192 18% 11%);
+  --popover-foreground: hsl(170 12% 92%);
+  --accent: hsl(174 50% 15%);
+  --accent-foreground: hsl(172 50% 82%);
   
   /* Legacy compatibility */
-  --destructive: hsl(358 75% 68%);
-  --destructive-foreground: hsl(210 11% 6%);
+  --destructive: hsl(356 70% 66%);
+  --destructive-foreground: hsl(192 22% 7%);
   
-  /* Enhanced chart colors for dark mode */
-  --chart-1: hsl(214 100% 70%);
-  --chart-2: hsl(147 100% 48%);
-  --chart-3: hsl(45 93% 58%);
-  --chart-4: hsl(266 85% 68%);
-  --chart-5: hsl(358 75% 68%);
-  --chart-6: hsl(195 100% 55%);
+  /* Harmonised chart colors for dark mode */
+  --chart-1: hsl(172 55% 58%);
+  --chart-2: hsl(150 45% 55%);
+  --chart-3: hsl(38 85% 58%);
+  --chart-4: hsl(222 60% 70%);
+  --chart-5: hsl(356 70% 66%);
+  --chart-6: hsl(192 65% 55%);
   
   /* Enhanced elevation for dark mode */
   --elevation-1: 0px 1px 2px rgba(0, 0, 0, 0.2), 0px 1px 3px rgba(0, 0, 0, 0.3);

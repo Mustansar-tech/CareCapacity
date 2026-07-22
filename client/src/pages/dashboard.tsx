@@ -170,13 +170,17 @@ export default function Dashboard() {
     <div className="h-full w-full bg-background scroll-modern flex flex-col overflow-hidden" data-testid="dashboard-container">
       {/* Hero Section — Only show on Overview tab */}
       {activeTab === "overview" && (
-        <div className="bg-gradient-to-br from-primary/5 via-secondary/5 to-tertiary/5 border-b border-card-border shrink-0">
-          <div className="w-full px-lg py-6 text-center">
-            <h1 className="font-display text-5xl font-semibold bg-gradient-to-r from-blue-600 to-emerald-600 bg-clip-text text-transparent mb-2">
-              Welcome to Care Capacity Dashboard
+        <div className="relative overflow-hidden border-b border-card-border shrink-0 bg-card">
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,_hsl(174_62%_27%_/_0.08),_transparent_55%),radial-gradient(ellipse_at_bottom_right,_hsl(150_45%_32%_/_0.06),_transparent_55%)] dark:bg-[radial-gradient(ellipse_at_top_left,_hsl(172_55%_58%_/_0.08),_transparent_55%),radial-gradient(ellipse_at_bottom_right,_hsl(150_45%_55%_/_0.06),_transparent_55%)]" aria-hidden="true" />
+          <div className="relative w-full px-lg py-7 text-center animate-fade-in">
+            <div className="inline-flex items-center gap-2 mb-3 px-3 py-1 rounded-full bg-primary-container text-primary-on-container text-xs font-semibold tracking-wide uppercase">
+              Weekly capacity at a glance
+            </div>
+            <h1 className="font-display text-4xl md:text-[2.75rem] font-bold tracking-tight text-foreground mb-2">
+              Care Capacity Dashboard
             </h1>
-            <p className="text-xl text-muted-foreground max-w-3xl mx-auto leading-relaxed">
-              Intelligent workforce capacity analysis for optimal care scheduling and resource management
+            <p className="text-lg text-muted-foreground max-w-2xl mx-auto leading-relaxed">
+              A clear picture of your team's hours, availability and scheduling — all in one place
             </p>
           </div>
         </div>
@@ -200,7 +204,7 @@ export default function Dashboard() {
             <Button
               onClick={() => navigate('/app/people-planner')}
               variant="outline"
-              className="glass-card hover:shadow-lg transition-all duration-200 h-10 px-5 border-violet-200 dark:border-violet-800 text-violet-700 dark:text-violet-300 hover:bg-violet-50 dark:hover:bg-violet-950"
+              className="glass-card hover:shadow-lg transition-all duration-200 h-10 px-5 border-tertiary/30 text-tertiary hover:bg-tertiary-container/50"
               title="Automatically download reports from People Planner"
             >
               <Bot className="w-4 h-4 mr-2" />
@@ -211,24 +215,24 @@ export default function Dashboard() {
 
         {!processedData && showUploadPanel && (
           <Card className="material-card hover-lift animate-slide-up mb-2xl elevation-2" data-testid="upload-section">
-            <CardHeader className="gradient-card dark:gradient-card-dark rounded-t-lg">
+            <CardHeader className="border-b border-card-border bg-surface-container/40 rounded-t-lg">
               <CardTitle className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg gradient-bg flex items-center justify-center" aria-hidden="true">
-                  <Upload className="w-4 h-4 text-white" />
+                <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center" aria-hidden="true">
+                  <Upload className="w-4 h-4 text-primary-foreground" />
                 </div>
-                <h2 className="text-xl font-semibold bg-gradient-to-r from-blue-600 to-emerald-600 bg-clip-text text-transparent">
+                <h2 className="font-display text-xl font-bold text-foreground">
                   Upload Files
                 </h2>
                 {isLoadingLatest && (
                   <div className="flex items-center gap-2" role="status" aria-label="Loading latest data">
-                    <RefreshCw className="w-4 h-4 animate-spin text-blue-500" />
-                    <span className="text-sm text-blue-600">Loading latest data...</span>
+                    <RefreshCw className="w-4 h-4 animate-spin text-primary" />
+                    <span className="text-sm text-primary">Loading latest data...</span>
                   </div>
                 )}
                 {Boolean(latestDataError) && (
                   <div className="flex items-center gap-2">
-                    <AlertTriangle className="w-4 h-4 text-orange-500" />
-                    <span className="text-sm text-orange-600">No previous data found</span>
+                    <AlertTriangle className="w-4 h-4 text-warning" />
+                    <span className="text-sm text-warning">No previous data found</span>
                   </div>
                 )}
               </CardTitle>
@@ -237,28 +241,28 @@ export default function Dashboard() {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
                 <Card className="glass hover-lift border-primary/20 bg-primary/5 transition-all duration-300">
                   <CardContent className="p-6 text-center">
-                    <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center mx-auto mb-4 shadow-lg shadow-blue-500/20">
-                      <FileSpreadsheet className="w-6 h-6 text-white" />
+                    <div className="w-12 h-12 rounded-2xl bg-primary flex items-center justify-center mx-auto mb-4 shadow-lg shadow-primary/20">
+                      <FileSpreadsheet className="w-6 h-6 text-primary-foreground" />
                     </div>
-                    <h3 className="font-bold text-lg mb-1">Availability</h3>
+                    <h3 className="font-display font-bold text-lg mb-1">Availability</h3>
                     <p className="text-xs text-muted-foreground leading-relaxed">Staff shift patterns and preferences</p>
                   </CardContent>
                 </Card>
                 <Card className="glass hover-lift border-secondary/20 bg-secondary/5 transition-all duration-300">
                   <CardContent className="p-6 text-center">
-                    <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center mx-auto mb-4 shadow-lg shadow-emerald-500/20">
-                      <Clock className="w-6 h-6 text-white" />
+                    <div className="w-12 h-12 rounded-2xl bg-secondary flex items-center justify-center mx-auto mb-4 shadow-lg shadow-secondary/20">
+                      <Clock className="w-6 h-6 text-secondary-foreground" />
                     </div>
-                    <h3 className="font-bold text-lg mb-1">Guaranteed</h3>
+                    <h3 className="font-display font-bold text-lg mb-1">Guaranteed</h3>
                     <p className="text-xs text-muted-foreground leading-relaxed">Contracted hours and core data</p>
                   </CardContent>
                 </Card>
-                <Card className="glass hover-lift border-orange-500/20 bg-orange-500/5 transition-all duration-300">
+                <Card className="glass hover-lift border-warning/20 bg-warning/5 transition-all duration-300">
                   <CardContent className="p-6 text-center">
-                    <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center mx-auto mb-4 shadow-lg shadow-orange-500/20">
+                    <div className="w-12 h-12 rounded-2xl bg-warning flex items-center justify-center mx-auto mb-4 shadow-lg shadow-warning/20">
                       <Target className="w-6 h-6 text-white" />
                     </div>
-                    <h3 className="font-bold text-lg mb-1">CG Data</h3>
+                    <h3 className="font-display font-bold text-lg mb-1">CG Data</h3>
                     <p className="text-xs text-muted-foreground leading-relaxed">Master employee list (Required)</p>
                   </CardContent>
                 </Card>
@@ -267,8 +271,8 @@ export default function Dashboard() {
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-6">
                 <div className="space-y-1.5">
                   <div className="flex items-center gap-1.5">
-                    <div className="w-4 h-4 rounded bg-blue-100 dark:bg-blue-900 flex items-center justify-center">
-                      <Users className="w-2.5 h-2.5 text-blue-600 dark:text-blue-400" />
+                    <div className="w-4 h-4 rounded bg-primary-container flex items-center justify-center">
+                      <Users className="w-2.5 h-2.5 text-primary" />
                     </div>
                     <Label htmlFor="availability-file" className="text-[11px] font-medium truncate">
                       Availability
@@ -279,13 +283,13 @@ export default function Dashboard() {
                     type="file"
                     accept=".xlsx,.xls"
                     onChange={handleFileChange('availability')}
-                    className="file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 transition-all duration-200"
+                    className="file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-primary-container file:text-primary-on-container hover:file:opacity-90 transition-all duration-200"
                     data-testid="input-availability-file"
                   />
                   {files.availability && (
-                    <div className="flex items-center gap-2 p-2 bg-green-50 dark:bg-green-900/20 rounded-lg">
-                      <CheckCircle className="w-4 h-4 text-green-600" />
-                      <p className="text-sm text-green-600 dark:text-green-400" data-testid="text-availability-selected">
+                    <div className="flex items-center gap-2 p-2 bg-success-container/60 rounded-lg">
+                      <CheckCircle className="w-4 h-4 text-success" />
+                      <p className="text-sm text-success" data-testid="text-availability-selected">
                         {files.availability.name}
                       </p>
                     </div>
@@ -294,8 +298,8 @@ export default function Dashboard() {
 
                 <div className="space-y-1.5">
                   <div className="flex items-center gap-1.5">
-                    <div className="w-4 h-4 rounded bg-emerald-100 dark:bg-emerald-900 flex items-center justify-center">
-                      <Clock className="w-2.5 h-2.5 text-emerald-600 dark:text-emerald-400" />
+                    <div className="w-4 h-4 rounded bg-secondary-container flex items-center justify-center">
+                      <Clock className="w-2.5 h-2.5 text-secondary" />
                     </div>
                     <Label htmlFor="guaranteed-file" className="text-[11px] font-medium truncate">
                       Guaranteed
@@ -306,13 +310,13 @@ export default function Dashboard() {
                     type="file"
                     accept=".xlsx,.xls"
                     onChange={handleFileChange('guaranteed')}
-                    className="file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100 transition-all duration-200"
+                    className="file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-secondary-container file:text-secondary-on-container hover:file:opacity-90 transition-all duration-200"
                     data-testid="input-guaranteed-file"
                   />
                   {files.guaranteed && (
-                    <div className="flex items-center gap-2 p-2 bg-green-50 dark:bg-green-900/20 rounded-lg">
-                      <CheckCircle className="w-4 h-4 text-green-600" />
-                      <p className="text-sm text-green-600 dark:text-green-400" data-testid="text-guaranteed-selected">
+                    <div className="flex items-center gap-2 p-2 bg-success-container/60 rounded-lg">
+                      <CheckCircle className="w-4 h-4 text-success" />
+                      <p className="text-sm text-success" data-testid="text-guaranteed-selected">
                         {files.guaranteed.name}
                       </p>
                     </div>
@@ -321,12 +325,12 @@ export default function Dashboard() {
 
                 <div className="space-y-1.5">
                   <div className="flex items-center gap-1.5">
-                    <div className="w-4 h-4 rounded bg-orange-100 dark:bg-orange-900 flex items-center justify-center">
-                      <Target className="w-2.5 h-2.5 text-orange-600 dark:text-orange-400" />
+                    <div className="w-4 h-4 rounded bg-warning-container flex items-center justify-center">
+                      <Target className="w-2.5 h-2.5 text-warning" />
                     </div>
                     <Label htmlFor="cgdata-file" className="text-[11px] font-medium truncate">
                       CG Data
-                      <span className="ml-1 px-0.5 py-0.5 text-[9px] bg-orange-100 dark:bg-orange-900 text-orange-700 dark:text-orange-300 rounded">
+                      <span className="ml-1 px-0.5 py-0.5 text-[9px] bg-warning-container text-warning rounded">
                         Master
                       </span>
                     </Label>
@@ -336,13 +340,13 @@ export default function Dashboard() {
                     type="file"
                     accept=".xlsx,.xls"
                     onChange={handleFileChange('cgData')}
-                    className="file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-orange-50 file:text-orange-700 hover:file:bg-orange-100 transition-all duration-200"
+                    className="file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-warning-container file:text-warning hover:file:opacity-90 transition-all duration-200"
                     data-testid="input-cgdata-file"
                   />
                   {files.cgData && (
-                    <div className="flex items-center gap-2 p-2 bg-green-50 dark:bg-green-900/20 rounded-lg">
-                      <CheckCircle className="w-4 h-4 text-green-600" />
-                      <p className="text-sm text-green-600 dark:text-green-400" data-testid="text-cgdata-selected">
+                    <div className="flex items-center gap-2 p-2 bg-success-container/60 rounded-lg">
+                      <CheckCircle className="w-4 h-4 text-success" />
+                      <p className="text-sm text-success" data-testid="text-cgdata-selected">
                         {files.cgData.name}
                       </p>
                     </div>
@@ -354,7 +358,7 @@ export default function Dashboard() {
                 <Button
                   onClick={handleProcessFiles}
                   disabled={!files.availability || !files.guaranteed || !files.cgData || isProcessing || processMutation.isPending}
-                  className="flex-1 md:flex-initial bg-gradient-to-r from-blue-600 to-emerald-600 hover:from-blue-700 hover:to-emerald-700 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-200"
+                  className="flex-1 md:flex-initial bg-primary hover:bg-primary/90 text-primary-foreground border-0 shadow-lg hover:shadow-xl transition-all duration-200"
                   data-testid="button-process"
                 >
                   {isProcessing || processMutation.isPending ? (
