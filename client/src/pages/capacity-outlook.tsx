@@ -1624,8 +1624,8 @@ export default function CapacityOutlookPage() {
                         <TableRow>
                           <SortHead col="candidateName" label="Name" current={joinerSort} onSort={toggleJoinerSort} />
                           <SortHead col="employmentType" label="Type" current={joinerSort} onSort={toggleJoinerSort} />
-                          <SortHead col="desiredWeeklyHours" label="Hrs/wk" current={joinerSort} onSort={toggleJoinerSort} />
-                          <TableHead>Contracted</TableHead>
+                          <SortHead col="desiredWeeklyHours" label="Desired Hrs/wk" current={joinerSort} onSort={toggleJoinerSort} />
+                          <TableHead>Contracted Hrs</TableHead>
                           <SortHead col="postcode" label="Postcode" current={joinerSort} onSort={toggleJoinerSort} />
                           <SortHead col="stage" label="Stage" current={joinerSort} onSort={toggleJoinerSort} />
                           <SortHead col="trainingDate" label="Training" current={joinerSort} onSort={toggleJoinerSort} />
@@ -1724,8 +1724,8 @@ export default function CapacityOutlookPage() {
                           <TableRow className="bg-yellow-100/60 dark:bg-yellow-900/20">
                             <TableHead>Name</TableHead>
                             <TableHead>Type</TableHead>
-                            <TableHead>Hrs/wk</TableHead>
-                            <TableHead>Contracted</TableHead>
+                            <TableHead>Desired Hrs/wk</TableHead>
+                            <TableHead>Contracted Hrs</TableHead>
                             <TableHead>Postcode</TableHead>
                             <TableHead>Stage</TableHead>
                             {isScheduler && <TableHead className="text-right">Actions</TableHead>}
@@ -1805,8 +1805,8 @@ export default function CapacityOutlookPage() {
                                       <TableHead>Name</TableHead>
                                       <TableHead>Status</TableHead>
                                       <TableHead>Type</TableHead>
-                                      <TableHead>Hrs/wk</TableHead>
-                                      <TableHead>Contracted</TableHead>
+                                      <TableHead>Desired Hrs/wk</TableHead>
+                                      <TableHead>Contracted Hrs</TableHead>
                                       <TableHead>Hired</TableHead>
                                       {isAdmin && <TableHead className="text-right">Actions</TableHead>}
                                     </TableRow>
@@ -1936,8 +1936,8 @@ export default function CapacityOutlookPage() {
                           <TableHead>Status</TableHead>
                           <TableHead>Emp No</TableHead>
                           <SortHead col="employmentType" label="Type" current={leaverSort} onSort={toggleLeaverSort} />
-                          <SortHead col="weeklyHours" label="Hrs/wk" current={leaverSort} onSort={toggleLeaverSort} />
-                          <TableHead>Contracted</TableHead>
+                          <SortHead col="weeklyHours" label="Desired Hrs/wk" current={leaverSort} onSort={toggleLeaverSort} />
+                          <TableHead>Contracted Hrs</TableHead>
                           <TableHead>Postcode</TableHead>
                           <SortHead col="firstDayOfNotice" label="Day of Notice" current={leaverSort} onSort={toggleLeaverSort} />
                           <SortHead col="lastWorkingDay" label="Termination Day" current={leaverSort} onSort={toggleLeaverSort} />
@@ -1998,8 +1998,8 @@ export default function CapacityOutlookPage() {
                             <TableHead>Status</TableHead>
                             <TableHead>Emp No</TableHead>
                             <TableHead>Type</TableHead>
-                            <TableHead>Hrs/wk</TableHead>
-                            <TableHead>Contracted</TableHead>
+                            <TableHead>Desired Hrs/wk</TableHead>
+                            <TableHead>Contracted Hrs</TableHead>
                             <TableHead>Postcode</TableHead>
                             <TableHead>Day of Notice</TableHead>
                             <TableHead>Termination Day</TableHead>
@@ -2087,8 +2087,8 @@ export default function CapacityOutlookPage() {
                                       <TableHead>Name</TableHead>
                                       <TableHead>Emp No</TableHead>
                                       <TableHead>Type</TableHead>
-                                      <TableHead>Hrs/wk</TableHead>
-                                      <TableHead>Contracted</TableHead>
+                                      <TableHead>Desired Hrs/wk</TableHead>
+                                      <TableHead>Contracted Hrs</TableHead>
                                       <TableHead>Termination Day</TableHead>
                                       <TableHead>Notes</TableHead>
                                       {isAdmin && <TableHead className="text-right">Actions</TableHead>}
