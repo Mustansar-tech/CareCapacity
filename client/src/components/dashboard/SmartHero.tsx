@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import {
-  LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer,
+  AreaChart, Area, LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer,
   ReferenceLine, ReferenceDot, CartesianGrid,
 } from "recharts";
 import {
@@ -294,7 +294,7 @@ export function SmartHero({
       {/* Status colour strip */}
       {cfg && <div className={`h-0.5 w-full ${cfg.strip}`} />}
 
-      <div className="w-full px-6 pt-4 pb-4">
+      <div className="w-full px-6 pt-4 pb-2">
         {/* ── Welcome row ─────────────────────────────────────────────────── */}
         <div className="flex items-center gap-1.5 mb-3">
           {firstName && (
@@ -510,20 +510,25 @@ export function SmartHero({
             )}
           </div>
 
-          {/* ── Right: all-weeks trend chart ── */}
-          {narrative && cfg && (
-            <div className="shrink-0 w-80 border border-border rounded-xl bg-card p-4 shadow-sm">
-              {/* Header */}
-              <div className="flex items-center justify-between mb-2">
-                <div>
-                  <span className="text-[11px] font-semibold text-foreground">Capacity vs Demand Trend</span>
-                  <p className="text-[10px] text-muted-foreground leading-none mt-0.5">
-                    All {lineChartData.filter(d => !d.isProjected).length} processed weeks
-                    {lineChartData.some(d => d.isProjected) && " + forecast"}
-                  </p>
-                </div>
+        </div>
+      </div>
+
+      {/* ── Full-width capacity vs demand trend ── */}
+      {narrative && cfg && lineChartData.length > 1 && (
+        <div className="px-6 pb-4">
+          <div className="border border-border rounded-xl bg-card px-5 pt-3 pb-2">
+            {/* Header */}
+            <div className="flex items-center justify-between mb-1">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-semibold text-foreground">Capacity vs Demand — All Weeks</span>
+                <span className="text-[10px] text-muted-foreground">
+                  {lineChartData.filter(d => !d.isProjected).length} processed weeks
+                  {lineChartData.some(d => d.isProjected) && " · 1 week forecast"}
+                </span>
+              </div>
+              <div className="flex items-center gap-4 text-[10px] text-muted-foreground">
                 {narrative.wowPct !== null && (
-                  <span className={`flex items-center gap-0.5 text-[10px] font-bold rounded-full px-1.5 py-0.5 shrink-0 ${
+                  <span className={`flex items-center gap-0.5 font-bold rounded-full px-2 py-0.5 ${
                     narrative.wowPct > 0
                       ? "bg-emerald-50 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400"
                       : "bg-red-50 dark:bg-red-950 text-red-600 dark:text-red-400"
@@ -532,157 +537,197 @@ export function SmartHero({
                     {narrative.wowPct > 0 ? "+" : ""}{narrative.wowPct}% vs prev wk
                   </span>
                 )}
+                <span className="flex items-center gap-1">
+                  <span className="w-5 h-0.5 bg-[#2c4f26] inline-block rounded" />Net capacity
+                </span>
+                <span className="flex items-center gap-1">
+                  <span className="w-5 h-0.5 bg-amber-500 inline-block rounded" />Required
+                </span>
+                {lineChartData.some(d => d.isProjected) && (
+                  <span className="flex items-center gap-1 italic text-amber-500">
+                    <span className="w-5 inline-block border-t-2 border-dashed border-amber-500" />forecast
+                  </span>
+                )}
               </div>
-
-              {lineChartData.length > 1 ? (
-                <>
-                  <div className="h-36">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <LineChart
-                        data={lineChartData}
-                        margin={{ top: 4, right: 6, left: -22, bottom: 0 }}
-                      >
-                        <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
-                        <XAxis
-                          dataKey="label"
-                          tick={({ x, y, payload, index }: any) => {
-                            const d = lineChartData[index];
-                            const total = lineChartData.length;
-                            const skip = total > 8 ? Math.ceil(total / 6) : 1;
-                            if (index % skip !== 0 && index !== total - 1) return <g />;
-                            return (
-                              <g transform={`translate(${x},${y})`}>
-                                <text x={0} y={0} dy={10} textAnchor="middle"
-                                  fontSize={d?.isProjected ? 8.5 : 9.5}
-                                  fill={d?.isCurrent ? "#2c4f26" : d?.isProjected ? "#f59e0b" : "var(--muted-foreground)"}
-                                  fontWeight={d?.isCurrent ? 700 : 400}
-                                  fontStyle={d?.isProjected ? "italic" : "normal"}>
-                                  {payload.value}
-                                </text>
-                              </g>
-                            );
-                          }}
-                          interval={0}
-                          height={20}
-                          axisLine={false}
-                          tickLine={false}
-                        />
-                        <YAxis
-                          tick={{ fontSize: 9, fill: "var(--muted-foreground)" }}
-                          axisLine={false}
-                          tickLine={false}
-                          width={38}
-                        />
-
-                        {/* Current-week reference line */}
-                        {lineChartData.findIndex(d => d.isCurrent) >= 0 && (
-                          <ReferenceLine
-                            x={lineChartData.find(d => d.isCurrent)?.label}
-                            stroke="#2c4f26"
-                            strokeDasharray="3 2"
-                            strokeWidth={1.5}
-                            opacity={0.5}
-                          />
-                        )}
-
-                        {/* Tooltip */}
-                        <Tooltip
-                          content={({ active, payload, label }: any) => {
-                            if (!active || !payload?.length) return null;
-                            const d = payload[0]?.payload;
-                            const netVal   = d?.net      ?? d?.projNet;
-                            const reqVal   = d?.required ?? d?.projReq;
-                            const deficit  = netVal != null && reqVal != null && reqVal > netVal
-                              ? Math.round((reqVal - netVal) * 10) / 10 : null;
-                            return (
-                              <div className="bg-popover border border-border rounded-lg px-2.5 py-2 text-xs shadow-lg">
-                                <div className="font-semibold text-foreground mb-1 flex items-center gap-1.5">
-                                  {label}
-                                  {d?.isProjected && <span className="text-[10px] text-amber-500 font-normal italic">forecast</span>}
-                                  {d?.isCurrent && <span className="text-[10px] text-emerald-600 font-normal">current</span>}
-                                </div>
-                                <div className="space-y-0.5">
-                                  {netVal != null && (
-                                    <div className="flex justify-between gap-3">
-                                      <span className="flex items-center gap-1"><span className="w-2 h-0.5 bg-[#2c4f26] inline-block rounded" />Net capacity</span>
-                                      <span className="font-medium">{netVal}h</span>
-                                    </div>
-                                  )}
-                                  {reqVal != null && (
-                                    <div className="flex justify-between gap-3">
-                                      <span className="flex items-center gap-1"><span className="w-2 h-0.5 bg-amber-500 inline-block rounded" />Required</span>
-                                      <span className="font-medium text-amber-600">{reqVal}h</span>
-                                    </div>
-                                  )}
-                                  {deficit != null && (
-                                    <div className="flex justify-between gap-3 text-red-500 font-semibold mt-0.5 pt-0.5 border-t border-border">
-                                      <span>⚠ Deficit</span>
-                                      <span>-{deficit}h</span>
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-                            );
-                          }}
-                        />
-
-                        {/* Solid lines — actuals */}
-                        <Line dataKey="net"      stroke="#2c4f26" strokeWidth={2} dot={false} connectNulls={false} />
-                        <Line dataKey="required" stroke="#f59e0b" strokeWidth={2} dot={false} connectNulls={false} />
-
-                        {/* Dashed lines — projected bridge */}
-                        <Line dataKey="projNet"  stroke="#2c4f26" strokeWidth={1.5} strokeDasharray="4 3" dot={false} connectNulls={false} legendType="none" />
-                        <Line dataKey="projReq"  stroke="#f59e0b" strokeWidth={1.5} strokeDasharray="4 3" dot={false} connectNulls={false} legendType="none" />
-
-                        {/* Projected endpoint dots */}
-                        {lineChartData.some(d => d.isProjected) && (() => {
-                          const proj = lineChartData[lineChartData.length - 1];
-                          return (
-                            <>
-                              {proj.projNet != null && <ReferenceDot x={proj.label} y={proj.projNet} r={4} fill="#2c4f26" stroke="white" strokeWidth={1.5} />}
-                              {proj.projReq != null && <ReferenceDot x={proj.label} y={proj.projReq} r={4} fill="#f59e0b" stroke="white" strokeWidth={1.5} />}
-                            </>
-                          );
-                        })()}
-                      </LineChart>
-                    </ResponsiveContainer>
-                  </div>
-
-                  {/* Legend */}
-                  <div className="flex items-center gap-3 mt-1.5 text-[10px] text-muted-foreground">
-                    <span className="flex items-center gap-1">
-                      <span className="w-4 h-0.5 bg-[#2c4f26] inline-block rounded" />Net capacity
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <span className="w-4 h-0.5 bg-amber-500 inline-block rounded" />Required
-                    </span>
-                    {lineChartData.some(d => d.isProjected) && (
-                      <span className="flex items-center gap-1 ml-auto italic text-amber-500">
-                        <span className="w-4 inline-block border-t border-dashed border-amber-500" />forecast
-                      </span>
-                    )}
-                  </div>
-                </>
-              ) : (
-                <div className="h-36 flex flex-col items-center justify-center gap-1">
-                  <div className="text-3xl font-bold text-foreground tracking-tight">{narrative.net}h</div>
-                  <div className="text-xs text-muted-foreground">net capacity this week</div>
-                  <div className="mt-2 w-full">
-                    <div className="flex justify-between text-[10px] mb-0.5">
-                      <span className="text-muted-foreground">Supply</span>
-                      <span className={`font-semibold ${cfg.headlineClass}`}>{narrative.supplyPct}%</span>
-                    </div>
-                    <div className="h-1.5 rounded-full bg-border overflow-hidden">
-                      <div className={`h-full rounded-full ${cfg.bar}`} style={{ width: `${Math.min(narrative.supplyPct, 100)}%` }} />
-                    </div>
-                  </div>
-                  <p className="text-[10px] text-muted-foreground mt-2">Upload more weeks to build the trend</p>
-                </div>
-              )}
             </div>
-          )}
+
+            {/* Chart */}
+            <div className="h-44">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={lineChartData} margin={{ top: 10, right: 8, left: -8, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="heroNetGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%"   stopColor="#2c4f26" stopOpacity={0.22} />
+                      <stop offset="100%" stopColor="#2c4f26" stopOpacity={0.02} />
+                    </linearGradient>
+                    <linearGradient id="heroReqGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%"   stopColor="#f59e0b" stopOpacity={0.16} />
+                      <stop offset="100%" stopColor="#f59e0b" stopOpacity={0.01} />
+                    </linearGradient>
+                  </defs>
+
+                  <CartesianGrid strokeDasharray="2 4" stroke="var(--border)" vertical={false} opacity={0.7} />
+
+                  <XAxis
+                    dataKey="label"
+                    tick={({ x, y, payload, index }: any) => {
+                      const d = lineChartData[index];
+                      return (
+                        <g transform={`translate(${x},${y})`}>
+                          <text x={0} y={0} dy={12} textAnchor="middle"
+                            fontSize={10}
+                            fill={d?.isCurrent ? "#2c4f26" : d?.isProjected ? "#f59e0b" : "var(--muted-foreground)"}
+                            fontWeight={d?.isCurrent ? 700 : 400}
+                            fontStyle={d?.isProjected ? "italic" : "normal"}>
+                            {payload.value}
+                          </text>
+                        </g>
+                      );
+                    }}
+                    interval={0}
+                    height={22}
+                    axisLine={false}
+                    tickLine={false}
+                  />
+
+                  <YAxis
+                    tick={{ fontSize: 9, fill: "var(--muted-foreground)" }}
+                    axisLine={false}
+                    tickLine={false}
+                    width={38}
+                    tickFormatter={(v) => `${v}h`}
+                  />
+
+                  {/* Current-week reference line */}
+                  {lineChartData.some(d => d.isCurrent) && (
+                    <ReferenceLine
+                      x={lineChartData.find(d => d.isCurrent)?.label}
+                      stroke="#2c4f26"
+                      strokeDasharray="3 2"
+                      strokeWidth={1.5}
+                      opacity={0.45}
+                      label={{ value: "now", position: "top", fontSize: 9, fill: "#2c4f26", fontWeight: 700 }}
+                    />
+                  )}
+
+                  {/* Tooltip */}
+                  <Tooltip
+                    content={({ active, payload, label }: any) => {
+                      if (!active || !payload?.length) return null;
+                      const d = payload[0]?.payload;
+                      const netVal = d?.net      ?? d?.projNet;
+                      const reqVal = d?.required ?? d?.projReq;
+                      const deficit = netVal != null && reqVal != null && reqVal > netVal
+                        ? Math.round((reqVal - netVal) * 10) / 10 : null;
+                      const surplus = netVal != null && reqVal != null && netVal > reqVal
+                        ? Math.round((netVal - reqVal) * 10) / 10 : null;
+                      return (
+                        <div className="bg-popover border border-border rounded-xl px-3 py-2.5 text-xs shadow-xl">
+                          <div className="font-semibold text-foreground mb-1.5 flex items-center gap-1.5">
+                            {label}
+                            {d?.subLabel && <span className="text-muted-foreground font-normal">· {d.subLabel}</span>}
+                            {d?.isProjected && (
+                              <span className="text-[10px] italic px-1.5 py-0.5 rounded-full bg-amber-50 dark:bg-amber-950 text-amber-600">
+                                forecast
+                              </span>
+                            )}
+                            {d?.isCurrent && (
+                              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950 text-emerald-700">
+                                current
+                              </span>
+                            )}
+                          </div>
+                          <div className="space-y-1 min-w-[160px]">
+                            {netVal != null && (
+                              <div className="flex justify-between gap-4">
+                                <span className="flex items-center gap-1.5 text-muted-foreground">
+                                  <span className="w-2.5 h-2.5 rounded-sm bg-[#2c4f26] inline-block" />Net capacity
+                                </span>
+                                <span className="font-semibold">{netVal}h</span>
+                              </div>
+                            )}
+                            {reqVal != null && (
+                              <div className="flex justify-between gap-4">
+                                <span className="flex items-center gap-1.5 text-muted-foreground">
+                                  <span className="w-2.5 h-2.5 rounded-sm bg-amber-500 inline-block" />Required
+                                </span>
+                                <span className="font-semibold text-amber-600">{reqVal}h</span>
+                              </div>
+                            )}
+                            {deficit != null && (
+                              <div className="flex justify-between gap-4 pt-1 mt-0.5 border-t border-border text-red-500 font-bold">
+                                <span>⚠ Deficit</span><span>−{deficit}h</span>
+                              </div>
+                            )}
+                            {surplus != null && surplus > 0 && (
+                              <div className="flex justify-between gap-4 pt-1 mt-0.5 border-t border-border text-emerald-600">
+                                <span>✓ Surplus</span><span>+{surplus}h</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    }}
+                  />
+
+                  {/* Gradient areas — actuals */}
+                  <Area
+                    type="monotone" dataKey="net"
+                    stroke="#2c4f26" strokeWidth={2.5}
+                    fill="url(#heroNetGrad)" fillOpacity={1}
+                    dot={({ cx, cy, payload }: any) => {
+                      if (payload.isProjected) return <g key={`dn-${payload.label}`} />;
+                      return (
+                        <circle key={`dn-${payload.label}`} cx={cx} cy={cy}
+                          r={payload.isCurrent ? 5 : 3}
+                          fill={payload.isCurrent ? "#2c4f26" : "white"}
+                          stroke="#2c4f26"
+                          strokeWidth={payload.isCurrent ? 0 : 1.5}
+                        />
+                      );
+                    }}
+                    activeDot={{ r: 5, fill: "#2c4f26", stroke: "white", strokeWidth: 2 }}
+                    connectNulls={false}
+                  />
+                  <Area
+                    type="monotone" dataKey="required"
+                    stroke="#f59e0b" strokeWidth={2}
+                    fill="url(#heroReqGrad)" fillOpacity={1}
+                    dot={({ cx, cy, payload }: any) => {
+                      if (payload.isProjected) return <g key={`dr-${payload.label}`} />;
+                      return (
+                        <circle key={`dr-${payload.label}`} cx={cx} cy={cy}
+                          r={payload.isCurrent ? 5 : 3}
+                          fill={payload.isCurrent ? "#f59e0b" : "white"}
+                          stroke="#f59e0b"
+                          strokeWidth={payload.isCurrent ? 0 : 1.5}
+                        />
+                      );
+                    }}
+                    activeDot={{ r: 5, fill: "#f59e0b", stroke: "white", strokeWidth: 2 }}
+                    connectNulls={false}
+                  />
+
+                  {/* Dashed projected bridge */}
+                  <Area type="monotone" dataKey="projNet" stroke="#2c4f26" strokeWidth={1.5} strokeDasharray="5 3" fill="none" dot={false} connectNulls={false} legendType="none" />
+                  <Area type="monotone" dataKey="projReq" stroke="#f59e0b" strokeWidth={1.5} strokeDasharray="5 3" fill="none" dot={false} connectNulls={false} legendType="none" />
+
+                  {/* Forecast endpoint dots */}
+                  {lineChartData.some(d => d.isProjected) && (() => {
+                    const proj = lineChartData[lineChartData.length - 1];
+                    return (
+                      <>
+                        {proj.projNet != null && <ReferenceDot x={proj.label} y={proj.projNet} r={5} fill="#2c4f26" stroke="white" strokeWidth={2} />}
+                        {proj.projReq != null && <ReferenceDot x={proj.label} y={proj.projReq} r={5} fill="#f59e0b" stroke="white" strokeWidth={2} />}
+                      </>
+                    );
+                  })()}
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }
