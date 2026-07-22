@@ -466,12 +466,12 @@ export function OverviewTab({
               className="text-left bg-card border border-border rounded-lg px-3 py-3 hover:bg-muted/50 transition-colors cursor-pointer"
             >
               <div className="flex items-center gap-1.5 mb-1">
-                <div className="w-5 h-5 rounded-md bg-gradient-to-br from-indigo-400 to-indigo-600 flex items-center justify-center shrink-0">
+                <div className="w-5 h-5 rounded-md bg-gradient-to-br from-sky-400 to-sky-600 flex items-center justify-center shrink-0">
                   <Clock className="w-3 h-3 text-white" />
                 </div>
                 <span className="text-xs text-muted-foreground font-medium truncate">Other Sched.</span>
               </div>
-              <div className="text-base font-bold bg-gradient-to-r from-indigo-500 to-indigo-700 bg-clip-text text-transparent" data-testid="text-other-scheduled-sum">
+              <div className="text-base font-bold bg-gradient-to-r from-sky-500 to-sky-700 bg-clip-text text-transparent" data-testid="text-other-scheduled-sum">
                 {data.kpis.otherScheduledHoursSum}h
               </div>
               <div className="text-[10px] text-muted-foreground mt-0.5">non-client</div>
