@@ -536,7 +536,7 @@ export function OverviewTab({
 
       {/* Desired Hours Info Modal */}
       <Dialog open={desiredHoursModalOpen} onOpenChange={setDesiredHoursModalOpen}>
-        <DialogContent className="max-w-sm w-full">
+        <DialogContent className="max-w-xl w-full">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-green-400 to-green-500 flex items-center justify-center">
@@ -556,7 +556,7 @@ export function OverviewTab({
       </Dialog>
       {/* Net Capacity Info Modal */}
       <Dialog open={netCapacityModalOpen} onOpenChange={setNetCapacityModalOpen}>
-        <DialogContent className="max-w-sm w-full">
+        <DialogContent className="max-w-xl w-full">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-amber-500 to-amber-600 flex items-center justify-center">
@@ -574,7 +574,7 @@ export function OverviewTab({
       </Dialog>
       {/* Domiciliary Hours Info Modal */}
       <Dialog open={domiciliaryModalOpen} onOpenChange={setDomiciliaryModalOpen}>
-        <DialogContent className="max-w-sm w-full">
+        <DialogContent className="max-w-xl w-full">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center">
@@ -598,7 +598,7 @@ export function OverviewTab({
       </Dialog>
       {/* Client Scheduled Info Modal */}
       <Dialog open={clientScheduledModalOpen} onOpenChange={setClientScheduledModalOpen}>
-        <DialogContent className="max-w-sm w-full">
+        <DialogContent className="max-w-xl w-full">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-teal-500 to-teal-600 flex items-center justify-center">
@@ -616,7 +616,7 @@ export function OverviewTab({
       </Dialog>
       {/* Other Scheduled Info Modal */}
       <Dialog open={otherScheduledModalOpen} onOpenChange={setOtherScheduledModalOpen}>
-        <DialogContent className="max-w-sm w-full">
+        <DialogContent className="max-w-xl w-full">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-indigo-400 to-indigo-600 flex items-center justify-center">
@@ -639,7 +639,7 @@ export function OverviewTab({
       </Dialog>
       {/* Capacity After Scheduling Info Modal */}
       <Dialog open={capacityAfterModalOpen} onOpenChange={setCapacityAfterModalOpen}>
-        <DialogContent className="max-w-sm w-full">
+        <DialogContent className="max-w-xl w-full">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-green-500 to-green-600 flex items-center justify-center">
@@ -659,7 +659,7 @@ export function OverviewTab({
       </Dialog>
       {/* GH Loss Detail Modal */}
       <Dialog open={ghLossModalOpen} onOpenChange={setGhLossModalOpen}>
-        <DialogContent className="max-w-lg w-full">
+        <DialogContent className="max-w-xl w-full">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-rose-500 to-rose-600 flex items-center justify-center">
@@ -713,7 +713,7 @@ export function OverviewTab({
       </Dialog>
       {/* Sickness Detail Modal */}
       <Dialog open={sicknessModalOpen} onOpenChange={setSicknessModalOpen}>
-        <DialogContent className="max-w-lg w-full">
+        <DialogContent className="max-w-xl w-full">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-slate-500 to-slate-600 flex items-center justify-center">
@@ -763,7 +763,7 @@ export function OverviewTab({
       </Dialog>
       {/* Unavailability Detail Modal */}
       <Dialog open={unavailModalOpen} onOpenChange={setUnavailModalOpen}>
-        <DialogContent className="max-w-lg w-full">
+        <DialogContent className="max-w-xl w-full">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-red-500 to-red-600 flex items-center justify-center">
@@ -813,7 +813,7 @@ export function OverviewTab({
       </Dialog>
       {/* Holidays Detail Modal */}
       <Dialog open={holidayModalOpen} onOpenChange={setHolidayModalOpen}>
-        <DialogContent className="max-w-lg w-full">
+        <DialogContent className="max-w-xl w-full">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-purple-400 to-purple-600 flex items-center justify-center">
