@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import {
   ComposedChart, Bar, Line, XAxis, YAxis, Tooltip,
-  ResponsiveContainer, PieChart, Pie, Cell, Legend,
+  ResponsiveContainer, PieChart, Pie, Cell, Legend, Label,
 } from "recharts";
 import { TrendingDown, BriefcaseMedical, AlertTriangle, Umbrella } from "lucide-react";
 import type { ProcessingResult } from "@shared/schema";
@@ -155,13 +155,38 @@ function UtilisationDonut({ data }: { data: ProcessingResult }) {
     );
   };
 
+  const CentreLabel = ({ viewBox }: any) => {
+    const { cx, cy } = viewBox ?? {};
+    if (cx == null || cy == null) return null;
+    return (
+      <g>
+        <text
+          x={cx} y={cy - 7}
+          textAnchor="middle"
+          style={{ fontSize: 20, fontWeight: 700, fill: "currentColor" }}
+          className="fill-foreground"
+        >
+          {utilizationPct}%
+        </text>
+        <text
+          x={cx} y={cy + 11}
+          textAnchor="middle"
+          style={{ fontSize: 10 }}
+          className="fill-muted-foreground"
+        >
+          utilised
+        </text>
+      </g>
+    );
+  };
+
   return (
     <div className="bg-card border border-border rounded-xl p-4 shadow-sm">
       <div className="mb-1">
         <h3 className="text-sm font-semibold text-foreground">Capacity Breakdown</h3>
         <p className="text-[11px] text-muted-foreground mt-0.5">How net capacity is allocated and lost this week</p>
       </div>
-      <div className="relative h-48 mt-1">
+      <div className="h-48 mt-1">
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
             <Pie
@@ -176,6 +201,7 @@ function UtilisationDonut({ data }: { data: ProcessingResult }) {
               paddingAngle={2}
             >
               {slices.map((s, i) => <Cell key={i} fill={s.color} />)}
+              <Label content={<CentreLabel />} position="center" />
             </Pie>
             <Tooltip content={<CustomTooltip />} />
             <Legend
@@ -188,14 +214,6 @@ function UtilisationDonut({ data }: { data: ProcessingResult }) {
             />
           </PieChart>
         </ResponsiveContainer>
-        {/* Centre label */}
-        <div
-          className="absolute flex flex-col items-center justify-center pointer-events-none"
-          style={{ left: 0, width: "76%", top: 0, bottom: 0 }}
-        >
-          <span className="text-2xl font-bold text-foreground">{utilizationPct}%</span>
-          <span className="text-[10px] text-muted-foreground">utilised</span>
-        </div>
       </div>
     </div>
   );
