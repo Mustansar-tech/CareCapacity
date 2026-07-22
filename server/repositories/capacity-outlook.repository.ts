@@ -232,6 +232,11 @@ export async function computeOutlook(
   const segLeavers = filterBySegment(allLeavers, segment);
   const segJoiners = filterBySegment(allJoiners, segment);
 
+  // Future-dated availability changes that kick in within the forecast horizon
+  const todayMonday = currentIsoWeekMonday();
+  const allAvailChangesForOutlook = await getAvailabilityChanges(branchId);
+  const futureAvailChanges = allAvailChangesForOutlook.filter(c => c.effectiveDate >= todayMonday);
+
   const weeks: OutlookWeek[] = [];
 
   for (let i = 0; i < horizonWeeks; i++) {
@@ -245,6 +250,14 @@ export async function computeOutlook(
     }
     for (const j of segJoiners) {
       hoursGained += calcGainForWeek(j, weekStart, weekEnd);
+    }
+    // Availability changes effective this week
+    for (const ac of futureAvailChanges) {
+      if (ac.effectiveDate >= weekStart && ac.effectiveDate <= weekEnd) {
+        const delta = (ac.newHours ?? 0) - (ac.previousHours ?? 0);
+        if (delta > 0) hoursGained += delta;
+        else if (delta < 0) hoursLost += Math.abs(delta);
+      }
     }
 
     hoursLost = round2(hoursLost);
@@ -364,6 +377,13 @@ export interface CumulativeKpiResult {
   computedAt: string;
   terminatedYtd: number;
   hiredYtd: number;
+  availNetDelta: number;
+  availIncreasedHours: number;
+  availDecreasedHours: number;
+  availIncreaseCount: number;
+  availDecreaseCount: number;
+  availPendingCount: number;
+  availPendingNetDelta: number;
 }
 
 export async function computeCumulativeKpi(branchId: string): Promise<CumulativeKpiResult> {
@@ -410,17 +430,52 @@ export async function computeCumulativeKpi(branchId: string): Promise<Cumulative
     j.hiredAt && j.hiredAt >= ytdStart && j.hiredAt < ytdEnd,
   ).length;
 
+  // ── Availability changes ────────────────────────────────────────────────────
+  const allAvailChanges = await getAvailabilityChanges(branchId);
+  const effectiveAvail = allAvailChanges.filter(c => c.effectiveDate <= todayStr);
+  const pendingAvail   = allAvailChanges.filter(c => c.effectiveDate >  todayStr);
+
+  let availIncreasedHours = 0;
+  let availDecreasedHours = 0;
+  let availIncreaseCount  = 0;
+  let availDecreaseCount  = 0;
+
+  for (const c of effectiveAvail) {
+    const delta = (c.newHours ?? 0) - (c.previousHours ?? 0);
+    if (delta > 0) { availIncreasedHours += delta; availIncreaseCount++; }
+    else if (delta < 0) { availDecreasedHours += Math.abs(delta); availDecreaseCount++; }
+  }
+  availIncreasedHours = round2(availIncreasedHours);
+  availDecreasedHours = round2(availDecreasedHours);
+  const availNetDelta      = round2(availIncreasedHours - availDecreasedHours);
+  const availPendingNetDelta = round2(pendingAvail.reduce((s, c) => s + (c.newHours ?? 0) - (c.previousHours ?? 0), 0));
+  const availPendingCount  = pendingAvail.length;
+
+  // Recompute net / coverage / rag to include availability changes
+  const totalGained = round2(cumulativeHoursHired + availIncreasedHours);
+  const totalLost   = round2(cumulativeHoursLost  + availDecreasedHours);
+  const netFull     = round2(totalGained - totalLost);
+  const coverageFull = totalLost === 0 ? 1 : round2(totalGained / totalLost);
+  const ragFull      = computeRag(totalLost, totalGained);
+
   return {
     cumulativeHoursLost,
     cumulativeHoursHired,
     pipelineWeightedHours,
     pipelineRawHours,
-    coverage,
-    net,
-    rag,
+    coverage: coverageFull,
+    net: netFull,
+    rag: ragFull,
     computedAt: new Date().toISOString(),
     terminatedYtd,
     hiredYtd,
+    availNetDelta,
+    availIncreasedHours,
+    availDecreasedHours,
+    availIncreaseCount,
+    availDecreaseCount,
+    availPendingCount,
+    availPendingNetDelta,
   };
 }
 
