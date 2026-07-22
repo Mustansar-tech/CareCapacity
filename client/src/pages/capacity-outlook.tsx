@@ -1684,7 +1684,7 @@ export default function CapacityOutlookPage() {
                                     </span>
                                     {isStale14Days(j) && (
                                       <Badge className="text-xs bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300 border-red-200 dark:border-red-700 gap-1 w-fit">
-                                        <AlertTriangle className="w-3 h-3" /> Stale
+                                        <AlertTriangle className="w-3 h-3" /> Delay
                                       </Badge>
                                     )}
                                   </div>
