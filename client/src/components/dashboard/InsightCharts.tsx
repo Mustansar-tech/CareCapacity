@@ -221,12 +221,12 @@ function DailyCapacityChart({ data }: { data: ProcessingResult }) {
 // ── Chart 2: Capacity Utilisation Donut ───────────────────────────────────────
 
 const DONUT_COLORS = {
-  scheduled: "#16a34a",
+  scheduled: "#2c4f26",
   other:     "#3b82f6",
-  remaining: "#bbf7d0",
-  sickness:  "#94a3b8",
+  remaining: "#d1d5db",
+  sickness:  "#64748b",
   unavail:   "#ef4444",
-  holidays:  "#a78bfa",
+  holidays:  "#8b5cf6",
 };
 
 function UtilisationDonut({ data }: { data: ProcessingResult }) {
@@ -326,9 +326,9 @@ const UNAVAIL_STATUSES = new Set(["Maternity/Paternity", "Compassionate Leave", 
 const HOLIDAY_STATUSES = new Set(["Holiday", "Partial Holiday"]);
 
 const TYPE_CONFIG = {
-  sick:    { label: "Sick",        icon: BriefcaseMedical, bg: "bg-slate-100 dark:bg-slate-800", text: "text-slate-600 dark:text-slate-300",   bar: "#94a3b8" },
-  unavail: { label: "Unavailable", icon: AlertTriangle,    bg: "bg-red-50 dark:bg-red-950",       text: "text-red-600 dark:text-red-400",       bar: "#ef4444" },
-  holiday: { label: "Holiday",     icon: Umbrella,         bg: "bg-violet-50 dark:bg-violet-950", text: "text-violet-600 dark:text-violet-400", bar: "#a78bfa" },
+  sick:    { label: "Sick",        icon: BriefcaseMedical, bg: "bg-slate-100 dark:bg-slate-800", text: "text-slate-700 dark:text-slate-300",   bar: "#64748b" },
+  unavail: { label: "Unavailable", icon: AlertTriangle,    bg: "bg-red-50 dark:bg-red-950",       text: "text-red-700 dark:text-red-300",       bar: "#ef4444" },
+  holiday: { label: "Holiday",     icon: Umbrella,         bg: "bg-purple-50 dark:bg-purple-950", text: "text-purple-700 dark:text-purple-300", bar: "#8b5cf6" },
 } as const;
 
 function TopDrains({ data }: { data: ProcessingResult }) {
@@ -414,9 +414,7 @@ export function InsightCharts({ data }: InsightChartsProps) {
   return (
     <div className="px-6 pb-6 pt-2">
       <div className="flex items-center gap-2 mb-4">
-        <div className="w-5 h-5 rounded-md bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shrink-0">
-          <TrendingDown className="w-3 h-3 text-white" />
-        </div>
+        <TrendingDown className="w-4 h-4 text-muted-foreground" />
         <h2 className="text-sm font-semibold text-foreground">Intelligence View</h2>
         <span className="text-[11px] text-muted-foreground">— the story behind the numbers</span>
       </div>
