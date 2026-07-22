@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import {
-  BarChart, Bar, Cell, XAxis, YAxis, Tooltip, ResponsiveContainer,
+  LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer,
+  ReferenceLine, ReferenceDot, CartesianGrid,
 } from "recharts";
 import {
   TrendingUp, TrendingDown, Minus, Upload, Bot,
@@ -177,19 +178,84 @@ export function SmartHero({
     currentIndex > 0 ? sortedHistory[currentIndex - 1] : undefined
   , [sortedHistory, currentIndex]);
 
+  // ── helper: ISO week number ───────────────────────────────────────────────
+  function isoWeek(d: Date) {
+    const tmp = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+    tmp.setUTCDate(tmp.getUTCDate() + 4 - (tmp.getUTCDay() || 7));
+    const yr = new Date(Date.UTC(tmp.getUTCFullYear(), 0, 1));
+    return Math.ceil((((tmp.getTime() - yr.getTime()) / 86400000) + 1) / 7);
+  }
+
+  // ── all processed weeks ────────────────────────────────────────────────────
+  const allWeeksData = useMemo(() => {
+    const ci = currentIndex >= 0 ? currentIndex : sortedHistory.length - 1;
+    return sortedHistory.map((h, i) => {
+      const d = h.weekStartDate ? new Date(h.weekStartDate) : null;
+      const weekNum = d ? isoWeek(d) : null;
+      return {
+        label:      weekNum ? `Wk ${weekNum}` : `Wk ${i + 1}`,
+        subLabel:   d ? d.toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "UTC" }) : "",
+        net:        Math.round((h.kpis?.netCapacitySum      ?? 0) * 10) / 10,
+        required:   Math.round((h.kpis?.clientRequiredSum   ?? 0) * 10) / 10,
+        isCurrent:  i === ci,
+        isProjected: false,
+        projNet:    undefined as number | undefined,
+        projReq:    undefined as number | undefined,
+      };
+    });
+  }, [sortedHistory, currentIndex]);
+
+  // ── linear-regression projection (next week) ──────────────────────────────
+  const lineChartData = useMemo(() => {
+    if (allWeeksData.length === 0) return allWeeksData;
+
+    const base = allWeeksData.map(d => ({ ...d }));
+
+    if (allWeeksData.length >= 2) {
+      const recent = allWeeksData.slice(-Math.min(6, allWeeksData.length));
+      const n = recent.length;
+      const sumX   = recent.reduce((s, _, i) => s + i, 0);
+      const sumX2  = recent.reduce((s, _, i) => s + i * i, 0);
+      const denom  = n * sumX2 - sumX * sumX;
+
+      function linReg(vals: number[]) {
+        const sumY  = vals.reduce((s, v) => s + v, 0);
+        const sumXY = vals.reduce((s, v, i) => s + i * v, 0);
+        const slope = denom !== 0 ? (n * sumXY - sumX * sumY) / denom : 0;
+        const intercept = (sumY - slope * sumX) / n;
+        return Math.max(0, Math.round((slope * n + intercept) * 10) / 10);
+      }
+
+      const projNet = linReg(recent.map(d => d.net));
+      const projReq = linReg(recent.map(d => d.required));
+
+      // Bridge: last real point also participates in the dashed series
+      base[base.length - 1].projNet = base[base.length - 1].net;
+      base[base.length - 1].projReq = base[base.length - 1].required;
+
+      // Next week label
+      const lastLabel = base[base.length - 1].label;
+      const m = lastLabel.match(/Wk (\d+)/);
+      const nextLabel = m ? `Wk ${parseInt(m[1]) + 1}` : "Next";
+
+      base.push({
+        label: nextLabel, subLabel: "forecast",
+        net: undefined as any, required: undefined as any,
+        isCurrent: false, isProjected: true,
+        projNet, projReq,
+      });
+    }
+
+    return base;
+  }, [allWeeksData]);
+
+  // keep fourWeekData for the WoW badge
   const fourWeekData = useMemo(() => {
     const end   = currentIndex >= 0 ? currentIndex : sortedHistory.length - 1;
     const start = Math.max(0, end - 3);
     return sortedHistory.slice(start, end + 1).map((h, i, arr) => {
       const d = h.weekStartDate ? new Date(h.weekStartDate) : null;
-      // ISO week number
-      let weekNum: number | null = null;
-      if (d) {
-        const tmp = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
-        tmp.setUTCDate(tmp.getUTCDate() + 4 - (tmp.getUTCDay() || 7));
-        const yr = new Date(Date.UTC(tmp.getUTCFullYear(), 0, 1));
-        weekNum = Math.ceil((((tmp.getTime() - yr.getTime()) / 86400000) + 1) / 7);
-      }
+      const weekNum = d ? isoWeek(d) : null;
       return {
         label:     weekNum ? `Wk ${weekNum}` : `Wk ${i + 1}`,
         subLabel:  d ? d.toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "UTC" }) : "",
@@ -444,13 +510,17 @@ export function SmartHero({
             )}
           </div>
 
-          {/* ── Right: 4-week performance chart ── */}
+          {/* ── Right: all-weeks trend chart ── */}
           {narrative && cfg && (
-            <div className="shrink-0 w-72 border border-border rounded-xl bg-card p-4 shadow-sm">
+            <div className="shrink-0 w-80 border border-border rounded-xl bg-card p-4 shadow-sm">
+              {/* Header */}
               <div className="flex items-center justify-between mb-2">
                 <div>
-                  <span className="text-[11px] font-semibold text-foreground">4-Week Performance</span>
-                  <p className="text-[10px] text-muted-foreground leading-none mt-0.5">Capacity vs demand trend</p>
+                  <span className="text-[11px] font-semibold text-foreground">Capacity vs Demand Trend</span>
+                  <p className="text-[10px] text-muted-foreground leading-none mt-0.5">
+                    All {lineChartData.filter(d => !d.isProjected).length} processed weeks
+                    {lineChartData.some(d => d.isProjected) && " + forecast"}
+                  </p>
                 </div>
                 {narrative.wowPct !== null && (
                   <span className={`flex items-center gap-0.5 text-[10px] font-bold rounded-full px-1.5 py-0.5 shrink-0 ${
@@ -464,91 +534,134 @@ export function SmartHero({
                 )}
               </div>
 
-              {fourWeekData.length > 1 ? (
+              {lineChartData.length > 1 ? (
                 <>
                   <div className="h-36">
                     <ResponsiveContainer width="100%" height="100%">
-                      <BarChart
-                        data={fourWeekData}
-                        barGap={1}
-                        barCategoryGap="22%"
-                        margin={{ top: 2, right: 2, left: -20, bottom: 0 }}
+                      <LineChart
+                        data={lineChartData}
+                        margin={{ top: 4, right: 6, left: -22, bottom: 0 }}
                       >
+                        <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
                         <XAxis
                           dataKey="label"
-                          tick={({ x, y, payload }: any) => {
-                            const d = fourWeekData.find(c => c.label === payload.value);
+                          tick={({ x, y, payload, index }: any) => {
+                            const d = lineChartData[index];
+                            const total = lineChartData.length;
+                            const skip = total > 8 ? Math.ceil(total / 6) : 1;
+                            if (index % skip !== 0 && index !== total - 1) return <g />;
                             return (
                               <g transform={`translate(${x},${y})`}>
-                                <text x={0} y={0} dy={10} textAnchor="middle" fontSize={10}
-                                  fill={d?.isCurrent ? "#2c4f26" : "var(--muted-foreground)"}
-                                  fontWeight={d?.isCurrent ? 700 : 400}>
+                                <text x={0} y={0} dy={10} textAnchor="middle"
+                                  fontSize={d?.isProjected ? 8.5 : 9.5}
+                                  fill={d?.isCurrent ? "#2c4f26" : d?.isProjected ? "#f59e0b" : "var(--muted-foreground)"}
+                                  fontWeight={d?.isCurrent ? 700 : 400}
+                                  fontStyle={d?.isProjected ? "italic" : "normal"}>
                                   {payload.value}
                                 </text>
-                                {d?.subLabel && (
-                                  <text x={0} y={0} dy={20} textAnchor="middle" fontSize={8.5} fill="var(--muted-foreground)">
-                                    {d.subLabel}
-                                  </text>
-                                )}
                               </g>
                             );
                           }}
                           interval={0}
-                          height={30}
+                          height={20}
                           axisLine={false}
                           tickLine={false}
                         />
-                        <YAxis tick={{ fontSize: 9, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} />
+                        <YAxis
+                          tick={{ fontSize: 9, fill: "var(--muted-foreground)" }}
+                          axisLine={false}
+                          tickLine={false}
+                          width={38}
+                        />
+
+                        {/* Current-week reference line */}
+                        {lineChartData.findIndex(d => d.isCurrent) >= 0 && (
+                          <ReferenceLine
+                            x={lineChartData.find(d => d.isCurrent)?.label}
+                            stroke="#2c4f26"
+                            strokeDasharray="3 2"
+                            strokeWidth={1.5}
+                            opacity={0.5}
+                          />
+                        )}
+
+                        {/* Tooltip */}
                         <Tooltip
                           content={({ active, payload, label }: any) => {
                             if (!active || !payload?.length) return null;
                             const d = payload[0]?.payload;
+                            const netVal   = d?.net      ?? d?.projNet;
+                            const reqVal   = d?.required ?? d?.projReq;
+                            const deficit  = netVal != null && reqVal != null && reqVal > netVal
+                              ? Math.round((reqVal - netVal) * 10) / 10 : null;
                             return (
                               <div className="bg-popover border border-border rounded-lg px-2.5 py-2 text-xs shadow-lg">
-                                <div className="font-semibold text-foreground mb-1">{label} · {d?.subLabel}</div>
+                                <div className="font-semibold text-foreground mb-1 flex items-center gap-1.5">
+                                  {label}
+                                  {d?.isProjected && <span className="text-[10px] text-amber-500 font-normal italic">forecast</span>}
+                                  {d?.isCurrent && <span className="text-[10px] text-emerald-600 font-normal">current</span>}
+                                </div>
                                 <div className="space-y-0.5">
-                                  <div className="flex justify-between gap-3">
-                                    <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-[#2c4f26] inline-block" />Net cap</span>
-                                    <span className="font-medium">{d?.net}h</span>
-                                  </div>
-                                  <div className="flex justify-between gap-3">
-                                    <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-amber-500 inline-block" />Required</span>
-                                    <span className="font-medium text-amber-600">{d?.required}h</span>
-                                  </div>
-                                  <div className="flex justify-between gap-3">
-                                    <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-emerald-500 inline-block" />Scheduled</span>
-                                    <span className="font-medium text-emerald-600">{d?.scheduled}h</span>
-                                  </div>
+                                  {netVal != null && (
+                                    <div className="flex justify-between gap-3">
+                                      <span className="flex items-center gap-1"><span className="w-2 h-0.5 bg-[#2c4f26] inline-block rounded" />Net capacity</span>
+                                      <span className="font-medium">{netVal}h</span>
+                                    </div>
+                                  )}
+                                  {reqVal != null && (
+                                    <div className="flex justify-between gap-3">
+                                      <span className="flex items-center gap-1"><span className="w-2 h-0.5 bg-amber-500 inline-block rounded" />Required</span>
+                                      <span className="font-medium text-amber-600">{reqVal}h</span>
+                                    </div>
+                                  )}
+                                  {deficit != null && (
+                                    <div className="flex justify-between gap-3 text-red-500 font-semibold mt-0.5 pt-0.5 border-t border-border">
+                                      <span>⚠ Deficit</span>
+                                      <span>-{deficit}h</span>
+                                    </div>
+                                  )}
                                 </div>
                               </div>
                             );
                           }}
-                          cursor={{ fill: "rgba(0,0,0,0.04)", rx: 4 }}
                         />
-                        <Bar dataKey="net" name="Net cap" radius={[2, 2, 0, 0]}>
-                          {fourWeekData.map((entry, i) => (
-                            <Cell key={i} fill={entry.isCurrent ? "#2c4f26" : "#4a7c40"} opacity={entry.isCurrent ? 1 : 0.5} />
-                          ))}
-                        </Bar>
-                        <Bar dataKey="required" name="Required" radius={[2, 2, 0, 0]}>
-                          {fourWeekData.map((entry, i) => (
-                            <Cell key={i} fill="#f59e0b" opacity={entry.isCurrent ? 1 : 0.5} />
-                          ))}
-                        </Bar>
-                        <Bar dataKey="scheduled" name="Scheduled" radius={[2, 2, 0, 0]}>
-                          {fourWeekData.map((entry, i) => (
-                            <Cell key={i} fill="#10b981" opacity={entry.isCurrent ? 1 : 0.5} />
-                          ))}
-                        </Bar>
-                      </BarChart>
+
+                        {/* Solid lines — actuals */}
+                        <Line dataKey="net"      stroke="#2c4f26" strokeWidth={2} dot={false} connectNulls={false} />
+                        <Line dataKey="required" stroke="#f59e0b" strokeWidth={2} dot={false} connectNulls={false} />
+
+                        {/* Dashed lines — projected bridge */}
+                        <Line dataKey="projNet"  stroke="#2c4f26" strokeWidth={1.5} strokeDasharray="4 3" dot={false} connectNulls={false} legendType="none" />
+                        <Line dataKey="projReq"  stroke="#f59e0b" strokeWidth={1.5} strokeDasharray="4 3" dot={false} connectNulls={false} legendType="none" />
+
+                        {/* Projected endpoint dots */}
+                        {lineChartData.some(d => d.isProjected) && (() => {
+                          const proj = lineChartData[lineChartData.length - 1];
+                          return (
+                            <>
+                              {proj.projNet != null && <ReferenceDot x={proj.label} y={proj.projNet} r={4} fill="#2c4f26" stroke="white" strokeWidth={1.5} />}
+                              {proj.projReq != null && <ReferenceDot x={proj.label} y={proj.projReq} r={4} fill="#f59e0b" stroke="white" strokeWidth={1.5} />}
+                            </>
+                          );
+                        })()}
+                      </LineChart>
                     </ResponsiveContainer>
                   </div>
-                  <div className="flex gap-3 mt-1.5 text-[10px] text-muted-foreground justify-end">
-                    <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-[#2c4f26] inline-block" />Net cap</span>
-                    <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-amber-500 inline-block" />Required</span>
-                    <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-emerald-500 inline-block" />Scheduled</span>
+
+                  {/* Legend */}
+                  <div className="flex items-center gap-3 mt-1.5 text-[10px] text-muted-foreground">
+                    <span className="flex items-center gap-1">
+                      <span className="w-4 h-0.5 bg-[#2c4f26] inline-block rounded" />Net capacity
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <span className="w-4 h-0.5 bg-amber-500 inline-block rounded" />Required
+                    </span>
+                    {lineChartData.some(d => d.isProjected) && (
+                      <span className="flex items-center gap-1 ml-auto italic text-amber-500">
+                        <span className="w-4 inline-block border-t border-dashed border-amber-500" />forecast
+                      </span>
+                    )}
                   </div>
-                  <p className="text-[9px] text-muted-foreground mt-1 text-right">Current week highlighted</p>
                 </>
               ) : (
                 <div className="h-36 flex flex-col items-center justify-center gap-1">
@@ -563,7 +676,7 @@ export function SmartHero({
                       <div className={`h-full rounded-full ${cfg.bar}`} style={{ width: `${Math.min(narrative.supplyPct, 100)}%` }} />
                     </div>
                   </div>
-                  <p className="text-[10px] text-muted-foreground mt-2">Upload more weeks to see the trend</p>
+                  <p className="text-[10px] text-muted-foreground mt-2">Upload more weeks to build the trend</p>
                 </div>
               )}
             </div>
