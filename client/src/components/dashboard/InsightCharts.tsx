@@ -16,34 +16,64 @@ function formatName(n: string) {
 
 // ── Chart 1: Daily Capacity vs Demand ────────────────────────────────────────
 
+const COLOR_CAP  = "#2c4f26";
+const COLOR_SHORT = "#dc2626";
+const COLOR_REQ   = "#f59e0b";
+
 function DailyCapacityChart({ data }: { data: ProcessingResult }) {
   const chartData = useMemo(() => {
     return (data.dailySummary ?? []).map(d => {
-      const label = new Date(d.date).toLocaleDateString("en-GB", { weekday: "short", timeZone: "UTC" });
-      return {
-        label,
-        net:       fmt(d.netCapacity ?? 0),
-        required:  fmt(d.clientRequired ?? 0),
-        scheduled: fmt(d.clientScheduled ?? 0),
-      };
+      const net      = fmt(d.netCapacity ?? 0);
+      const required = fmt(d.clientRequired ?? 0);
+      const short    = net < required;
+      const label    = new Date(d.date).toLocaleDateString("en-GB", { weekday: "short", timeZone: "UTC" });
+      return { label, net, required, short };
     });
   }, [data]);
 
+  const shortDays = chartData.filter(d => d.short);
+
+  const CustomBar = (props: any) => {
+    const { x, y, width, height, index } = props;
+    const d = chartData[index];
+    if (!d || height <= 0) return null;
+    return (
+      <rect
+        x={x} y={y} width={width} height={height}
+        fill={d.short ? COLOR_SHORT : COLOR_CAP}
+        rx={3} ry={3}
+        opacity={0.9}
+      />
+    );
+  };
+
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (!active || !payload?.length) return null;
+    const d = chartData.find(c => c.label === label);
     return (
       <div className="bg-popover border border-border rounded-lg px-3 py-2 text-xs shadow-lg">
         <div className="font-semibold text-foreground mb-1">{label}</div>
         <div className="space-y-0.5">
-          {payload.map((p: any) => (
-            <div key={p.name} className="flex justify-between gap-4">
-              <span className="flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-sm inline-block" style={{ backgroundColor: p.color }} />
-                {p.name}
-              </span>
-              <span className="font-medium">{p.value}h</span>
+          <div className="flex justify-between gap-4">
+            <span className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full inline-block" style={{ backgroundColor: d?.short ? COLOR_SHORT : COLOR_CAP }} />
+              {d?.short ? "Shortage" : "Capacity"}
+            </span>
+            <span className="font-medium">{d?.net}h</span>
+          </div>
+          <div className="flex justify-between gap-4">
+            <span className="flex items-center gap-1.5">
+              <span className="inline-block w-4 border-t-2 border-dashed" style={{ borderColor: COLOR_REQ }} />
+              Required
+            </span>
+            <span className="font-medium">{d?.required}h</span>
+          </div>
+          {d?.short && (
+            <div className="flex justify-between gap-4 text-red-600 dark:text-red-400 font-semibold">
+              <span>Short by</span>
+              <span>{fmt((d.required ?? 0) - (d.net ?? 0))}h</span>
             </div>
-          ))}
+          )}
         </div>
       </div>
     );
@@ -51,27 +81,48 @@ function DailyCapacityChart({ data }: { data: ProcessingResult }) {
 
   return (
     <div className="bg-card border border-border rounded-xl p-4 shadow-sm flex flex-col">
-      <div className="mb-1">
-        <h3 className="text-sm font-semibold text-foreground">Daily Capacity vs Demand</h3>
-        <p className="text-[11px] text-muted-foreground mt-0.5">Net capacity, client required & scheduled by day</p>
+      <div className="flex items-start justify-between mb-1">
+        <div>
+          <h3 className="text-sm font-semibold text-foreground">Daily Capacity vs Demand</h3>
+          <p className="text-[11px] text-muted-foreground mt-0.5">Available hours vs what clients need each day</p>
+        </div>
+        <div className="flex items-center gap-3 text-[10px] text-muted-foreground shrink-0 ml-2 mt-0.5">
+          <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full inline-block" style={{ backgroundColor: COLOR_CAP }} />Capacity</span>
+          <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full inline-block" style={{ backgroundColor: COLOR_SHORT }} />Shortage</span>
+          <span className="flex items-center gap-1">
+            <span className="inline-block w-4 border-t-2 border-dashed" style={{ borderColor: COLOR_REQ }} />
+            Required
+          </span>
+        </div>
       </div>
-      <div className="h-48 mt-2">
+      <div className="h-44 mt-2">
         <ResponsiveContainer width="100%" height="100%">
           <ComposedChart data={chartData} margin={{ top: 4, right: 4, left: -16, bottom: 0 }}>
             <XAxis dataKey="label" tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} />
             <YAxis tick={{ fontSize: 10, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} />
             <Tooltip content={<CustomTooltip />} cursor={{ fill: "rgba(0,0,0,0.04)", rx: 4 }} />
-            <Bar dataKey="net" name="Net capacity" fill="#2c4f26" radius={[3, 3, 0, 0]} opacity={0.85} />
-            <Line type="monotone" dataKey="required" name="Client required" stroke="#f59e0b" strokeWidth={2} dot={{ r: 3, fill: "#f59e0b" }} />
-            <Line type="monotone" dataKey="scheduled" name="Scheduled" stroke="#10b981" strokeWidth={2} dot={{ r: 3, fill: "#10b981" }} strokeDasharray="4 2" />
+            <Bar dataKey="net" shape={<CustomBar />} radius={[3, 3, 0, 0]} />
+            <Line
+              type="monotone"
+              dataKey="required"
+              stroke={COLOR_REQ}
+              strokeWidth={1.5}
+              strokeDasharray="5 3"
+              dot={false}
+              activeDot={{ r: 3, fill: COLOR_REQ }}
+            />
           </ComposedChart>
         </ResponsiveContainer>
       </div>
-      <div className="flex gap-4 mt-2 text-[10px] text-muted-foreground justify-end">
-        <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-[#2c4f26] inline-block" />Net cap</span>
-        <span className="flex items-center gap-1"><span className="w-2.5 h-0.5 bg-amber-500 inline-block" />Required</span>
-        <span className="flex items-center gap-1"><span className="w-2.5 h-0.5 bg-emerald-500 inline-block" />Scheduled</span>
-      </div>
+      {shortDays.length > 0 && (
+        <div className="flex flex-wrap gap-x-4 gap-y-0.5 mt-1.5 text-[10px]">
+          {shortDays.map(d => (
+            <span key={d.label} className="text-red-600 dark:text-red-400 font-semibold">
+              {d.label} short by {fmt((d.required ?? 0) - (d.net ?? 0))}h
+            </span>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
