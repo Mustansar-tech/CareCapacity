@@ -1525,6 +1525,60 @@ export default function CapacityOutlookPage() {
             </CardContent>
           </Card>
 
+          {/* Avail. Changes */}
+          <Card className="hover-lift animate-scale-in border-l-4 border-l-violet-400 bg-violet-50/40 dark:bg-violet-950/10">
+            <CardHeader className="pb-2 pt-4 px-4">
+              <CardTitle className="text-xs font-semibold text-violet-700 dark:text-violet-400 flex items-center gap-1.5">
+                <div className="w-6 h-6 rounded-md bg-gradient-to-br from-violet-500 to-violet-600 flex items-center justify-center shadow-sm">
+                  <ArrowUpDown className="w-3.5 h-3.5 text-white" />
+                </div>
+                Avail. Changes
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="px-4 pb-4">
+              {cumulativeKpiQuery.isLoading ? (
+                <div className="h-8 bg-muted animate-pulse rounded" />
+              ) : (() => {
+                const delta = cumKpi?.availNetDelta ?? 0;
+                const increases = cumKpi?.availIncreaseCount ?? 0;
+                const decreases = cumKpi?.availDecreaseCount ?? 0;
+                const pending   = cumKpi?.availPendingCount ?? 0;
+                const pendingDelta = cumKpi?.availPendingNetDelta ?? 0;
+                const totalEffective = increases + decreases;
+                if (totalEffective === 0 && pending === 0) {
+                  return <div className="text-sm text-muted-foreground mt-1">no changes recorded</div>;
+                }
+                return (
+                  <div className="mt-1 space-y-1">
+                    {totalEffective > 0 && (
+                      <div className={`flex items-baseline gap-1.5 ${delta >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'}`}>
+                        <span className="text-2xl font-bold leading-none">
+                          {delta > 0 ? '+' : ''}{delta}h
+                        </span>
+                        <span className="text-xs font-medium">net / wk</span>
+                      </div>
+                    )}
+                    {increases > 0 && (
+                      <div className="text-xs text-emerald-600/80 dark:text-emerald-400/80">
+                        +{cumKpi!.availIncreasedHours}h from {increases} increase{increases !== 1 ? 's' : ''}
+                      </div>
+                    )}
+                    {decreases > 0 && (
+                      <div className="text-xs text-amber-600/80 dark:text-amber-400/80">
+                        −{cumKpi!.availDecreasedHours}h from {decreases} decrease{decreases !== 1 ? 's' : ''}
+                      </div>
+                    )}
+                    {pending > 0 && (
+                      <div className="text-xs text-violet-500/70 dark:text-violet-400/60 border-t border-violet-100 dark:border-violet-900/30 pt-1 mt-1">
+                        {pending} pending ({pendingDelta > 0 ? '+' : ''}{pendingDelta}h)
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+            </CardContent>
+          </Card>
+
           {/* Running Net */}
           <Card className="hover-lift animate-scale-in border-l-4 border-l-blue-400 bg-blue-50/40 dark:bg-blue-950/10">
             <CardHeader className="pb-2 pt-4 px-4">
@@ -1586,60 +1640,6 @@ export default function CapacityOutlookPage() {
                   <RagBadge rag={cumKpi?.rag ?? 'green'} />
                 </div>
               )}
-            </CardContent>
-          </Card>
-
-          {/* Avail. Changes */}
-          <Card className="hover-lift animate-scale-in border-l-4 border-l-violet-400 bg-violet-50/40 dark:bg-violet-950/10">
-            <CardHeader className="pb-2 pt-4 px-4">
-              <CardTitle className="text-xs font-semibold text-violet-700 dark:text-violet-400 flex items-center gap-1.5">
-                <div className="w-6 h-6 rounded-md bg-gradient-to-br from-violet-500 to-violet-600 flex items-center justify-center shadow-sm">
-                  <ArrowUpDown className="w-3.5 h-3.5 text-white" />
-                </div>
-                Avail. Changes
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="px-4 pb-4">
-              {cumulativeKpiQuery.isLoading ? (
-                <div className="h-8 bg-muted animate-pulse rounded" />
-              ) : (() => {
-                const delta = cumKpi?.availNetDelta ?? 0;
-                const increases = cumKpi?.availIncreaseCount ?? 0;
-                const decreases = cumKpi?.availDecreaseCount ?? 0;
-                const pending   = cumKpi?.availPendingCount ?? 0;
-                const pendingDelta = cumKpi?.availPendingNetDelta ?? 0;
-                const totalEffective = increases + decreases;
-                if (totalEffective === 0 && pending === 0) {
-                  return <div className="text-sm text-muted-foreground mt-1">no changes recorded</div>;
-                }
-                return (
-                  <div className="mt-1 space-y-1">
-                    {totalEffective > 0 && (
-                      <div className={`flex items-baseline gap-1.5 ${delta >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'}`}>
-                        <span className="text-2xl font-bold leading-none">
-                          {delta > 0 ? '+' : ''}{delta}h
-                        </span>
-                        <span className="text-xs font-medium">net / wk</span>
-                      </div>
-                    )}
-                    {increases > 0 && (
-                      <div className="text-xs text-emerald-600/80 dark:text-emerald-400/80">
-                        +{cumKpi!.availIncreasedHours}h from {increases} increase{increases !== 1 ? 's' : ''}
-                      </div>
-                    )}
-                    {decreases > 0 && (
-                      <div className="text-xs text-amber-600/80 dark:text-amber-400/80">
-                        −{cumKpi!.availDecreasedHours}h from {decreases} decrease{decreases !== 1 ? 's' : ''}
-                      </div>
-                    )}
-                    {pending > 0 && (
-                      <div className="text-xs text-violet-500/70 dark:text-violet-400/60 border-t border-violet-100 dark:border-violet-900/30 pt-1 mt-1">
-                        {pending} pending ({pendingDelta > 0 ? '+' : ''}{pendingDelta}h)
-                      </div>
-                    )}
-                  </div>
-                );
-              })()}
             </CardContent>
           </Card>
         </div>
