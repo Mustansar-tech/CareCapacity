@@ -868,6 +868,7 @@ function AvailabilityChangeModal({
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/capacity-outlook/availability-changes'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/capacity-outlook/cumulative-kpi'] });
       toast({ title: editing ? 'Record updated' : 'Record added' });
       onClose();
     },
@@ -1224,6 +1225,7 @@ export default function CapacityOutlookPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/capacity-outlook/availability-changes'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/capacity-outlook/cumulative-kpi'] });
       setDeletingAvailChangeId(null);
       toast({ title: 'Record removed' });
     },
