@@ -143,7 +143,7 @@ export function OverviewTab({
     name.includes(", ") ? name.split(", ").reverse().join(" ") : name;
 
   return (
-    <>
+    <div className="flex flex-col h-full">
       {/* File Upload Section */}
       {showUploadPanel && (
         <Card className="mb-6 glass hover-lift animate-slide-up" data-testid="upload-section-overview">
@@ -324,15 +324,15 @@ export function OverviewTab({
               data-testid="card-desired-total"
               onDoubleClick={() => setDesiredHoursModalOpen(true)}
               title="Double-click to see details"
-              className="text-left bg-card border border-border rounded-lg px-3 py-2 hover:bg-muted/50 transition-colors cursor-pointer"
+              className="text-left bg-card border border-border rounded-lg px-3 py-3 hover:bg-muted/50 transition-colors cursor-pointer"
             >
               <div className="flex items-center gap-1.5 mb-1">
                 <div className="w-5 h-5 rounded-md bg-gradient-to-br from-green-400 to-green-500 flex items-center justify-center shrink-0">
                   <Clock className="w-3 h-3 text-white" />
                 </div>
-                <span className="text-[10px] text-muted-foreground font-medium truncate">Desired</span>
+                <span className="text-xs text-muted-foreground font-medium truncate">Desired</span>
               </div>
-              <div className="text-sm font-bold bg-gradient-to-r from-green-500 to-green-700 bg-clip-text text-transparent" data-testid="text-desired-sum">
+              <div className="text-base font-bold bg-gradient-to-r from-green-500 to-green-700 bg-clip-text text-transparent" data-testid="text-desired-sum">
                 {data.kpis.totalDesiredHoursSum || 0}h
               </div>
               <div className="text-[10px] text-muted-foreground mt-0.5">weekly target</div>
@@ -349,9 +349,9 @@ export function OverviewTab({
                 <div className="w-5 h-5 rounded-md bg-gradient-to-br from-red-400 to-red-600 flex items-center justify-center shrink-0">
                   <AlertTriangle className="w-3 h-3 text-white" />
                 </div>
-                <span className="text-[10px] text-muted-foreground font-medium truncate">Unavailable</span>
+                <span className="text-xs text-muted-foreground font-medium truncate">Unavailable</span>
               </div>
-              <div className="text-sm font-bold bg-gradient-to-r from-red-500 to-red-700 bg-clip-text text-transparent" data-testid="text-unavailability-sum">
+              <div className="text-base font-bold bg-gradient-to-r from-red-500 to-red-700 bg-clip-text text-transparent" data-testid="text-unavailability-sum">
                 {data.kpis.unavailabilitySum}h
               </div>
               <div className="text-[10px] text-muted-foreground mt-0.5">
@@ -370,9 +370,9 @@ export function OverviewTab({
                 <div className="w-5 h-5 rounded-md bg-gradient-to-br from-slate-400 to-slate-600 flex items-center justify-center shrink-0">
                   <AlertTriangle className="w-3 h-3 text-white" />
                 </div>
-                <span className="text-[10px] text-muted-foreground font-medium truncate">Sickness</span>
+                <span className="text-xs text-muted-foreground font-medium truncate">Sickness</span>
               </div>
-              <div className="text-sm font-bold bg-gradient-to-r from-slate-500 to-slate-700 bg-clip-text text-transparent" data-testid="text-sickness-sum">
+              <div className="text-base font-bold bg-gradient-to-r from-slate-500 to-slate-700 bg-clip-text text-transparent" data-testid="text-sickness-sum">
                 {data.kpis.sicknessSum}h
               </div>
               <div className="text-[10px] text-muted-foreground mt-0.5">
@@ -385,15 +385,15 @@ export function OverviewTab({
               data-testid="card-holidays"
               onDoubleClick={() => setHolidayModalOpen(true)}
               title="Double-click to see breakdown"
-              className="text-left bg-card border border-border rounded-lg px-3 py-2 hover:bg-muted/50 transition-colors cursor-pointer"
+              className="text-left bg-card border border-border rounded-lg px-3 py-3 hover:bg-muted/50 transition-colors cursor-pointer"
             >
               <div className="flex items-center gap-1.5 mb-1">
                 <div className="w-5 h-5 rounded-md bg-gradient-to-br from-purple-400 to-purple-600 flex items-center justify-center shrink-0">
                   <Calendar className="w-3 h-3 text-white" />
                 </div>
-                <span className="text-[10px] text-muted-foreground font-medium truncate">Holidays</span>
+                <span className="text-xs text-muted-foreground font-medium truncate">Holidays</span>
               </div>
-              <div className="text-sm font-bold bg-gradient-to-r from-purple-500 to-purple-700 bg-clip-text text-transparent" data-testid="text-holidays-sum">
+              <div className="text-base font-bold bg-gradient-to-r from-purple-500 to-purple-700 bg-clip-text text-transparent" data-testid="text-holidays-sum">
                 {data.kpis.holidaysSum || 0}h
               </div>
               <div className="text-[10px] text-muted-foreground mt-0.5">
@@ -406,15 +406,15 @@ export function OverviewTab({
               data-testid="card-net-capacity"
               onDoubleClick={() => setNetCapacityModalOpen(true)}
               title="Double-click to see details"
-              className="text-left bg-card border border-border rounded-lg px-3 py-2 hover:bg-muted/50 transition-colors cursor-pointer"
+              className="text-left bg-card border border-border rounded-lg px-3 py-3 hover:bg-muted/50 transition-colors cursor-pointer"
             >
               <div className="flex items-center gap-1.5 mb-1">
                 <div className="w-5 h-5 rounded-md bg-gradient-to-br from-amber-500 to-amber-600 flex items-center justify-center shrink-0">
                   <Users className="w-3 h-3 text-white" />
                 </div>
-                <span className="text-[10px] text-muted-foreground font-medium truncate">Net Capacity</span>
+                <span className="text-xs text-muted-foreground font-medium truncate">Net Capacity</span>
               </div>
-              <div className="text-sm font-bold bg-gradient-to-r from-amber-600 to-amber-800 bg-clip-text text-transparent" data-testid="text-net-capacity-sum">
+              <div className="text-base font-bold bg-gradient-to-r from-amber-600 to-amber-800 bg-clip-text text-transparent" data-testid="text-net-capacity-sum">
                 {data.kpis.netCapacitySum}h
               </div>
               <div className="text-[10px] text-muted-foreground mt-0.5">available hours</div>
@@ -425,15 +425,15 @@ export function OverviewTab({
               data-testid="card-client-required"
               onDoubleClick={() => setDomiciliaryModalOpen(true)}
               title="Double-click to see details"
-              className="text-left bg-card border border-border rounded-lg px-3 py-2 hover:bg-muted/50 transition-colors cursor-pointer"
+              className="text-left bg-card border border-border rounded-lg px-3 py-3 hover:bg-muted/50 transition-colors cursor-pointer"
             >
               <div className="flex items-center gap-1.5 mb-1">
                 <div className="w-5 h-5 rounded-md bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center shrink-0">
                   <Clock className="w-3 h-3 text-white" />
                 </div>
-                <span className="text-[10px] text-muted-foreground font-medium truncate">Dom. Hours</span>
+                <span className="text-xs text-muted-foreground font-medium truncate">Dom. Hours</span>
               </div>
-              <div className="text-sm font-bold bg-gradient-to-r from-emerald-600 to-emerald-800 bg-clip-text text-transparent" data-testid="text-client-required-sum">
+              <div className="text-base font-bold bg-gradient-to-r from-emerald-600 to-emerald-800 bg-clip-text text-transparent" data-testid="text-client-required-sum">
                 {data.kpis.clientRequiredSum}h
               </div>
               <div className="text-[10px] text-muted-foreground mt-0.5">client care</div>
@@ -444,15 +444,15 @@ export function OverviewTab({
               data-testid="card-client-scheduled"
               onDoubleClick={() => setClientScheduledModalOpen(true)}
               title="Double-click to see details"
-              className="text-left bg-card border border-border rounded-lg px-3 py-2 hover:bg-muted/50 transition-colors cursor-pointer"
+              className="text-left bg-card border border-border rounded-lg px-3 py-3 hover:bg-muted/50 transition-colors cursor-pointer"
             >
               <div className="flex items-center gap-1.5 mb-1">
                 <div className="w-5 h-5 rounded-md bg-gradient-to-br from-teal-500 to-teal-600 flex items-center justify-center shrink-0">
                   <Clock className="w-3 h-3 text-white" />
                 </div>
-                <span className="text-[10px] text-muted-foreground font-medium truncate">Scheduled</span>
+                <span className="text-xs text-muted-foreground font-medium truncate">Scheduled</span>
               </div>
-              <div className="text-sm font-bold bg-gradient-to-r from-teal-600 to-teal-800 bg-clip-text text-transparent" data-testid="text-client-scheduled-sum">
+              <div className="text-base font-bold bg-gradient-to-r from-teal-600 to-teal-800 bg-clip-text text-transparent" data-testid="text-client-scheduled-sum">
                 {data.kpis.clientScheduledHoursSum}h
               </div>
               <div className="text-[10px] text-muted-foreground mt-0.5">client hours</div>
@@ -463,15 +463,15 @@ export function OverviewTab({
               data-testid="card-other-scheduled"
               onDoubleClick={() => setOtherScheduledModalOpen(true)}
               title="Double-click to see details"
-              className="text-left bg-card border border-border rounded-lg px-3 py-2 hover:bg-muted/50 transition-colors cursor-pointer"
+              className="text-left bg-card border border-border rounded-lg px-3 py-3 hover:bg-muted/50 transition-colors cursor-pointer"
             >
               <div className="flex items-center gap-1.5 mb-1">
                 <div className="w-5 h-5 rounded-md bg-gradient-to-br from-indigo-400 to-indigo-600 flex items-center justify-center shrink-0">
                   <Clock className="w-3 h-3 text-white" />
                 </div>
-                <span className="text-[10px] text-muted-foreground font-medium truncate">Other Sched.</span>
+                <span className="text-xs text-muted-foreground font-medium truncate">Other Sched.</span>
               </div>
-              <div className="text-sm font-bold bg-gradient-to-r from-indigo-500 to-indigo-700 bg-clip-text text-transparent" data-testid="text-other-scheduled-sum">
+              <div className="text-base font-bold bg-gradient-to-r from-indigo-500 to-indigo-700 bg-clip-text text-transparent" data-testid="text-other-scheduled-sum">
                 {data.kpis.otherScheduledHoursSum}h
               </div>
               <div className="text-[10px] text-muted-foreground mt-0.5">non-client</div>
@@ -482,15 +482,15 @@ export function OverviewTab({
               data-testid="card-capacity-after-scheduling"
               onDoubleClick={() => setCapacityAfterModalOpen(true)}
               title="Double-click to see details"
-              className="text-left bg-card border border-border rounded-lg px-3 py-2 hover:bg-muted/50 transition-colors cursor-pointer"
+              className="text-left bg-card border border-border rounded-lg px-3 py-3 hover:bg-muted/50 transition-colors cursor-pointer"
             >
               <div className="flex items-center gap-1.5 mb-1">
                 <div className="w-5 h-5 rounded-md bg-gradient-to-br from-green-500 to-green-600 flex items-center justify-center shrink-0">
                   <TrendingUp className="w-3 h-3 text-white" />
                 </div>
-                <span className="text-[10px] text-muted-foreground font-medium truncate">After Sched.</span>
+                <span className="text-xs text-muted-foreground font-medium truncate">After Sched.</span>
               </div>
-              <div className="text-sm font-bold bg-gradient-to-r from-green-600 to-green-800 bg-clip-text text-transparent" data-testid="text-capacity-after-scheduling-sum">
+              <div className="text-base font-bold bg-gradient-to-r from-green-600 to-green-800 bg-clip-text text-transparent" data-testid="text-capacity-after-scheduling-sum">
                 {(() => {
                   const sum = data.dailySummary.reduce((acc, day) => {
                     const employees = data.employeesByDate[day.date] || [];
@@ -517,9 +517,9 @@ export function OverviewTab({
                 <div className="w-5 h-5 rounded-md bg-gradient-to-br from-rose-500 to-rose-600 flex items-center justify-center shrink-0">
                   <TrendingUp className="w-3 h-3 text-white rotate-180" />
                 </div>
-                <span className="text-[10px] text-muted-foreground font-medium truncate">GH Loss</span>
+                <span className="text-xs text-muted-foreground font-medium truncate">GH Loss</span>
               </div>
-              <div className="text-sm font-bold bg-gradient-to-r from-rose-500 to-rose-700 bg-clip-text text-transparent" data-testid="text-gh-loss-total">
+              <div className="text-base font-bold bg-gradient-to-r from-rose-500 to-rose-700 bg-clip-text text-transparent" data-testid="text-gh-loss-total">
                 {ghLossData.totalLoss}h
               </div>
               <div className="text-[10px] text-muted-foreground mt-0.5">
@@ -532,7 +532,11 @@ export function OverviewTab({
       ) : null}
 
       {/* ── Intelligence View: charts below the KPI cards ── */}
-      {data && <InsightCharts data={data} allHistoryData={allHistoryData} />}
+      {data && (
+        <div className="flex-1 min-h-0">
+          <InsightCharts data={data} allHistoryData={allHistoryData} />
+        </div>
+      )}
 
       {/* Desired Hours Info Modal */}
       <Dialog open={desiredHoursModalOpen} onOpenChange={setDesiredHoursModalOpen}>
@@ -861,6 +865,6 @@ export function OverviewTab({
           )}
         </DialogContent>
       </Dialog>
-    </>
+    </div>
   );
 }

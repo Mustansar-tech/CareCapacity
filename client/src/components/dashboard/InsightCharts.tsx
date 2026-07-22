@@ -139,7 +139,7 @@ function DailyCapacityChart({ data }: { data: ProcessingResult }) {
   };
 
   return (
-    <div className="bg-card border border-border rounded-xl p-4 shadow-sm flex flex-col">
+    <div className="bg-card border border-border rounded-xl p-4 shadow-sm flex flex-col h-full">
       {/* Header */}
       <div className="flex items-start justify-between mb-2">
         <div>
@@ -173,7 +173,7 @@ function DailyCapacityChart({ data }: { data: ProcessingResult }) {
       </div>
 
       {/* Chart */}
-      <div className="h-40 mt-1">
+      <div className="flex-1 min-h-[140px] mt-1">
         <ResponsiveContainer width="100%" height="100%">
           <ComposedChart data={chartData} margin={{ top: 14, right: 4, left: -16, bottom: 0 }}>
             <XAxis dataKey="label" tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} />
@@ -279,12 +279,12 @@ function UtilisationDonut({ data }: { data: ProcessingResult }) {
   };
 
   return (
-    <div className="bg-card border border-border rounded-xl p-4 shadow-sm">
+    <div className="bg-card border border-border rounded-xl p-4 shadow-sm flex flex-col h-full">
       <div className="mb-1">
         <h3 className="text-sm font-semibold text-foreground">Capacity Breakdown</h3>
         <p className="text-[11px] text-muted-foreground mt-0.5">How net capacity is allocated and lost this week</p>
       </div>
-      <div className="h-48 mt-1">
+      <div className="flex-1 min-h-0 mt-1">
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
             <Pie
@@ -362,7 +362,7 @@ function TopDrains({ data }: { data: ProcessingResult }) {
   const maxHours = items[0]?.hours ?? 1;
 
   return (
-    <div className="bg-card border border-border rounded-xl p-4 shadow-sm">
+    <div className="bg-card border border-border rounded-xl p-4 shadow-sm flex flex-col h-full">
       <div className="mb-3">
         <h3 className="text-sm font-semibold text-foreground">Top Capacity Drains</h3>
         <p className="text-[11px] text-muted-foreground mt-0.5">Who is impacting capacity most this week</p>
@@ -412,13 +412,13 @@ interface InsightChartsProps {
 
 export function InsightCharts({ data }: InsightChartsProps) {
   return (
-    <div className="px-6 pb-6 pt-2">
+    <div className="px-6 pb-6 pt-2 flex flex-col h-full">
       <div className="flex items-center gap-2 mb-4">
         <TrendingDown className="w-4 h-4 text-muted-foreground" />
         <h2 className="text-sm font-semibold text-foreground">Intelligence View</h2>
         <span className="text-[11px] text-muted-foreground">— the story behind the numbers</span>
       </div>
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 flex-1 min-h-0">
         <DailyCapacityChart data={data} />
         <UtilisationDonut data={data} />
         <TopDrains data={data} />
