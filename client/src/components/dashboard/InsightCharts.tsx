@@ -26,7 +26,7 @@ function DailyCapacityChart({ data }: { data: ProcessingResult }) {
     return (data.dailySummary ?? []).map(d => {
       const net       = fmt(d.netCapacity ?? 0);
       const required  = fmt(d.clientRequired ?? 0);
-      const scheduled = fmt(d.clientScheduled ?? 0);
+      const scheduled = fmt(d.clientScheduledHours ?? 0);
       const short     = required > 0 && net < required;
       const deficit   = short ? fmt(required - net) : 0;
       const surplus   = !short && net > 0 ? fmt(net - required) : 0;
