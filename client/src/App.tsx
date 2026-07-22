@@ -1,4 +1,4 @@
-import { Switch, Route, Link, useSearch } from "wouter";
+import { Switch, Route } from "wouter";
 import { queryClient, setUnauthorizedHandler, toAbsoluteUrl } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -15,12 +15,9 @@ import { CURRENT_LEGAL_VERSION } from "@shared/schema";
 import { BranchProvider, useBranch } from "@/contexts/BranchContext";
 import { WeekProvider, useWeek } from "@/contexts/WeekContext";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
-import { BranchSelector } from "@/components/BranchSelector";
 import { CookieBanner } from "@/components/CookieBanner";
-import { HelpPanel } from "@/components/HelpPanel";
-import homeInsteadLogo from "@/assets/logo.png";
 import { Component, ComponentType, ErrorInfo, ReactNode, useState, useEffect, useRef, useCallback } from "react";
-import { Shield, LogOut, ChevronDown, Clock, AlertTriangle, HelpCircle, BarChart3, Calendar, Users, BookOpen, TrendingUp, UserCheck } from "lucide-react";
+import { Shield, LogOut, ChevronDown, Clock, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -42,6 +39,7 @@ import {
 import { useLocation } from "wouter";
 import { useSessionTimeout } from "@/hooks/use-session-timeout";
 import { AppLayout } from "@/components/layout/AppLayout";
+import { Sidebar } from "@/components/layout/Sidebar";
 import { SyncStatusBar } from "@/components/SyncStatusBar";
 
 // ─── Lazy page modules ────────────────────────────────────────────────────────
@@ -239,144 +237,6 @@ function UserMenu() {
   );
 }
 
-// ─── Navigation ───────────────────────────────────────────────────────────────
-
-interface NavItem {
-  label: string;
-  path: string;
-  search?: string;
-  icon: ComponentType<{ className?: string }>;
-  adminOnly?: boolean;
-}
-
-const NAV_ITEMS: NavItem[] = [
-  { label: "Home",             path: "/app/dashboard",                         icon: BarChart3  },
-  { label: "Daily View",       path: "/app/dashboard", search: "view=daily",   icon: Calendar   },
-  { label: "BD Matrix",        path: "/app/bd-matrix",                         icon: Users      },
-  { label: "Schedule",         path: "/app/schedule",                          icon: Calendar   },
-  { label: "Capacity Outlook", path: "/app/capacity-outlook",                  icon: TrendingUp },
-  { label: "Workforce",        path: "/app/workforce",                         icon: UserCheck  },
-];
-
-function Navigation() {
-  const [location, navigate] = useLocation();
-  const search = useSearch();
-  const { isAdmin } = useAuth();
-  const [helpOpen, setHelpOpen] = useState(false);
-
-  const visibleItems = NAV_ITEMS.filter(item => !item.adminOnly || isAdmin);
-
-  function isItemActive(item: NavItem): boolean {
-    const pathMatches = location === item.path || location.startsWith(item.path + "/");
-    if (!pathMatches) return false;
-    const params = new URLSearchParams(search);
-    if (item.search) {
-      const itemParams = new URLSearchParams(item.search);
-      for (const [key, val] of itemParams.entries()) {
-        if (params.get(key) !== val) return false;
-      }
-      return true;
-    }
-    // "Home" tab is active on /app/dashboard when NOT showing view=daily
-    if (item.path === "/app/dashboard") return params.get("view") !== "daily";
-    return true;
-  }
-
-  return (
-    <>
-      <header
-        className="z-50 flex flex-col shrink-0"
-        data-testid="main-navigation"
-      >
-        {/* ── Row 1: dark green utility bar — 48px ── */}
-        <div
-          className="flex items-center px-6 gap-6"
-          style={{ height: "48px", background: "#2c4f26" }}
-        >
-          {/* Brand: logo + product name */}
-          <button
-            className="flex items-center gap-2.5 shrink-0 group outline-none focus-visible:ring-2 focus-visible:ring-white/30 rounded"
-            onClick={() => navigate("/app/dashboard")}
-            aria-label="Go to dashboard"
-          >
-            <img
-              src={homeInsteadLogo}
-              alt="Home Instead"
-              className="h-6 w-auto rounded object-contain opacity-85 group-hover:opacity-100 transition-opacity"
-            />
-            <span className="hidden md:block text-sm font-semibold text-white/90 whitespace-nowrap group-hover:text-white transition-colors">
-              Care Capacity
-            </span>
-          </button>
-
-          {/* Soft rule */}
-          <div className="h-4 w-px bg-white/10 shrink-0" />
-
-          {/* Location selector */}
-          <BranchSelector />
-
-          {/* Spacer — pushes right group to far right */}
-          <div className="flex-1" />
-
-          {/* Right icon cluster */}
-          <div className="flex items-center gap-1 shrink-0">
-            <button
-              onClick={() => setHelpOpen(true)}
-              aria-label="Help and Support"
-              title="Help & Support"
-              className="p-1.5 text-white/65 hover:text-white transition-colors"
-            >
-              <HelpCircle className="h-4 w-4" />
-            </button>
-          </div>
-
-          {/* Soft rule */}
-          <div className="h-4 w-px bg-white/10 shrink-0" />
-
-          {/* User */}
-          <UserMenu />
-        </div>
-
-        {/* ── Row 2: workspace tabs — 38px ── */}
-        <div
-          className="flex items-end px-4 gap-0 dark:bg-gray-800 dark:border-gray-700"
-          style={{
-            height: "38px",
-            background: "#f5f6f7",
-            borderBottom: "1px solid #e5e7eb",
-          }}
-        >
-          {visibleItems.map((item) => {
-            const active = isItemActive(item);
-            const href = item.search ? `${item.path}?${item.search}` : item.path;
-            return (
-              <Link
-                key={item.label}
-                href={href}
-                className={[
-                  "flex items-center gap-2 px-12 h-[34px] text-sm font-medium whitespace-nowrap transition-all duration-150 outline-none focus-visible:ring-2 focus-visible:ring-slate-300 rounded-t-md select-none",
-                  active
-                    ? "text-slate-700 dark:text-white"
-                    : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-white/60 dark:hover:bg-gray-700/50",
-                ].join(" ")}
-                style={active ? {
-                  background: "#f8f8f8",
-                  border: "1px solid #e5e7eb",
-                  borderBottom: "1px solid #f8f8f8",
-                  borderTop: "2px solid #2c4f26",
-                } : {}}
-              >
-                <item.icon className="w-3.5 h-3.5 flex-shrink-0 opacity-75" />
-                {item.label}
-              </Link>
-            );
-          })}
-        </div>
-      </header>
-      <HelpPanel open={helpOpen} onClose={() => setHelpOpen(false)} />
-    </>
-  );
-}
 
 // ─── Session Timeout Manager ──────────────────────────────────────────────────
 
@@ -519,55 +379,55 @@ function Router() {
   const { isReady, isLoadingBranches } = useBranch();
 
   return (
-    <div className="h-screen flex flex-col overflow-hidden bg-gradient-to-br from-blue-50 via-white to-emerald-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800">
-      <Navigation />
-      <SyncStatusBar />
-      <main className="flex-1 overflow-y-auto overflow-x-hidden animate-fade-in">
-        {!isReady ? (
-          <div className="flex items-center justify-center min-h-[60vh]">
-            <div className="text-center">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4" />
-              <p className="text-gray-600 dark:text-gray-400">
-                {isLoadingBranches ? 'Loading branches...' : 'Initializing...'}
-              </p>
+    <div className="h-screen flex overflow-hidden bg-background">
+      <Sidebar />
+      <div className="flex-1 flex flex-col overflow-hidden">
+        <SyncStatusBar />
+        <main className="flex-1 overflow-y-auto overflow-x-hidden animate-fade-in">
+          {!isReady ? (
+            <div className="flex items-center justify-center min-h-[60vh]">
+              <div className="text-center">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4" />
+                <p className="text-muted-foreground">
+                  {isLoadingBranches ? 'Loading branches...' : 'Initializing...'}
+                </p>
+              </div>
             </div>
-          </div>
-        ) : (
-          <Switch>
-            {/* Legacy redirects — backward compatibility */}
-            <Route path="/"><Redirect to="/app/dashboard" /></Route>
-            <Route path="/admin"><Redirect to="/app/admin" /></Route>
+          ) : (
+            <Switch>
+              <Route path="/"><Redirect to="/app/dashboard" /></Route>
+              <Route path="/admin"><Redirect to="/app/admin" /></Route>
 
-            {/* App routes — all wrapped in AppLayout (sidebar + content offset) */}
-            <Route path="/app/dashboard">
-              <AppLayout><Dashboard /></AppLayout>
-            </Route>
-            <Route path="/app/admin">
-              <AppLayout><AdminPage /></AppLayout>
-            </Route>
-            <Route path="/app/bd-matrix">
-              <AppLayout><BDMatrixPage /></AppLayout>
-            </Route>
-            <Route path="/app/schedule">
-              <AppLayout><PageSuspense><ScheduleModule /></PageSuspense></AppLayout>
-            </Route>
-            <Route path="/app/people-planner">
-              <AppLayout><PageSuspense><PeoplePlannerModule /></PageSuspense></AppLayout>
-            </Route>
-            <Route path="/app/capacity-outlook">
-              <AppLayout><PageSuspense><CapacityOutlookModule /></PageSuspense></AppLayout>
-            </Route>
-            <Route path="/app/workforce">
-              <AppLayout><PageSuspense><WorkforceModule /></PageSuspense></AppLayout>
-            </Route>
-            <Route path="/app/docs">
-              <PageSuspense><DocsModule /></PageSuspense>
-            </Route>
+              <Route path="/app/dashboard">
+                <AppLayout><Dashboard /></AppLayout>
+              </Route>
+              <Route path="/app/admin">
+                <AppLayout><AdminPage /></AppLayout>
+              </Route>
+              <Route path="/app/bd-matrix">
+                <AppLayout><BDMatrixPage /></AppLayout>
+              </Route>
+              <Route path="/app/schedule">
+                <AppLayout><PageSuspense><ScheduleModule /></PageSuspense></AppLayout>
+              </Route>
+              <Route path="/app/people-planner">
+                <AppLayout><PageSuspense><PeoplePlannerModule /></PageSuspense></AppLayout>
+              </Route>
+              <Route path="/app/capacity-outlook">
+                <AppLayout><PageSuspense><CapacityOutlookModule /></PageSuspense></AppLayout>
+              </Route>
+              <Route path="/app/workforce">
+                <AppLayout><PageSuspense><WorkforceModule /></PageSuspense></AppLayout>
+              </Route>
+              <Route path="/app/docs">
+                <PageSuspense><DocsModule /></PageSuspense>
+              </Route>
 
-            <Route component={NotFound} />
-          </Switch>
-        )}
-      </main>
+              <Route component={NotFound} />
+            </Switch>
+          )}
+        </main>
+      </div>
     </div>
   );
 }
