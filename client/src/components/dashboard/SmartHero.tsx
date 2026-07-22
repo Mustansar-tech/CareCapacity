@@ -311,7 +311,7 @@ export function SmartHero({
 
         <div className="flex items-start gap-6 flex-wrap lg:flex-nowrap">
           {/* ── Left: narrative + controls ── */}
-          <div className="flex-1 min-w-0">
+          <div className="shrink-0 w-[360px]">
             {data && narrative && cfg ? (
               <>
                 {/* Status + week context */}
@@ -512,7 +512,7 @@ export function SmartHero({
 
           {/* ── Right: all-weeks trend chart ── */}
           {narrative && cfg && (
-            <div className="shrink-0 w-[480px] border border-border rounded-xl bg-card p-4 shadow-sm">
+            <div className="flex-1 min-w-[400px] border border-border rounded-xl bg-card p-4 shadow-sm">
               {/* Header */}
               <div className="flex items-center justify-between mb-2">
                 <div>
