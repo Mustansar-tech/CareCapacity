@@ -221,12 +221,12 @@ function DailyCapacityChart({ data }: { data: ProcessingResult }) {
 // ── Chart 2: Capacity Utilisation Donut ───────────────────────────────────────
 
 const DONUT_COLORS = {
-  scheduled: "#2563eb",   // blue
-  other:     "#d946ef",   // fuchsia
-  remaining: "#d1d5db",   // grey
-  sickness:  "#f97316",   // orange
-  unavail:   "#ef4444",   // red
-  holidays:  "#7c3aed",   // violet
+  scheduled: "#2c4f26",
+  other:     "#3b82f6",
+  remaining: "#d1d5db",
+  sickness:  "#64748b",
+  unavail:   "#ef4444",
+  holidays:  "#8b5cf6",
 };
 
 function UtilisationDonut({ data }: { data: ProcessingResult }) {

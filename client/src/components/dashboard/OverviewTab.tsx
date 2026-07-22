@@ -327,12 +327,12 @@ export function OverviewTab({
               className="text-left bg-card border border-border rounded-lg px-3 py-3 hover:bg-muted/50 transition-colors cursor-pointer"
             >
               <div className="flex items-center gap-1.5 mb-1">
-                <div className="w-5 h-5 rounded-md bg-gradient-to-br from-emerald-400 to-emerald-500 flex items-center justify-center shrink-0">
+                <div className="w-5 h-5 rounded-md bg-gradient-to-br from-green-400 to-green-500 flex items-center justify-center shrink-0">
                   <Clock className="w-3 h-3 text-white" />
                 </div>
                 <span className="text-xs text-muted-foreground font-medium truncate">Desired</span>
               </div>
-              <div className="text-base font-bold bg-gradient-to-r from-emerald-500 to-emerald-700 bg-clip-text text-transparent" data-testid="text-desired-sum">
+              <div className="text-base font-bold bg-gradient-to-r from-green-500 to-green-700 bg-clip-text text-transparent" data-testid="text-desired-sum">
                 {data.kpis.totalDesiredHoursSum || 0}h
               </div>
               <div className="text-[10px] text-muted-foreground mt-0.5">weekly target</div>
@@ -367,12 +367,12 @@ export function OverviewTab({
               className="text-left bg-card border border-border rounded-lg px-3 py-2 hover:bg-muted/50 transition-colors cursor-pointer select-none"
             >
               <div className="flex items-center gap-1.5 mb-1">
-                <div className="w-5 h-5 rounded-md bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center shrink-0">
+                <div className="w-5 h-5 rounded-md bg-gradient-to-br from-slate-400 to-slate-600 flex items-center justify-center shrink-0">
                   <AlertTriangle className="w-3 h-3 text-white" />
                 </div>
                 <span className="text-xs text-muted-foreground font-medium truncate">Sickness</span>
               </div>
-              <div className="text-base font-bold bg-gradient-to-r from-orange-500 to-orange-700 bg-clip-text text-transparent" data-testid="text-sickness-sum">
+              <div className="text-base font-bold bg-gradient-to-r from-slate-500 to-slate-700 bg-clip-text text-transparent" data-testid="text-sickness-sum">
                 {data.kpis.sicknessSum}h
               </div>
               <div className="text-[10px] text-muted-foreground mt-0.5">
@@ -388,12 +388,12 @@ export function OverviewTab({
               className="text-left bg-card border border-border rounded-lg px-3 py-3 hover:bg-muted/50 transition-colors cursor-pointer"
             >
               <div className="flex items-center gap-1.5 mb-1">
-                <div className="w-5 h-5 rounded-md bg-gradient-to-br from-violet-400 to-violet-600 flex items-center justify-center shrink-0">
+                <div className="w-5 h-5 rounded-md bg-gradient-to-br from-purple-400 to-purple-600 flex items-center justify-center shrink-0">
                   <Calendar className="w-3 h-3 text-white" />
                 </div>
                 <span className="text-xs text-muted-foreground font-medium truncate">Holidays</span>
               </div>
-              <div className="text-base font-bold bg-gradient-to-r from-violet-500 to-violet-700 bg-clip-text text-transparent" data-testid="text-holidays-sum">
+              <div className="text-base font-bold bg-gradient-to-r from-purple-500 to-purple-700 bg-clip-text text-transparent" data-testid="text-holidays-sum">
                 {data.kpis.holidaysSum || 0}h
               </div>
               <div className="text-[10px] text-muted-foreground mt-0.5">
@@ -428,12 +428,12 @@ export function OverviewTab({
               className="text-left bg-card border border-border rounded-lg px-3 py-3 hover:bg-muted/50 transition-colors cursor-pointer"
             >
               <div className="flex items-center gap-1.5 mb-1">
-                <div className="w-5 h-5 rounded-md bg-gradient-to-br from-cyan-500 to-cyan-600 flex items-center justify-center shrink-0">
+                <div className="w-5 h-5 rounded-md bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center shrink-0">
                   <Clock className="w-3 h-3 text-white" />
                 </div>
                 <span className="text-xs text-muted-foreground font-medium truncate">Dom. Hours</span>
               </div>
-              <div className="text-base font-bold bg-gradient-to-r from-cyan-600 to-cyan-800 bg-clip-text text-transparent" data-testid="text-client-required-sum">
+              <div className="text-base font-bold bg-gradient-to-r from-emerald-600 to-emerald-800 bg-clip-text text-transparent" data-testid="text-client-required-sum">
                 {data.kpis.clientRequiredSum}h
               </div>
               <div className="text-[10px] text-muted-foreground mt-0.5">client care</div>
@@ -447,12 +447,12 @@ export function OverviewTab({
               className="text-left bg-card border border-border rounded-lg px-3 py-3 hover:bg-muted/50 transition-colors cursor-pointer"
             >
               <div className="flex items-center gap-1.5 mb-1">
-                <div className="w-5 h-5 rounded-md bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shrink-0">
+                <div className="w-5 h-5 rounded-md bg-gradient-to-br from-teal-500 to-teal-600 flex items-center justify-center shrink-0">
                   <Clock className="w-3 h-3 text-white" />
                 </div>
                 <span className="text-xs text-muted-foreground font-medium truncate">Scheduled</span>
               </div>
-              <div className="text-base font-bold bg-gradient-to-r from-blue-600 to-blue-800 bg-clip-text text-transparent" data-testid="text-client-scheduled-sum">
+              <div className="text-base font-bold bg-gradient-to-r from-teal-600 to-teal-800 bg-clip-text text-transparent" data-testid="text-client-scheduled-sum">
                 {data.kpis.clientScheduledHoursSum}h
               </div>
               <div className="text-[10px] text-muted-foreground mt-0.5">client hours</div>
@@ -466,12 +466,12 @@ export function OverviewTab({
               className="text-left bg-card border border-border rounded-lg px-3 py-3 hover:bg-muted/50 transition-colors cursor-pointer"
             >
               <div className="flex items-center gap-1.5 mb-1">
-                <div className="w-5 h-5 rounded-md bg-gradient-to-br from-fuchsia-400 to-fuchsia-600 flex items-center justify-center shrink-0">
+                <div className="w-5 h-5 rounded-md bg-gradient-to-br from-sky-400 to-sky-600 flex items-center justify-center shrink-0">
                   <Clock className="w-3 h-3 text-white" />
                 </div>
                 <span className="text-xs text-muted-foreground font-medium truncate">Other Sched.</span>
               </div>
-              <div className="text-base font-bold bg-gradient-to-r from-fuchsia-500 to-fuchsia-700 bg-clip-text text-transparent" data-testid="text-other-scheduled-sum">
+              <div className="text-base font-bold bg-gradient-to-r from-sky-500 to-sky-700 bg-clip-text text-transparent" data-testid="text-other-scheduled-sum">
                 {data.kpis.otherScheduledHoursSum}h
               </div>
               <div className="text-[10px] text-muted-foreground mt-0.5">non-client</div>
@@ -485,12 +485,12 @@ export function OverviewTab({
               className="text-left bg-card border border-border rounded-lg px-3 py-3 hover:bg-muted/50 transition-colors cursor-pointer"
             >
               <div className="flex items-center gap-1.5 mb-1">
-                <div className="w-5 h-5 rounded-md bg-gradient-to-br from-lime-500 to-lime-600 flex items-center justify-center shrink-0">
+                <div className="w-5 h-5 rounded-md bg-gradient-to-br from-green-500 to-green-600 flex items-center justify-center shrink-0">
                   <TrendingUp className="w-3 h-3 text-white" />
                 </div>
                 <span className="text-xs text-muted-foreground font-medium truncate">After Sched.</span>
               </div>
-              <div className="text-base font-bold bg-gradient-to-r from-lime-600 to-lime-800 bg-clip-text text-transparent" data-testid="text-capacity-after-scheduling-sum">
+              <div className="text-base font-bold bg-gradient-to-r from-green-600 to-green-800 bg-clip-text text-transparent" data-testid="text-capacity-after-scheduling-sum">
                 {(() => {
                   const sum = data.dailySummary.reduce((acc, day) => {
                     const employees = data.employeesByDate[day.date] || [];
@@ -543,7 +543,7 @@ export function OverviewTab({
         <DialogContent className="max-w-xl w-full">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-emerald-400 to-emerald-500 flex items-center justify-center">
+              <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-green-400 to-green-500 flex items-center justify-center">
                 <Clock className="w-3.5 h-3.5 text-white" />
               </div>
               Desired Hours
@@ -581,7 +581,7 @@ export function OverviewTab({
         <DialogContent className="max-w-xl w-full">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-cyan-500 to-cyan-600 flex items-center justify-center">
+              <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center">
                 <Clock className="w-3.5 h-3.5 text-white" />
               </div>
               Domiciliary Hours
@@ -605,7 +605,7 @@ export function OverviewTab({
         <DialogContent className="max-w-xl w-full">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center">
+              <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-teal-500 to-teal-600 flex items-center justify-center">
                 <Clock className="w-3.5 h-3.5 text-white" />
               </div>
               Client Scheduled
@@ -623,7 +623,7 @@ export function OverviewTab({
         <DialogContent className="max-w-xl w-full">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-fuchsia-400 to-fuchsia-600 flex items-center justify-center">
+              <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-indigo-400 to-indigo-600 flex items-center justify-center">
                 <Clock className="w-3.5 h-3.5 text-white" />
               </div>
               Other Scheduled
@@ -646,7 +646,7 @@ export function OverviewTab({
         <DialogContent className="max-w-xl w-full">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-lime-500 to-lime-600 flex items-center justify-center">
+              <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-green-500 to-green-600 flex items-center justify-center">
                 <TrendingUp className="w-3.5 h-3.5 text-white" />
               </div>
               Capacity After Scheduling
@@ -720,7 +720,7 @@ export function OverviewTab({
         <DialogContent className="max-w-xl w-full">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center">
+              <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-slate-500 to-slate-600 flex items-center justify-center">
                 <AlertTriangle className="w-3.5 h-3.5 text-white" />
               </div>
               Sickness Breakdown
@@ -743,7 +743,7 @@ export function OverviewTab({
                     </div>
                   </div>
                   <div className="shrink-0 text-right">
-                    <span className="inline-block px-2 py-0.5 rounded-full bg-orange-100 dark:bg-orange-900/40 text-orange-700 dark:text-orange-300 text-xs font-bold whitespace-nowrap">
+                    <span className="inline-block px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-bold whitespace-nowrap">
                       {item.hours}h
                     </span>
                   </div>
@@ -760,7 +760,7 @@ export function OverviewTab({
           {sicknessBreakdown.items.length > 0 && (
             <div className="flex items-center justify-between pt-2 border-t border-gray-100 dark:border-gray-800 mt-1">
               <span className="text-xs text-gray-500 dark:text-gray-400">{sicknessBreakdown.items.length} CP{sicknessBreakdown.items.length === 1 ? "" : "s"} off sick</span>
-              <span className="text-sm font-bold text-orange-700 dark:text-orange-400">Total: {sicknessBreakdown.total}h</span>
+              <span className="text-sm font-bold text-slate-700 dark:text-slate-300">Total: {sicknessBreakdown.total}h</span>
             </div>
           )}
         </DialogContent>
