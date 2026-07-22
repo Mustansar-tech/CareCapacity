@@ -1589,7 +1589,7 @@ export default function CapacityOutlookPage() {
         </div>
 
         {/* ── Tabbed staff sections ──────────────────────────────────────────── */}
-        <Card className="overflow-hidden border border-card-border shadow-sm">
+        <Card className="overflow-hidden border-0 shadow-2xl ring-1 ring-black/[0.07] dark:ring-white/[0.08]">
           {/* Tab bar */}
           <div className="flex border-b border-border bg-slate-50/80 dark:bg-slate-900/40 overflow-x-auto px-2 pt-2 gap-1">
             {([
@@ -1636,9 +1636,21 @@ export default function CapacityOutlookPage() {
               ) : (
                 <div className="overflow-x-auto">
                   {pipelineJoiners.length > 0 && (
+                  <div className="flex items-center justify-between px-5 py-3 bg-gradient-to-r from-emerald-50 to-transparent dark:from-emerald-900/20 dark:to-transparent border-b border-emerald-100 dark:border-emerald-900/30">
+                    <div className="flex items-center gap-2">
+                      <div className="w-6 h-6 rounded-md bg-emerald-500 flex items-center justify-center shadow-sm">
+                        <TrendingUp className="w-3.5 h-3.5 text-white" />
+                      </div>
+                      <span className="text-sm font-bold text-emerald-800 dark:text-emerald-200">In Pipeline</span>
+                      <span className="text-xs font-semibold bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300 px-2 py-0.5 rounded-full">{pipelineJoiners.length}</span>
+                    </div>
+                    <span className="text-xs font-medium text-emerald-600/80 dark:text-emerald-400/70 pr-2">{rawWeeklyHours}h/wk expected</span>
+                  </div>
+                )}
+                {pipelineJoiners.length > 0 && (
                     <Table>
                       <TableHeader>
-                        <TableRow>
+                        <TableRow className="bg-emerald-50/60 dark:bg-emerald-900/15 border-b border-emerald-100 dark:border-emerald-900/30">
                           <SortHead col="candidateName" label="Name" current={joinerSort} onSort={toggleJoinerSort} />
                           <SortHead col="employmentType" label="Type" current={joinerSort} onSort={toggleJoinerSort} />
                           <SortHead col="desiredWeeklyHours" label="Desired Hrs/wk" current={joinerSort} onSort={toggleJoinerSort} />
@@ -1651,7 +1663,7 @@ export default function CapacityOutlookPage() {
                       </TableHeader>
                       <TableBody>
                         {sortBy(pipelineJoiners, joinerSort.col, joinerSort.dir).map(j => (
-                          <TableRow key={j.id} className={isStale14Days(j) ? "bg-red-50/60 dark:bg-red-950/20" : undefined}>
+                          <TableRow key={j.id} className={`hover:bg-muted/30 transition-colors ${isStale14Days(j) ? "bg-red-50/60 dark:bg-red-950/20" : ""}`}>
                             <TableCell
                               className={`font-medium cursor-pointer select-none ${getGenderColorClass(j.gender ?? undefined)}`}
                               onDoubleClick={() => setAvailabilityPopupJoiner(j)}
@@ -1729,16 +1741,22 @@ export default function CapacityOutlookPage() {
                   )}
 
                   {hiredJoiners.length > 0 && (
-                    <div className="border-t border-yellow-200 dark:border-yellow-800/40 bg-yellow-50/60 dark:bg-yellow-900/10">
-                      <div className="flex items-center gap-2 px-4 py-2">
-                        <CheckCircle2 className="w-4 h-4 text-yellow-600 dark:text-yellow-400" />
-                        <span className="text-xs font-semibold text-yellow-700 dark:text-yellow-300 uppercase tracking-wide">
-                          Hired this month — {hiredJoiners.reduce((s, j) => s + (j.desiredWeeklyHours ?? 0), 0)}h/wk · {hiredJoiners.length} {hiredJoiners.length === 1 ? 'person' : 'people'}
-                        </span>
+                    <div className="border-t-2 border-amber-200 dark:border-amber-800/50 bg-gradient-to-r from-amber-50 to-yellow-50/30 dark:from-amber-900/20 dark:to-yellow-900/10">
+                      <div className="flex items-center justify-between px-5 py-3">
+                        <div className="flex items-center gap-2">
+                          <div className="w-6 h-6 rounded-md bg-amber-400 flex items-center justify-center shadow-sm">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-white" />
+                          </div>
+                          <span className="text-sm font-bold text-amber-800 dark:text-amber-200">Hired This Month</span>
+                        </div>
+                        <div className="flex items-center gap-3 pr-2">
+                          <span className="text-xs font-semibold bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 px-2 py-0.5 rounded-full">{hiredJoiners.length} {hiredJoiners.length === 1 ? 'person' : 'people'}</span>
+                          <span className="text-xs font-medium text-amber-600/80 dark:text-amber-400/70">{hiredJoiners.reduce((s, j) => s + (j.desiredWeeklyHours ?? 0), 0)}h/wk</span>
+                        </div>
                       </div>
                       <Table>
                         <TableHeader>
-                          <TableRow className="bg-yellow-100/60 dark:bg-yellow-900/20">
+                          <TableRow className="bg-amber-50/60 dark:bg-amber-900/15 border-b border-amber-100 dark:border-amber-900/30">
                             <TableHead>Name</TableHead>
                             <TableHead>Type</TableHead>
                             <TableHead>Desired Hrs/wk</TableHead>
@@ -1878,17 +1896,33 @@ export default function CapacityOutlookPage() {
           {/* ─ Availability Increase panel ───────────────────────────────────── */}
           {activeStaffTab === 'avail-increase' && (() => {
             const increases = (availChangesQuery.data ?? []).filter(r => r.changeType === 'increase');
+            const totalIncrease = increases.reduce((s, r) => s + ((r.newHours ?? 0) - (r.previousHours ?? 0)), 0);
             return (
               <CardContent className="pt-0 px-0">
                   {availChangesQuery.isLoading ? (
                     <div className="h-16 bg-muted animate-pulse rounded m-4" />
                   ) : increases.length === 0 ? (
-                    <p className="text-sm text-muted-foreground text-center py-8">No availability increases recorded yet.</p>
+                    <div className="flex flex-col items-center justify-center py-12 gap-3">
+                      <div className="w-10 h-10 rounded-full bg-teal-100 dark:bg-teal-900/30 flex items-center justify-center">
+                        <TrendingUp className="w-5 h-5 text-teal-500" />
+                      </div>
+                      <p className="text-sm text-muted-foreground">No availability increases recorded yet.</p>
+                    </div>
                   ) : (
                     <div className="overflow-x-auto">
+                      <div className="flex items-center justify-between px-5 py-3 bg-gradient-to-r from-teal-50 to-transparent dark:from-teal-900/20 dark:to-transparent border-b border-teal-100 dark:border-teal-900/30">
+                        <div className="flex items-center gap-2">
+                          <div className="w-6 h-6 rounded-md bg-teal-500 flex items-center justify-center shadow-sm">
+                            <TrendingUp className="w-3.5 h-3.5 text-white" />
+                          </div>
+                          <span className="text-sm font-bold text-teal-800 dark:text-teal-200">Availability Increases</span>
+                          <span className="text-xs font-semibold bg-teal-100 dark:bg-teal-900/50 text-teal-700 dark:text-teal-300 px-2 py-0.5 rounded-full">{increases.length}</span>
+                        </div>
+                        {totalIncrease > 0 && <span className="text-xs font-medium text-teal-600/80 dark:text-teal-400/70 pr-2">+{Math.round(totalIncrease * 10) / 10}h/wk net gain</span>}
+                      </div>
                       <Table>
                         <TableHeader>
-                          <TableRow className="text-xs">
+                          <TableRow className="bg-teal-50/60 dark:bg-teal-900/15 border-b border-teal-100 dark:border-teal-900/30">
                             <TableHead>Name</TableHead>
                             <TableHead>Type</TableHead>
                             <TableHead>Prev Hrs</TableHead>
@@ -1946,9 +1980,21 @@ export default function CapacityOutlookPage() {
                 <div className="overflow-x-auto">
                   {/* On-notice leavers (still working) */}
                   {sortBy(onNotice, leaverSort.col, leaverSort.dir).length > 0 && (
+                    <div className="flex items-center justify-between px-5 py-3 bg-gradient-to-r from-amber-50 to-transparent dark:from-amber-900/20 dark:to-transparent border-b border-amber-100 dark:border-amber-900/30">
+                      <div className="flex items-center gap-2">
+                        <div className="w-6 h-6 rounded-md bg-amber-500 flex items-center justify-center shadow-sm">
+                          <TrendingDown className="w-3.5 h-3.5 text-white" />
+                        </div>
+                        <span className="text-sm font-bold text-amber-800 dark:text-amber-200">On Notice</span>
+                        <span className="text-xs font-semibold bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 px-2 py-0.5 rounded-full">{onNotice.length}</span>
+                      </div>
+                      <span className="text-xs font-medium text-amber-600/80 dark:text-amber-400/70 pr-2">{hoursOnNotice}h/wk at risk</span>
+                    </div>
+                  )}
+                  {sortBy(onNotice, leaverSort.col, leaverSort.dir).length > 0 && (
                     <Table>
                       <TableHeader>
-                        <TableRow>
+                        <TableRow className="bg-amber-50/60 dark:bg-amber-900/15 border-b border-amber-100 dark:border-amber-900/30">
                           <SortHead col="employeeName" label="Name" current={leaverSort} onSort={toggleLeaverSort} />
                           <TableHead>Status</TableHead>
                           <TableHead>Emp No</TableHead>
@@ -2001,16 +2047,22 @@ export default function CapacityOutlookPage() {
 
                   {/* Already terminated strip */}
                   {alreadyGone.length > 0 && (
-                    <div className="border-t border-red-200 dark:border-red-800/40 bg-red-50/50 dark:bg-red-900/10">
-                      <div className="flex items-center gap-2 px-4 py-2">
-                        <UserMinus className="w-4 h-4 text-red-600 dark:text-red-400" />
-                        <span className="text-xs font-semibold text-red-700 dark:text-red-300 uppercase tracking-wide">
-                          Already terminated — {alreadyGone.reduce((s, l) => s + (l.weeklyHours ?? 0), 0)}h/wk · {alreadyGone.length} {alreadyGone.length === 1 ? 'person' : 'people'}
-                        </span>
+                    <div className="border-t-2 border-red-200 dark:border-red-800/50 bg-gradient-to-r from-red-50 to-rose-50/20 dark:from-red-900/20 dark:to-rose-900/10">
+                      <div className="flex items-center justify-between px-5 py-3">
+                        <div className="flex items-center gap-2">
+                          <div className="w-6 h-6 rounded-md bg-red-500 flex items-center justify-center shadow-sm">
+                            <UserMinus className="w-3.5 h-3.5 text-white" />
+                          </div>
+                          <span className="text-sm font-bold text-red-800 dark:text-red-200">Already Terminated</span>
+                        </div>
+                        <div className="flex items-center gap-3 pr-2">
+                          <span className="text-xs font-semibold bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300 px-2 py-0.5 rounded-full">{alreadyGone.length} {alreadyGone.length === 1 ? 'person' : 'people'}</span>
+                          <span className="text-xs font-medium text-red-600/80 dark:text-red-400/70">{alreadyGone.reduce((s, l) => s + (l.weeklyHours ?? 0), 0)}h/wk lost</span>
+                        </div>
                       </div>
                       <Table>
                         <TableHeader>
-                          <TableRow className="bg-red-100/60 dark:bg-red-900/20">
+                          <TableRow className="bg-red-50/60 dark:bg-red-900/15 border-b border-red-100 dark:border-red-900/30">
                             <TableHead>Name</TableHead>
                             <TableHead>Status</TableHead>
                             <TableHead>Emp No</TableHead>
@@ -2156,17 +2208,33 @@ export default function CapacityOutlookPage() {
           {/* ─ Availability Decrease panel ───────────────────────────────────── */}
           {activeStaffTab === 'avail-decrease' && (() => {
             const decreases = (availChangesQuery.data ?? []).filter(r => r.changeType === 'decrease');
+            const totalDecrease = decreases.reduce((s, r) => s + ((r.previousHours ?? 0) - (r.newHours ?? 0)), 0);
             return (
               <CardContent className="pt-0 px-0">
                   {availChangesQuery.isLoading ? (
                     <div className="h-16 bg-muted animate-pulse rounded m-4" />
                   ) : decreases.length === 0 ? (
-                    <p className="text-sm text-muted-foreground text-center py-8">No availability decreases recorded yet.</p>
+                    <div className="flex flex-col items-center justify-center py-12 gap-3">
+                      <div className="w-10 h-10 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
+                        <TrendingDown className="w-5 h-5 text-amber-500" />
+                      </div>
+                      <p className="text-sm text-muted-foreground">No availability decreases recorded yet.</p>
+                    </div>
                   ) : (
                     <div className="overflow-x-auto">
+                      <div className="flex items-center justify-between px-5 py-3 bg-gradient-to-r from-orange-50 to-transparent dark:from-orange-900/20 dark:to-transparent border-b border-orange-100 dark:border-orange-900/30">
+                        <div className="flex items-center gap-2">
+                          <div className="w-6 h-6 rounded-md bg-orange-500 flex items-center justify-center shadow-sm">
+                            <TrendingDown className="w-3.5 h-3.5 text-white" />
+                          </div>
+                          <span className="text-sm font-bold text-orange-800 dark:text-orange-200">Availability Decreases</span>
+                          <span className="text-xs font-semibold bg-orange-100 dark:bg-orange-900/50 text-orange-700 dark:text-orange-300 px-2 py-0.5 rounded-full">{decreases.length}</span>
+                        </div>
+                        {totalDecrease > 0 && <span className="text-xs font-medium text-orange-600/80 dark:text-orange-400/70 pr-2">−{Math.round(totalDecrease * 10) / 10}h/wk net loss</span>}
+                      </div>
                       <Table>
                         <TableHeader>
-                          <TableRow className="text-xs">
+                          <TableRow className="bg-orange-50/60 dark:bg-orange-900/15 border-b border-orange-100 dark:border-orange-900/30">
                             <TableHead>Name</TableHead>
                             <TableHead>Type</TableHead>
                             <TableHead>Prev Hrs</TableHead>
