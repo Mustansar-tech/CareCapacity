@@ -1058,6 +1058,7 @@ export default function CapacityOutlookPage() {
   const [deletingJoinerId, setDeletingJoinerId] = useState<string | null>(null);
   const [availabilityPopupJoiner, setAvailabilityPopupJoiner] = useState<Joiner | null>(null);
   const [activeTab, setActiveTab] = useState<'leavers' | 'pipeline'>('pipeline');
+  const [activeStaffTab, setActiveStaffTab] = useState<'joiners' | 'leavers' | 'avail-increase' | 'avail-decrease'>('joiners');
 
   const [availChangeModalOpen, setAvailChangeModalOpen] = useState(false);
   const [availChangeType, setAvailChangeType] = useState<'increase' | 'decrease'>('increase');
@@ -1583,20 +1584,34 @@ export default function CapacityOutlookPage() {
           </span>
         </div>
 
-        {/* ── 4-section 2×2 grid ─────────────────────────────────────────────── */}
-        <div className="grid grid-cols-2 gap-4">
+        {/* ── Tabbed staff sections ──────────────────────────────────────────── */}
+        <Card className="overflow-hidden border border-card-border shadow-sm">
+          {/* Tab bar */}
+          <div className="flex border-b border-border bg-muted/20 overflow-x-auto">
+            {([
+              { id: 'joiners' as const, label: 'All Joiners', count: allJoiners.length, icon: <TrendingUp className="w-3 h-3 text-white" />, activeBg: 'bg-emerald-500', activeText: 'text-emerald-700 dark:text-emerald-300', activeBorder: 'border-emerald-500', countCls: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300' },
+              { id: 'leavers' as const, label: 'All Leavers', count: allLeavers.length, icon: <TrendingDown className="w-3 h-3 text-white" />, activeBg: 'bg-red-500', activeText: 'text-red-700 dark:text-red-300', activeBorder: 'border-red-500', countCls: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300' },
+              { id: 'avail-increase' as const, label: 'Avail. Increase', count: (availChangesQuery.data ?? []).filter(r => r.changeType === 'increase').length, icon: <TrendingUp className="w-3 h-3 text-white" />, activeBg: 'bg-emerald-400', activeText: 'text-emerald-700 dark:text-emerald-300', activeBorder: 'border-emerald-400', countCls: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300' },
+              { id: 'avail-decrease' as const, label: 'Avail. Decrease', count: (availChangesQuery.data ?? []).filter(r => r.changeType === 'decrease').length, icon: <TrendingDown className="w-3 h-3 text-white" />, activeBg: 'bg-amber-500', activeText: 'text-amber-700 dark:text-amber-300', activeBorder: 'border-amber-500', countCls: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300' },
+            ]).map(tab => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveStaffTab(tab.id)}
+                className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${activeStaffTab === tab.id ? `${tab.activeBorder} ${tab.activeText} bg-background` : 'border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/40'}`}
+              >
+                <div className={`w-5 h-5 rounded flex items-center justify-center transition-colors ${activeStaffTab === tab.id ? tab.activeBg : 'bg-muted-foreground/30'}`}>
+                  {tab.icon}
+                </div>
+                {tab.label}
+                <span className={`inline-flex items-center justify-center rounded-full text-xs font-semibold px-1.5 py-0.5 min-w-[20px] transition-colors ${activeStaffTab === tab.id ? tab.countCls : 'bg-muted text-muted-foreground'}`}>
+                  {tab.count}
+                </span>
+              </button>
+            ))}
+          </div>
 
-          {/* ─ Joiners card (top-left) ──────────────────────────────────────── */}
-          <Card className="glass overflow-hidden">
-            <div className="flex items-center gap-2 px-4 py-3 border-b border-border bg-emerald-50/60 dark:bg-emerald-950/20">
-              <div className="w-5 h-5 rounded flex items-center justify-center bg-emerald-500">
-                <TrendingUp className="w-3 h-3 text-white" />
-              </div>
-              <span className="text-sm font-semibold text-emerald-700 dark:text-emerald-300">All Joiners</span>
-              <span className="inline-flex items-center justify-center rounded-full text-xs font-semibold px-1.5 py-0.5 min-w-[20px] bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
-                {allJoiners.length}
-              </span>
-            </div>
+          {/* ─ Joiners panel ─────────────────────────────────────────────────── */}
+          {activeStaffTab === 'joiners' && (
             <CardContent className="pt-0 px-0">
               {joinersQuery.isLoading ? (
                 <div className="h-16 bg-muted animate-pulse rounded m-4" />
@@ -1828,24 +1843,13 @@ export default function CapacityOutlookPage() {
                 </div>
               )}
             </CardContent>
-          </Card>
+          )}
 
-          {/* ─ Availability Increase card (top-right) ───────────────────────── */}
-          {(() => {
+          {/* ─ Availability Increase panel ───────────────────────────────────── */}
+          {activeStaffTab === 'avail-increase' && (() => {
             const increases = (availChangesQuery.data ?? []).filter(r => r.changeType === 'increase');
             return (
-              <Card className="border border-card-border shadow-sm overflow-hidden">
-                <div className="flex items-center gap-2 px-4 py-3 border-b border-border bg-emerald-50/60 dark:bg-emerald-950/20">
-                  <div className="w-5 h-5 rounded flex items-center justify-center bg-emerald-400">
-                    <TrendingUp className="w-3 h-3 text-white" />
-                  </div>
-                  <span className="text-sm font-semibold text-emerald-700 dark:text-emerald-300">Availability Increase</span>
-                  <span className="inline-flex items-center justify-center rounded-full text-xs font-semibold px-1.5 py-0.5 min-w-[20px] bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
-                    {increases.length}
-                  </span>
-                  <p className="text-xs text-emerald-500 dark:text-emerald-500 ml-1">contracted hours increased</p>
-                </div>
-                <CardContent className="pt-0 px-0">
+              <CardContent className="pt-0 px-0">
                   {availChangesQuery.isLoading ? (
                     <div className="h-16 bg-muted animate-pulse rounded m-4" />
                   ) : increases.length === 0 ? (
@@ -1898,21 +1902,11 @@ export default function CapacityOutlookPage() {
                     </div>
                   )}
                 </CardContent>
-              </Card>
             );
           })()}
 
-          {/* ─ Leavers card (bottom-left) ───────────────────────────────────── */}
-          <Card className="glass overflow-hidden">
-            <div className="flex items-center gap-2 px-4 py-3 border-b border-border bg-red-50/60 dark:bg-red-950/20">
-              <div className="w-5 h-5 rounded flex items-center justify-center bg-red-500">
-                <TrendingDown className="w-3 h-3 text-white" />
-              </div>
-              <span className="text-sm font-semibold text-red-700 dark:text-red-300">All Leavers</span>
-              <span className="inline-flex items-center justify-center rounded-full text-xs font-semibold px-1.5 py-0.5 min-w-[20px] bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300">
-                {allLeavers.length}
-              </span>
-            </div>
+          {/* ─ Leavers panel ─────────────────────────────────────────────────── */}
+          {activeStaffTab === 'leavers' && (
             <CardContent className="pt-0 px-0">
               {leaversQuery.isLoading ? (
                 <div className="h-16 bg-muted animate-pulse rounded m-4" />
@@ -2127,24 +2121,13 @@ export default function CapacityOutlookPage() {
                 </div>
               )}
             </CardContent>
-          </Card>
+          )}
 
-          {/* ─ Availability Decrease card (bottom-right) ────────────────────── */}
-          {(() => {
+          {/* ─ Availability Decrease panel ───────────────────────────────────── */}
+          {activeStaffTab === 'avail-decrease' && (() => {
             const decreases = (availChangesQuery.data ?? []).filter(r => r.changeType === 'decrease');
             return (
-              <Card className="border border-card-border shadow-sm overflow-hidden">
-                <div className="flex items-center gap-2 px-4 py-3 border-b border-border bg-amber-50/60 dark:bg-amber-950/20">
-                  <div className="w-5 h-5 rounded flex items-center justify-center bg-amber-500">
-                    <TrendingDown className="w-3 h-3 text-white" />
-                  </div>
-                  <span className="text-sm font-semibold text-amber-700 dark:text-amber-300">Availability Decrease</span>
-                  <span className="inline-flex items-center justify-center rounded-full text-xs font-semibold px-1.5 py-0.5 min-w-[20px] bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">
-                    {decreases.length}
-                  </span>
-                  <p className="text-xs text-amber-500 dark:text-amber-500 ml-1">contracted hours reduced</p>
-                </div>
-                <CardContent className="pt-0 px-0">
+              <CardContent className="pt-0 px-0">
                   {availChangesQuery.isLoading ? (
                     <div className="h-16 bg-muted animate-pulse rounded m-4" />
                   ) : decreases.length === 0 ? (
@@ -2197,11 +2180,10 @@ export default function CapacityOutlookPage() {
                     </div>
                   )}
                 </CardContent>
-              </Card>
             );
           })()}
 
-        </div>{/* end 2×2 grid */}
+        </Card>{/* end tabbed staff sections */}
 
       </div>
 
