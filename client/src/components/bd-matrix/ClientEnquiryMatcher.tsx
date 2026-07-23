@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { apiRequest, queryClient } from "@/lib/queryClient";
+import { apiRequest, queryClient, toAbsoluteUrl } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,6 +13,7 @@ import {
 import {
   UserCheck, MapPin, Search, Loader2, RefreshCw,
   History, Trash2, Plus, X, XCircle, ArrowLeft, ArrowRight, Star, Clock,
+  Building2, CalendarDays,
 } from "lucide-react";
 import { VisitForm } from "./VisitForm";
 import { MatchResultsGrid } from "./MatchResultsGrid";
@@ -25,8 +26,17 @@ import {
   type StarredMap,
 } from "@/utils/bd-matrix-utils";
 import type { ClientEnquiry } from "@shared/schema";
+import { useBranch } from "@/contexts/BranchContext";
+import { useWeek } from "@/contexts/WeekContext";
 
-export function ClientEnquiryMatcher({ weekStartDate }: { weekStartDate?: string }) {
+export function ClientEnquiryMatcher({ weekStartDate: weekStartDateProp }: { weekStartDate?: string }) {
+  const { selectedBranchId, selectedBranch } = useBranch();
+  const { selectedDate } = useWeek();
+
+  // Use the prop if supplied, otherwise fall back to the currently active week from context
+  const effectiveWeekStartDate: string | undefined =
+    weekStartDateProp || (selectedDate ? selectedDate.slice(0, 10) : undefined);
+
   const [open, setOpen] = useState(false);
   const [clientName, setClientName] = useState('');
   const [postcode, setPostcode] = useState('');
@@ -86,9 +96,21 @@ export function ClientEnquiryMatcher({ weekStartDate }: { weekStartDate?: string
     return () => window.removeEventListener('bd-matcher-back', handleBack);
   }, []);
 
+  // Branch-scoped history: include branchId in the cache key so switching
+  // branches never shows another branch's enquiry history.
   const historyQuery = useQuery<ClientEnquiry[]>({
-    queryKey: ['/api/client-enquiries'],
-    enabled: open,
+    queryKey: ['/api/client-enquiries', selectedBranchId],
+    enabled: open && !!selectedBranchId,
+    queryFn: async () => {
+      if (!selectedBranchId) return [];
+      const res = await fetch(
+        toAbsoluteUrl(`/api/client-enquiries?branchId=${encodeURIComponent(selectedBranchId)}`),
+        { credentials: 'include' },
+      );
+      if (!res.ok) throw new Error('Failed to fetch enquiry history');
+      return res.json();
+    },
+    staleTime: 60_000,
   });
 
   const saveEnquiryMutation = useMutation({
@@ -125,7 +147,7 @@ export function ClientEnquiryMatcher({ weekStartDate }: { weekStartDate?: string
     },
     onSuccess: (data: { id: string }) => {
       setSavedEnquiryId(data.id);
-      queryClient.invalidateQueries({ queryKey: ['/api/client-enquiries'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/client-enquiries', selectedBranchId] });
     },
   });
 
@@ -134,18 +156,15 @@ export function ClientEnquiryMatcher({ weekStartDate }: { weekStartDate?: string
       await apiRequest('DELETE', `/api/client-enquiries/${id}`);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/client-enquiries'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/client-enquiries', selectedBranchId] });
       toast({ title: "Enquiry Deleted", description: "The enquiry has been removed from history." });
     },
   });
 
   const matchMutation = useMutation({
     mutationFn: async () => {
-      // Pre-flight: ensure a branch is selected before hitting any API
-      const branchId = localStorage.getItem('selectedBranchId');
-      if (!branchId) {
-        throw new Error('NO_BRANCH_SELECTED');
-      }
+      // Branch is always known from context — no localStorage read needed
+      if (!selectedBranchId) throw new Error('NO_BRANCH_SELECTED');
 
       // Pre-flight: validate the postcode exists (fail-safe — network errors don't block the match)
       if (postcode.trim()) {
@@ -174,7 +193,8 @@ export function ClientEnquiryMatcher({ weekStartDate }: { weekStartDate?: string
           genderPreference: v.genderPreferences[0] || 'any',
           requiredDays: v.selectedDays,
           preferredTimeWindow: { start: v.timeStart, end: v.timeEnd },
-          weekStartDate: weekStartDate || undefined,
+          weekStartDate: effectiveWeekStartDate,
+          branchId: selectedBranchId,
         });
         const singleResult = await res.json();
         return {
@@ -204,7 +224,8 @@ export function ClientEnquiryMatcher({ weekStartDate }: { weekStartDate?: string
         clientName,
         postcode: postcode || undefined,
         visits: visitPayloads,
-        weekStartDate: weekStartDate || undefined,
+        weekStartDate: effectiveWeekStartDate,
+        branchId: selectedBranchId,
       });
       return await res.json() as MultiVisitResult;
     },
@@ -305,7 +326,7 @@ export function ClientEnquiryMatcher({ weekStartDate }: { weekStartDate?: string
   };
 
   const activeVisits = visits.filter(v => v.selectedDays.length > 0);
-  const canSubmit = clientName.trim() && postcode.trim() && activeVisits.length > 0 && activeVisits.every(v => v.timeStart && v.timeEnd);
+  const canSubmit = !!selectedBranchId && clientName.trim() && postcode.trim() && activeVisits.length > 0 && activeVisits.every(v => v.timeStart && v.timeEnd);
 
   return (
     <>
@@ -323,7 +344,7 @@ export function ClientEnquiryMatcher({ weekStartDate }: { weekStartDate?: string
         <DialogContent className="w-screen h-screen max-w-none max-h-none overflow-hidden flex flex-col p-0 gap-0 border-none shadow-2xl rounded-none bg-white dark:bg-gray-950">
           {/* Header — full on form view, compact on results/history */}
           {!multiResults && !showHistory && !viewingHistoryResult ? (
-            <div className="px-8 py-7 bg-gradient-to-r from-[#f5f7ff] to-[#fafbff] dark:from-gray-900/80 dark:to-gray-900 border-b border-gray-200/50 dark:border-gray-800/50 rounded-t-3xl relative overflow-hidden">
+            <div className="px-8 py-5 bg-gradient-to-r from-[#f5f7ff] to-[#fafbff] dark:from-gray-900/80 dark:to-gray-900 border-b border-gray-200/50 dark:border-gray-800/50 rounded-t-3xl relative overflow-hidden">
               <div className="absolute inset-0 bg-gradient-to-br from-purple-500/5 to-indigo-500/5 pointer-events-none" />
               <div className="flex items-center justify-between relative z-10">
                 <div className="flex items-center gap-4">
@@ -334,9 +355,26 @@ export function ClientEnquiryMatcher({ weekStartDate }: { weekStartDate?: string
                     <DialogTitle className="tracking-tight text-gray-950 dark:text-gray-50 text-[28px] font-bold">
                       Client Enquiry Matcher
                     </DialogTitle>
-                    <DialogDescription className="text-gray-500 dark:text-gray-400 text-[11px] font-semibold mt-1.5 uppercase tracking-[0.12em]">
-                      Care Capacity Intelligence
-                    </DialogDescription>
+                    {/* Active branch + week context — always visible so team knows exactly what data they're searching */}
+                    <div className="flex items-center gap-3 mt-1.5">
+                      {selectedBranch ? (
+                        <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-purple-700 dark:text-purple-300 bg-purple-100/70 dark:bg-purple-900/30 px-2.5 py-0.5 rounded-full">
+                          <Building2 className="w-3 h-3" />
+                          {selectedBranch.displayName}
+                        </span>
+                      ) : null}
+                      {effectiveWeekStartDate ? (
+                        <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-indigo-700 dark:text-indigo-300 bg-indigo-100/70 dark:bg-indigo-900/30 px-2.5 py-0.5 rounded-full">
+                          <CalendarDays className="w-3 h-3" />
+                          w/c {new Date(effectiveWeekStartDate + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 px-2.5 py-0.5 rounded-full">
+                          <CalendarDays className="w-3 h-3" />
+                          Latest available data
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
