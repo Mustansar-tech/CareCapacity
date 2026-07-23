@@ -2687,18 +2687,40 @@ function MonthlyViewSheet({
 
   // Per-month availability change totals keyed as "year-month"
   const availByMonth = useMemo(() => {
-    const map: Record<string, { increase: number; increaseCount: number; decrease: number; decreaseCount: number }> = {};
+    const map: Record<string, {
+      increase: number; increaseCount: number;
+      femaleIncreaseHrs: number; femaleIncreaseCount: number;
+      maleIncreaseHrs: number; maleIncreaseCount: number;
+      decrease: number; decreaseCount: number;
+      femaleDecreaseHrs: number; femaleDecreaseCount: number;
+      maleDecreaseHrs: number; maleDecreaseCount: number;
+    }> = {};
     availChanges.forEach(r => {
       if (!r.effectiveDate) return;
       const d = new Date(r.effectiveDate + 'T00:00:00Z');
       const key = `${d.getUTCFullYear()}-${d.getUTCMonth() + 1}`;
-      if (!map[key]) map[key] = { increase: 0, increaseCount: 0, decrease: 0, decreaseCount: 0 };
+      if (!map[key]) map[key] = {
+        increase: 0, increaseCount: 0,
+        femaleIncreaseHrs: 0, femaleIncreaseCount: 0,
+        maleIncreaseHrs: 0, maleIncreaseCount: 0,
+        decrease: 0, decreaseCount: 0,
+        femaleDecreaseHrs: 0, femaleDecreaseCount: 0,
+        maleDecreaseHrs: 0, maleDecreaseCount: 0,
+      };
+      const isFemale = r.gender?.toLowerCase() === 'female';
+      const isMale   = r.gender?.toLowerCase() === 'male';
       if (r.changeType === 'increase') {
-        map[key].increase = Math.round((map[key].increase + Math.max(0, (r.newHours ?? 0) - (r.previousHours ?? 0))) * 10) / 10;
+        const hrs = Math.max(0, (r.newHours ?? 0) - (r.previousHours ?? 0));
+        map[key].increase = Math.round((map[key].increase + hrs) * 10) / 10;
         map[key].increaseCount += 1;
+        if (isFemale) { map[key].femaleIncreaseHrs = Math.round((map[key].femaleIncreaseHrs + hrs) * 10) / 10; map[key].femaleIncreaseCount += 1; }
+        if (isMale)   { map[key].maleIncreaseHrs   = Math.round((map[key].maleIncreaseHrs   + hrs) * 10) / 10; map[key].maleIncreaseCount   += 1; }
       } else {
-        map[key].decrease = Math.round((map[key].decrease + Math.max(0, (r.previousHours ?? 0) - (r.newHours ?? 0))) * 10) / 10;
+        const hrs = Math.max(0, (r.previousHours ?? 0) - (r.newHours ?? 0));
+        map[key].decrease = Math.round((map[key].decrease + hrs) * 10) / 10;
         map[key].decreaseCount += 1;
+        if (isFemale) { map[key].femaleDecreaseHrs = Math.round((map[key].femaleDecreaseHrs + hrs) * 10) / 10; map[key].femaleDecreaseCount += 1; }
+        if (isMale)   { map[key].maleDecreaseHrs   = Math.round((map[key].maleDecreaseHrs   + hrs) * 10) / 10; map[key].maleDecreaseCount   += 1; }
       }
     });
     return map;
@@ -2908,18 +2930,34 @@ function MonthlyViewSheet({
 
                       {/* Increase — count */}
                       <TableCell>
-                        {availIncrease > 0 || availByMonth[availKey]?.increaseCount > 0
-                          ? <span className="font-semibold text-teal-600 dark:text-teal-400">{availByMonth[availKey]?.increaseCount ?? 0}</span>
-                          : <span className="text-muted-foreground">—</span>
-                        }
+                        {(() => {
+                          const m = availByMonth[availKey];
+                          if (!m || m.increaseCount === 0) return <span className="text-muted-foreground">—</span>;
+                          const hasGender = m.femaleIncreaseCount > 0 || m.maleIncreaseCount > 0;
+                          if (hasGender) return (
+                            <div className="flex flex-col gap-0.5">
+                              <span className="font-bold text-pink-500 dark:text-pink-400">{m.femaleIncreaseCount || '—'}</span>
+                              <span className="font-bold text-blue-500 dark:text-blue-400">{m.maleIncreaseCount || '—'}</span>
+                            </div>
+                          );
+                          return <span className="font-semibold text-teal-600 dark:text-teal-400">{m.increaseCount}</span>;
+                        })()}
                       </TableCell>
 
                       {/* Increase — hours */}
                       <TableCell>
-                        {availIncrease > 0
-                          ? <span className="font-semibold text-teal-600 dark:text-teal-400">+{availIncrease}h</span>
-                          : <span className="text-muted-foreground">—</span>
-                        }
+                        {(() => {
+                          const m = availByMonth[availKey];
+                          if (!m || m.increase === 0) return <span className="text-muted-foreground">—</span>;
+                          const hasGender = m.femaleIncreaseHrs > 0 || m.maleIncreaseHrs > 0;
+                          if (hasGender) return (
+                            <div className="flex flex-col gap-0.5">
+                              <span className="font-semibold text-pink-500 dark:text-pink-400">{m.femaleIncreaseHrs > 0 ? `+${m.femaleIncreaseHrs}h` : '—'}</span>
+                              <span className="font-semibold text-blue-500 dark:text-blue-400">{m.maleIncreaseHrs > 0 ? `+${m.maleIncreaseHrs}h` : '—'}</span>
+                            </div>
+                          );
+                          return <span className="font-semibold text-teal-600 dark:text-teal-400">+{m.increase}h</span>;
+                        })()}
                       </TableCell>
 
                       {/* Leavers — count */}
@@ -2962,18 +3000,34 @@ function MonthlyViewSheet({
 
                       {/* Decrease — count */}
                       <TableCell>
-                        {availDecrease > 0 || availByMonth[availKey]?.decreaseCount > 0
-                          ? <span className="font-semibold text-orange-600 dark:text-orange-400">{availByMonth[availKey]?.decreaseCount ?? 0}</span>
-                          : <span className="text-muted-foreground">—</span>
-                        }
+                        {(() => {
+                          const m = availByMonth[availKey];
+                          if (!m || m.decreaseCount === 0) return <span className="text-muted-foreground">—</span>;
+                          const hasGender = m.femaleDecreaseCount > 0 || m.maleDecreaseCount > 0;
+                          if (hasGender) return (
+                            <div className="flex flex-col gap-0.5">
+                              <span className="font-bold text-pink-500 dark:text-pink-400">{m.femaleDecreaseCount || '—'}</span>
+                              <span className="font-bold text-blue-500 dark:text-blue-400">{m.maleDecreaseCount || '—'}</span>
+                            </div>
+                          );
+                          return <span className="font-semibold text-orange-600 dark:text-orange-400">{m.decreaseCount}</span>;
+                        })()}
                       </TableCell>
 
                       {/* Decrease — hours */}
                       <TableCell>
-                        {availDecrease > 0
-                          ? <span className="font-semibold text-orange-600 dark:text-orange-400">−{availDecrease}h</span>
-                          : <span className="text-muted-foreground">—</span>
-                        }
+                        {(() => {
+                          const m = availByMonth[availKey];
+                          if (!m || m.decrease === 0) return <span className="text-muted-foreground">—</span>;
+                          const hasGender = m.femaleDecreaseHrs > 0 || m.maleDecreaseHrs > 0;
+                          if (hasGender) return (
+                            <div className="flex flex-col gap-0.5">
+                              <span className="font-semibold text-pink-500 dark:text-pink-400">{m.femaleDecreaseHrs > 0 ? `−${m.femaleDecreaseHrs}h` : '—'}</span>
+                              <span className="font-semibold text-blue-500 dark:text-blue-400">{m.maleDecreaseHrs > 0 ? `−${m.maleDecreaseHrs}h` : '—'}</span>
+                            </div>
+                          );
+                          return <span className="font-semibold text-orange-600 dark:text-orange-400">−{m.decrease}h</span>;
+                        })()}
                       </TableCell>
 
                       {/* Net (gender split) */}
