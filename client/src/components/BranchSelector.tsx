@@ -47,7 +47,16 @@ export function BranchSelector({ compact = false, iconOnly = false }: BranchSele
   if (branches.length === 0) return null;
 
   const selectedBranch = branches.find(b => b.id === selectedBranchId);
-  const abbrev = (selectedBranch?.displayName ?? 'B').slice(0, 2).toUpperCase();
+
+  function branchInitials(name: string): string {
+    const STOP = new Set(['and', 'the', 'of', 'a', '&']);
+    const words = name.trim().split(/\s+/).filter(w => !STOP.has(w.toLowerCase()));
+    if (words.length === 0) return name.slice(0, 2).toUpperCase();
+    if (words.length === 1) return words[0].slice(0, 2).toUpperCase();
+    return words.map(w => w[0]).join('').toUpperCase();
+  }
+
+  const abbrev = branchInitials(selectedBranch?.displayName ?? 'B');
 
   // ── Collapsed icon-only variant ────────────────────────────────────────────
   if (iconOnly) {
