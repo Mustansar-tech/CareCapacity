@@ -141,6 +141,12 @@ export function ClientEnquiryMatcher({ weekStartDate }: { weekStartDate?: string
 
   const matchMutation = useMutation({
     mutationFn: async () => {
+      // Pre-flight: ensure a branch is selected before hitting any API
+      const branchId = localStorage.getItem('selectedBranchId');
+      if (!branchId) {
+        throw new Error('NO_BRANCH_SELECTED');
+      }
+
       // Pre-flight: validate the postcode exists (fail-safe — network errors don't block the match)
       if (postcode.trim()) {
         try {
@@ -227,7 +233,12 @@ export function ClientEnquiryMatcher({ weekStartDate }: { weekStartDate?: string
       toast({ title: "Matches Found", description: `Found matches for ${clientName} across ${data.totalVisits} visits.` });
     },
     onError: (err: Error) => {
-      const isPostcodeError = err.message === 'INVALID_POSTCODE' || err.message.includes('POSTCODE_NOT_FOUND');
+      const msg = err.message;
+      const isPostcodeError = msg === 'INVALID_POSTCODE' || msg.includes('POSTCODE_NOT_FOUND');
+      const isNoBranch = msg === 'NO_BRANCH_SELECTED';
+      const is404 = msg.startsWith('404:');
+      const is400 = msg.startsWith('400:');
+
       if (isPostcodeError) {
         const displayPostcode = postcode.trim().toUpperCase();
         toast({
@@ -235,10 +246,28 @@ export function ClientEnquiryMatcher({ weekStartDate }: { weekStartDate?: string
           description: `"${displayPostcode}" could not be located. Please check the postcode and try again.`,
           variant: "destructive",
         });
+      } else if (isNoBranch) {
+        toast({
+          title: "No Branch Selected",
+          description: "Please select a branch from the top of the page before running a search.",
+          variant: "destructive",
+        });
+      } else if (is404) {
+        toast({
+          title: "No Data Available",
+          description: "No processed data found for this branch. Please upload and process your Excel files first.",
+          variant: "destructive",
+        });
+      } else if (is400) {
+        toast({
+          title: "Search Error",
+          description: "There was a problem with your search. Please check your inputs and try again.",
+          variant: "destructive",
+        });
       } else {
         toast({
           title: "Matching Failed",
-          description: "Could not find matches. Please make sure data has been uploaded and processed first.",
+          description: "An unexpected error occurred. Please try again.",
           variant: "destructive",
         });
       }
@@ -357,7 +386,9 @@ export function ClientEnquiryMatcher({ weekStartDate }: { weekStartDate?: string
               <MatchResultsGrid
                 result={{
                   ...multiResults,
-                  visitResults: [multiResults.visitResults[parseInt(activeResultTab)]]
+                  visitResults: (multiResults.visitResults[parseInt(activeResultTab)]
+                    ? [multiResults.visitResults[parseInt(activeResultTab)]]
+                    : []),
                 }}
                 requiredDays={visits[parseInt(activeResultTab)]?.selectedDays || []}
                 className="flex-1 min-h-0 animate-in fade-in slide-in-from-bottom-4 duration-500"
@@ -366,7 +397,7 @@ export function ClientEnquiryMatcher({ weekStartDate }: { weekStartDate?: string
                 enquiryPostcode={postcode}
                 enquiryTimeStart={visits[parseInt(activeResultTab)]?.timeStart}
                 enquiryTimeEnd={visits[parseInt(activeResultTab)]?.timeEnd}
-                visitTabs={multiResults.visitResults.map((vr, i) => ({ index: i, label: `Visit ${i + 1}`, careProsRequired: vr.careProsRequired, selectedDays: visits[i]?.selectedDays }))}
+                visitTabs={multiResults.visitResults.filter(Boolean).map((vr, i) => ({ index: i, label: `Visit ${i + 1}`, careProsRequired: vr.careProsRequired, selectedDays: visits[i]?.selectedDays }))}
                 activeVisitTab={activeResultTab}
                 onVisitTabChange={setActiveResultTab}
                 historyCount={historyQuery.data?.length}

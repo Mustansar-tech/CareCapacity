@@ -113,10 +113,39 @@ export function MatchResultsGrid({
     return normSlotDay === normColumnDay || normLabelDay === normColumnDay;
   };
 
-  if (!result || !result.visitResults || result.visitResults.length === 0) return null;
+  const safeVisitResults = result?.visitResults?.filter(Boolean) ?? [];
+
+  if (!result || safeVisitResults.length === 0) {
+    return (
+      <div className={`rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 shadow-lg overflow-hidden flex flex-col ${className}`}>
+        <div className="flex-1 flex flex-col items-center justify-center gap-4 p-12 text-center">
+          <div className="p-4 bg-gray-100 dark:bg-gray-800 rounded-full">
+            <Users className="w-10 h-10 text-gray-400 dark:text-gray-500" />
+          </div>
+          <div>
+            <p className="text-lg font-bold text-gray-700 dark:text-gray-300">No Matches Found</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+              No care pros are available for the requested days and time window.
+            </p>
+            <p className="text-xs text-gray-400 dark:text-gray-500 mt-2">
+              Try widening the time window, adjusting the days, or removing gender preferences.
+            </p>
+          </div>
+          {onBack && (
+            <button
+              onClick={onBack}
+              className="mt-2 inline-flex items-center gap-2 text-sm font-semibold text-purple-600 hover:text-purple-700 dark:text-purple-400 dark:hover:text-purple-300 transition-colors"
+            >
+              <ArrowLeft className="w-4 h-4" /> Back to search
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   const hasAnyStars = Object.keys(starredMap).length > 0;
-  const totalCpRows = result.visitResults.reduce((s, v) => s + v.careProsRequired, 0);
+  const totalCpRows = safeVisitResults.reduce((s, v) => s + v.careProsRequired, 0);
 
   return (
     <div className={`rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 shadow-lg overflow-hidden flex flex-col ${className}`}>
@@ -252,7 +281,7 @@ export function MatchResultsGrid({
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
-            {result.visitResults.map((vr) => (
+            {safeVisitResults.map((vr) => (
               <React.Fragment key={vr.visitIndex}>
                 <tr className="bg-purple-50/30 dark:bg-purple-900/10">
                   <td colSpan={displayDays.length} className="py-2 px-3 border-b border-purple-100 dark:border-purple-800/30">
