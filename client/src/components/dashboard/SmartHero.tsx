@@ -581,7 +581,7 @@ export function SmartHero({
                         tick={{ fontSize: 9, fill: "var(--muted-foreground)" }}
                         axisLine={false}
                         tickLine={false}
-                        width={36}
+                        width={46}
                         tickFormatter={(v) => `${v}h`}
                       />
 
