@@ -2771,7 +2771,7 @@ function MonthlyViewSheet({
                       <span className="text-[10px] font-normal opacity-60">h/wk</span>
                     </div>
                   </TableHead>
-                  <TableHead className="text-teal-600 dark:text-teal-400">
+                  <TableHead className="text-teal-600 dark:text-teal-400 border-l-2 border-border">
                     <div className="flex flex-col leading-tight gap-0.5">
                       <span>Increase</span>
                       <span className="text-[10px] font-normal opacity-60">count</span>
@@ -2783,7 +2783,7 @@ function MonthlyViewSheet({
                       <span className="text-[10px] font-normal opacity-60">h/wk</span>
                     </div>
                   </TableHead>
-                  <TableHead className="text-red-600 dark:text-red-400">
+                  <TableHead className="text-red-600 dark:text-red-400 border-l-2 border-border">
                     <div className="flex flex-col leading-tight gap-0.5">
                       <span>Leavers</span>
                       <span className="text-[10px] font-normal opacity-60">count</span>
@@ -2795,7 +2795,7 @@ function MonthlyViewSheet({
                       <span className="text-[10px] font-normal opacity-60">h/wk</span>
                     </div>
                   </TableHead>
-                  <TableHead className="text-orange-600 dark:text-orange-400">
+                  <TableHead className="text-orange-600 dark:text-orange-400 border-l-2 border-border">
                     <div className="flex flex-col leading-tight gap-0.5">
                       <span>Decrease</span>
                       <span className="text-[10px] font-normal opacity-60">count</span>
@@ -2807,8 +2807,8 @@ function MonthlyViewSheet({
                       <span className="text-[10px] font-normal opacity-60">h/wk</span>
                     </div>
                   </TableHead>
-                  <TableHead>Net</TableHead>
-                  <TableHead className="text-slate-600 dark:text-slate-300">Total Net</TableHead>
+                  <TableHead className="border-l-2 border-border">Net</TableHead>
+                  <TableHead className="text-slate-600 dark:text-slate-300 border-l border-border">Total Net</TableHead>
                   {isScheduler && <TableHead />}
                 </TableRow>
               </TableHeader>
@@ -2938,7 +2938,7 @@ function MonthlyViewSheet({
                       </TableCell>
 
                       {/* Increase — count */}
-                      <TableCell>
+                      <TableCell className="border-l-2 border-border">
                         {(() => {
                           const m = availByMonth[availKey];
                           if (!m || m.increaseCount === 0) return <span className="text-muted-foreground">—</span>;
@@ -2970,7 +2970,7 @@ function MonthlyViewSheet({
                       </TableCell>
 
                       {/* Leavers — count */}
-                      <TableCell>
+                      <TableCell className="border-l-2 border-border">
                         {isEditing ? (
                           <input
                             type="number" min={0} step={1}
@@ -3008,7 +3008,7 @@ function MonthlyViewSheet({
                       </TableCell>
 
                       {/* Decrease — count */}
-                      <TableCell>
+                      <TableCell className="border-l-2 border-border">
                         {(() => {
                           const m = availByMonth[availKey];
                           if (!m || m.decreaseCount === 0) return <span className="text-muted-foreground">—</span>;
@@ -3040,7 +3040,7 @@ function MonthlyViewSheet({
                       </TableCell>
 
                       {/* Net (gender split, includes availability changes) */}
-                      <TableCell>
+                      <TableCell className="border-l-2 border-border">
                         {showGenderSplit ? (
                           <div className="flex flex-col gap-0.5">
                             <span className={`font-bold ${femaleNet > 0 ? 'text-pink-500 dark:text-pink-400' : femaleNet < 0 ? 'text-pink-700 dark:text-pink-300' : 'text-pink-400'}`}>
@@ -3063,7 +3063,7 @@ function MonthlyViewSheet({
                       </TableCell>
 
                       {/* Total Net (combined, includes availability changes) */}
-                      <TableCell>
+                      <TableCell className="border-l border-border">
                         <span className={[
                           "font-bold text-sm",
                           totalNet > 0 ? "text-emerald-600 dark:text-emerald-400"
