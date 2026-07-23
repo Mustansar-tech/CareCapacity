@@ -1399,10 +1399,10 @@ export default function CapacityOutlookPage() {
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-52">
-                    <DropdownMenuItem onClick={() => { setEditingLeaver(null); setLeaverModalOpen(true); }}>
+                    <DropdownMenuItem onSelect={e => e.preventDefault()} onClick={() => { setEditingLeaver(null); setLeaverModalOpen(true); }}>
                       <UserMinus className="w-4 h-4 mr-2 text-red-500" /> Add Leaver
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => { setAvailChangeType('decrease'); setEditingAvailChange(null); setAvailChangeModalOpen(true); }}>
+                    <DropdownMenuItem onSelect={e => e.preventDefault()} onClick={() => { setAvailChangeType('decrease'); setEditingAvailChange(null); setAvailChangeModalOpen(true); }}>
                       <TrendingDown className="w-4 h-4 mr-2 text-amber-500" /> Add Availability Decrease
                     </DropdownMenuItem>
                   </DropdownMenuContent>
@@ -1416,10 +1416,10 @@ export default function CapacityOutlookPage() {
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-52">
-                    <DropdownMenuItem onClick={() => { setEditingJoiner(null); setJoinerModalOpen(true); }}>
+                    <DropdownMenuItem onSelect={e => e.preventDefault()} onClick={() => { setEditingJoiner(null); setJoinerModalOpen(true); }}>
                       <TrendingUp className="w-4 h-4 mr-2 text-emerald-500" /> Add Joiner
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => { setAvailChangeType('increase'); setEditingAvailChange(null); setAvailChangeModalOpen(true); }}>
+                    <DropdownMenuItem onSelect={e => e.preventDefault()} onClick={() => { setAvailChangeType('increase'); setEditingAvailChange(null); setAvailChangeModalOpen(true); }}>
                       <TrendingUp className="w-4 h-4 mr-2 text-emerald-400" /> Add Availability Increase
                     </DropdownMenuItem>
                   </DropdownMenuContent>
