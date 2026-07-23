@@ -2736,19 +2736,41 @@ function MonthlyViewSheet({
                 <TableRow>
                   <TableHead>Month</TableHead>
                   <TableHead className="text-emerald-700 dark:text-emerald-400">
-                    <div className="flex flex-col leading-tight">
-                      <span>Hires / In</span>
-                      <span className="text-[10px] font-normal opacity-60">(count / h/wk)</span>
+                    <div className="flex flex-col leading-tight gap-0.5">
+                      <span>Hires</span>
+                      <span className="text-[10px] font-normal opacity-60">count</span>
+                    </div>
+                  </TableHead>
+                  <TableHead className="text-emerald-700 dark:text-emerald-400">
+                    <div className="flex flex-col leading-tight gap-0.5">
+                      <span>In</span>
+                      <span className="text-[10px] font-normal opacity-60">h/wk</span>
                     </div>
                   </TableHead>
                   <TableHead className="text-red-600 dark:text-red-400">
-                    <div className="flex flex-col leading-tight">
-                      <span>Leavers / Out</span>
-                      <span className="text-[10px] font-normal opacity-60">(count / h/wk)</span>
+                    <div className="flex flex-col leading-tight gap-0.5">
+                      <span>Leavers</span>
+                      <span className="text-[10px] font-normal opacity-60">count</span>
                     </div>
                   </TableHead>
-                  <TableHead className="text-teal-600 dark:text-teal-400">Increase (hrs)</TableHead>
-                  <TableHead className="text-orange-600 dark:text-orange-400">Decrease (hrs)</TableHead>
+                  <TableHead className="text-red-600 dark:text-red-400">
+                    <div className="flex flex-col leading-tight gap-0.5">
+                      <span>Out</span>
+                      <span className="text-[10px] font-normal opacity-60">h/wk</span>
+                    </div>
+                  </TableHead>
+                  <TableHead className="text-teal-600 dark:text-teal-400">
+                    <div className="flex flex-col leading-tight gap-0.5">
+                      <span>Increase</span>
+                      <span className="text-[10px] font-normal opacity-60">count  h/wk</span>
+                    </div>
+                  </TableHead>
+                  <TableHead className="text-orange-600 dark:text-orange-400">
+                    <div className="flex flex-col leading-tight gap-0.5">
+                      <span>Decrease</span>
+                      <span className="text-[10px] font-normal opacity-60">count  h/wk</span>
+                    </div>
+                  </TableHead>
                   <TableHead>Net</TableHead>
                   <TableHead className="text-slate-600 dark:text-slate-300">Total Net</TableHead>
                   {isScheduler && <TableHead />}
@@ -2832,79 +2854,79 @@ function MonthlyViewSheet({
                         )}
                       </TableCell>
 
-                      {/* Hires / In — combined column */}
+                      {/* Hires — count */}
                       <TableCell>
                         {isEditing ? (
-                          <div className="flex flex-col gap-1">
-                            <input
-                              type="number" min={0} step={1}
-                              value={editValues.headsIn}
-                              onChange={e => setEditValues(v => ({ ...v, headsIn: parseInt(e.target.value) || 0 }))}
-                              className="w-14 border border-border rounded px-1.5 py-0.5 text-sm bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-emerald-400"
-                              placeholder="count"
-                            />
-                            <input
-                              type="number" min={0} step={0.5}
-                              value={editValues.hoursIn}
-                              onChange={e => setEditValues(v => ({ ...v, hoursIn: parseFloat(e.target.value) || 0 }))}
-                              className="w-16 border border-border rounded px-1.5 py-0.5 text-sm bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-emerald-400"
-                              placeholder="hrs"
-                            />
-                          </div>
+                          <input
+                            type="number" min={0} step={1}
+                            value={editValues.headsIn}
+                            onChange={e => setEditValues(v => ({ ...v, headsIn: parseInt(e.target.value) || 0 }))}
+                            className="w-14 border border-border rounded px-1.5 py-0.5 text-sm bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-emerald-400"
+                          />
                         ) : showGenderSplit ? (
                           <div className="flex flex-col gap-0.5">
-                            <div className="flex items-baseline gap-1">
-                              <span className="font-bold text-pink-500 dark:text-pink-400">{femaleHiresCount || '—'}</span>
-                              <span className="text-pink-400 dark:text-pink-500 text-xs">/{femaleHiresH > 0 ? `+${femaleHiresH}h` : '—'}</span>
-                            </div>
-                            <div className="flex items-baseline gap-1">
-                              <span className="font-bold text-blue-500 dark:text-blue-400">{maleHiresCount || '—'}</span>
-                              <span className="text-blue-400 dark:text-blue-500 text-xs">/{maleHiresH > 0 ? `+${maleHiresH}h` : '—'}</span>
-                            </div>
+                            <span className="font-bold text-pink-500 dark:text-pink-400">{femaleHiresCount || '—'}</span>
+                            <span className="font-bold text-blue-500 dark:text-blue-400">{maleHiresCount || '—'}</span>
                           </div>
                         ) : (
-                          <div className="flex flex-col gap-0.5">
-                            <span className="text-emerald-600 dark:text-emerald-400">{displayHeadsIn > 0 ? displayHeadsIn : '—'}</span>
-                            <span className="font-semibold text-emerald-700 dark:text-emerald-400 text-xs">{displayHoursIn > 0 ? `+${displayHoursIn}h` : '—'}</span>
-                          </div>
+                          <span className="text-emerald-600 dark:text-emerald-400">{displayHeadsIn > 0 ? displayHeadsIn : '—'}</span>
                         )}
                       </TableCell>
 
-                      {/* Leavers / Out — combined column */}
+                      {/* In — hours */}
                       <TableCell>
                         {isEditing ? (
-                          <div className="flex flex-col gap-1">
-                            <input
-                              type="number" min={0} step={1}
-                              value={editValues.headsOut}
-                              onChange={e => setEditValues(v => ({ ...v, headsOut: parseInt(e.target.value) || 0 }))}
-                              className="w-14 border border-border rounded px-1.5 py-0.5 text-sm bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-red-400"
-                              placeholder="count"
-                            />
-                            <input
-                              type="number" min={0} step={0.5}
-                              value={editValues.hoursOut}
-                              onChange={e => setEditValues(v => ({ ...v, hoursOut: parseFloat(e.target.value) || 0 }))}
-                              className="w-16 border border-border rounded px-1.5 py-0.5 text-sm bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-red-400"
-                              placeholder="hrs"
-                            />
-                          </div>
+                          <input
+                            type="number" min={0} step={0.5}
+                            value={editValues.hoursIn}
+                            onChange={e => setEditValues(v => ({ ...v, hoursIn: parseFloat(e.target.value) || 0 }))}
+                            className="w-16 border border-border rounded px-1.5 py-0.5 text-sm bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-emerald-400"
+                          />
                         ) : showGenderSplit ? (
                           <div className="flex flex-col gap-0.5">
-                            <div className="flex items-baseline gap-1">
-                              <span className="font-bold text-pink-500 dark:text-pink-400">{femaleLeaversCount || '—'}</span>
-                              <span className="text-pink-400 dark:text-pink-500 text-xs">/{femaleLeaversH > 0 ? `${femaleLeaversH}h` : '—'}</span>
-                            </div>
-                            <div className="flex items-baseline gap-1">
-                              <span className="font-bold text-blue-500 dark:text-blue-400">{maleLeaversCount || '—'}</span>
-                              <span className="text-blue-400 dark:text-blue-500 text-xs">/{maleLeaversH > 0 ? `${maleLeaversH}h` : '—'}</span>
-                            </div>
+                            <span className="font-semibold text-pink-500 dark:text-pink-400">{femaleHiresH > 0 ? `+${femaleHiresH}h` : '—'}</span>
+                            <span className="font-semibold text-blue-500 dark:text-blue-400">{maleHiresH > 0 ? `+${maleHiresH}h` : '—'}</span>
                           </div>
                         ) : (
+                          <span className="font-semibold text-emerald-700 dark:text-emerald-400">{displayHoursIn > 0 ? `+${displayHoursIn}h` : '—'}</span>
+                        )}
+                      </TableCell>
+
+                      {/* Leavers — count */}
+                      <TableCell>
+                        {isEditing ? (
+                          <input
+                            type="number" min={0} step={1}
+                            value={editValues.headsOut}
+                            onChange={e => setEditValues(v => ({ ...v, headsOut: parseInt(e.target.value) || 0 }))}
+                            className="w-14 border border-border rounded px-1.5 py-0.5 text-sm bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-red-400"
+                          />
+                        ) : showGenderSplit ? (
                           <div className="flex flex-col gap-0.5">
-                            <span className="text-red-500 dark:text-red-400">{displayHeadsOut > 0 ? displayHeadsOut : '—'}</span>
-                            <span className="font-semibold text-red-600 dark:text-red-400 text-xs">{displayHoursOut > 0 ? `${displayHoursOut}h` : '—'}</span>
+                            <span className="font-bold text-pink-500 dark:text-pink-400">{femaleLeaversCount || '—'}</span>
+                            <span className="font-bold text-blue-500 dark:text-blue-400">{maleLeaversCount || '—'}</span>
                           </div>
+                        ) : (
+                          <span className="text-red-500 dark:text-red-400">{displayHeadsOut > 0 ? displayHeadsOut : '—'}</span>
+                        )}
+                      </TableCell>
+
+                      {/* Out — hours */}
+                      <TableCell>
+                        {isEditing ? (
+                          <input
+                            type="number" min={0} step={0.5}
+                            value={editValues.hoursOut}
+                            onChange={e => setEditValues(v => ({ ...v, hoursOut: parseFloat(e.target.value) || 0 }))}
+                            className="w-16 border border-border rounded px-1.5 py-0.5 text-sm bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-red-400"
+                          />
+                        ) : showGenderSplit ? (
+                          <div className="flex flex-col gap-0.5">
+                            <span className="font-semibold text-pink-500 dark:text-pink-400">{femaleLeaversH > 0 ? `${femaleLeaversH}h` : '—'}</span>
+                            <span className="font-semibold text-blue-500 dark:text-blue-400">{maleLeaversH > 0 ? `${maleLeaversH}h` : '—'}</span>
+                          </div>
+                        ) : (
+                          <span className="font-semibold text-red-600 dark:text-red-400">{displayHoursOut > 0 ? `${displayHoursOut}h` : '—'}</span>
                         )}
                       </TableCell>
 
