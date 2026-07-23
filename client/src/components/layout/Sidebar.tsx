@@ -35,7 +35,7 @@ interface NavGroup {
 
 const NAV_GROUPS: NavGroup[] = [
   {
-    label: "ANALYZE",
+    label: "INSIGHTS",
     items: [
       { id: "overview",  label: "Overview",  path: "/app/dashboard",        icon: LayoutDashboard },
       { id: "workforce", label: "Workforce", path: "/app/workforce",        icon: UserCheck       },
@@ -44,9 +44,9 @@ const NAV_GROUPS: NavGroup[] = [
   {
     label: "SCHEDULING",
     items: [
-      { id: "daily-view", label: "Daily View", path: "/app/dashboard", search: "view=daily", icon: CalendarDays },
-      { id: "schedule",   label: "Schedule",   path: "/app/schedule",                         icon: Calendar    },
-      { id: "bd-matrix",  label: "BD Matrix",  path: "/app/bd-matrix",                        icon: Users       },
+      { id: "daily-view", label: "Daily View",      path: "/app/dashboard", search: "view=daily", icon: CalendarDays },
+      { id: "schedule",   label: "AI Schedule",     path: "/app/schedule",                         icon: Calendar    },
+      { id: "bd-matrix",  label: "Opportunity Map", path: "/app/bd-matrix",                        icon: Users       },
     ],
   },
   {
