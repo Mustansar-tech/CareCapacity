@@ -149,7 +149,7 @@ const joinerFormSchema = z.object({
   desiredWeeklyHours: z.coerce.number({ invalid_type_error: "Enter hours or select Bank" }).nonnegative("Enter hours or select Bank"),
   contractedHours: z.coerce.number({ invalid_type_error: "Enter contracted hours" }).nonnegative("Must be 0 or more"),
   postcode: z.string().min(1, "Postcode is required"),
-  trainingDate: z.string().min(1, "Training date is required"),
+  trainingDate: z.string().optional(),
   completedStages: z.array(z.string()).default([]),
   status: z.enum(["active", "dropped", "hired", "hired_archived"]).default("active"),
   hiredAt: z.string().optional(),
@@ -714,7 +714,7 @@ function JoinerModal({
               const selected = (field.value ?? '').split(',').map(s => s.trim()).filter(Boolean);
               return (
                 <FormItem>
-                  <FormLabel>Training Attended <span className="text-red-500">*</span></FormLabel>
+                  <FormLabel>Training Attended</FormLabel>
                   <FormControl>
                     <div className="flex items-center gap-2">
                       {[1, 2, 3, 4].map(day => {
