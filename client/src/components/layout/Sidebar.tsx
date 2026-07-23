@@ -38,16 +38,21 @@ const NAV_GROUPS: NavGroup[] = [
     label: "ANALYZE",
     items: [
       { id: "overview",  label: "Overview",  path: "/app/dashboard",        icon: LayoutDashboard },
-      { id: "outlook",   label: "Outlook",   path: "/app/capacity-outlook", icon: TrendingUp      },
       { id: "workforce", label: "Workforce", path: "/app/workforce",        icon: UserCheck       },
     ],
   },
   {
-    label: "OPERATE",
+    label: "SCHEDULING",
     items: [
       { id: "daily-view", label: "Daily View", path: "/app/dashboard", search: "view=daily", icon: CalendarDays },
       { id: "schedule",   label: "Schedule",   path: "/app/schedule",                         icon: Calendar    },
       { id: "bd-matrix",  label: "BD Matrix",  path: "/app/bd-matrix",                        icon: Users       },
+    ],
+  },
+  {
+    label: "RECRUITMENT",
+    items: [
+      { id: "outlook", label: "Outlook", path: "/app/capacity-outlook", icon: TrendingUp },
     ],
   },
 ];
