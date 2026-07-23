@@ -2033,6 +2033,7 @@ export default function CapacityOutlookPage() {
                           <TableRow className="bg-teal-50/60 dark:bg-teal-900/15 border-b border-teal-100 dark:border-teal-900/30">
                             <TableHead>Name</TableHead>
                             <TableHead>Type</TableHead>
+                            <TableHead>Postcode</TableHead>
                             <TableHead>Prev Hrs</TableHead>
                             <TableHead>New Hrs</TableHead>
                             <TableHead>Effective</TableHead>
@@ -2047,6 +2048,7 @@ export default function CapacityOutlookPage() {
                               <TableCell>
                                 <Badge variant="outline" className="capitalize text-xs">{r.employmentType}</Badge>
                               </TableCell>
+                              <TableCell className="text-muted-foreground text-xs font-mono">{r.postcode || '—'}</TableCell>
                               <TableCell>{r.previousHours != null ? `${r.previousHours}h` : '—'}</TableCell>
                               <TableCell>
                                 <span className="text-emerald-700 dark:text-emerald-400 font-semibold">{r.newHours}h</span>
@@ -2345,6 +2347,7 @@ export default function CapacityOutlookPage() {
                           <TableRow className="bg-orange-50/60 dark:bg-orange-900/15 border-b border-orange-100 dark:border-orange-900/30">
                             <TableHead>Name</TableHead>
                             <TableHead>Type</TableHead>
+                            <TableHead>Postcode</TableHead>
                             <TableHead>Prev Hrs</TableHead>
                             <TableHead>New Hrs</TableHead>
                             <TableHead>Effective</TableHead>
@@ -2359,6 +2362,7 @@ export default function CapacityOutlookPage() {
                               <TableCell>
                                 <Badge variant="outline" className="capitalize text-xs">{r.employmentType}</Badge>
                               </TableCell>
+                              <TableCell className="text-muted-foreground text-xs font-mono">{r.postcode || '—'}</TableCell>
                               <TableCell>{r.previousHours != null ? `${r.previousHours}h` : '—'}</TableCell>
                               <TableCell>
                                 <span className="text-amber-700 dark:text-amber-400 font-semibold">{r.newHours}h</span>
