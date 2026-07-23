@@ -2687,16 +2687,18 @@ function MonthlyViewSheet({
 
   // Per-month availability change totals keyed as "year-month"
   const availByMonth = useMemo(() => {
-    const map: Record<string, { increase: number; decrease: number }> = {};
+    const map: Record<string, { increase: number; increaseCount: number; decrease: number; decreaseCount: number }> = {};
     availChanges.forEach(r => {
       if (!r.effectiveDate) return;
       const d = new Date(r.effectiveDate + 'T00:00:00Z');
       const key = `${d.getUTCFullYear()}-${d.getUTCMonth() + 1}`;
-      if (!map[key]) map[key] = { increase: 0, decrease: 0 };
+      if (!map[key]) map[key] = { increase: 0, increaseCount: 0, decrease: 0, decreaseCount: 0 };
       if (r.changeType === 'increase') {
         map[key].increase = Math.round((map[key].increase + Math.max(0, (r.newHours ?? 0) - (r.previousHours ?? 0))) * 10) / 10;
+        map[key].increaseCount += 1;
       } else {
         map[key].decrease = Math.round((map[key].decrease + Math.max(0, (r.previousHours ?? 0) - (r.newHours ?? 0))) * 10) / 10;
+        map[key].decreaseCount += 1;
       }
     });
     return map;
@@ -2747,6 +2749,18 @@ function MonthlyViewSheet({
                       <span className="text-[10px] font-normal opacity-60">h/wk</span>
                     </div>
                   </TableHead>
+                  <TableHead className="text-teal-600 dark:text-teal-400">
+                    <div className="flex flex-col leading-tight gap-0.5">
+                      <span>Increase</span>
+                      <span className="text-[10px] font-normal opacity-60">count</span>
+                    </div>
+                  </TableHead>
+                  <TableHead className="text-teal-600 dark:text-teal-400">
+                    <div className="flex flex-col leading-tight gap-0.5">
+                      <span>+hrs</span>
+                      <span className="text-[10px] font-normal opacity-60">h/wk</span>
+                    </div>
+                  </TableHead>
                   <TableHead className="text-red-600 dark:text-red-400">
                     <div className="flex flex-col leading-tight gap-0.5">
                       <span>Leavers</span>
@@ -2759,16 +2773,16 @@ function MonthlyViewSheet({
                       <span className="text-[10px] font-normal opacity-60">h/wk</span>
                     </div>
                   </TableHead>
-                  <TableHead className="text-teal-600 dark:text-teal-400">
+                  <TableHead className="text-orange-600 dark:text-orange-400">
                     <div className="flex flex-col leading-tight gap-0.5">
-                      <span>Increase</span>
-                      <span className="text-[10px] font-normal opacity-60">count  h/wk</span>
+                      <span>Decrease</span>
+                      <span className="text-[10px] font-normal opacity-60">count</span>
                     </div>
                   </TableHead>
                   <TableHead className="text-orange-600 dark:text-orange-400">
                     <div className="flex flex-col leading-tight gap-0.5">
-                      <span>Decrease</span>
-                      <span className="text-[10px] font-normal opacity-60">count  h/wk</span>
+                      <span>−hrs</span>
+                      <span className="text-[10px] font-normal opacity-60">h/wk</span>
                     </div>
                   </TableHead>
                   <TableHead>Net</TableHead>
@@ -2892,6 +2906,22 @@ function MonthlyViewSheet({
                         )}
                       </TableCell>
 
+                      {/* Increase — count */}
+                      <TableCell>
+                        {availIncrease > 0 || availByMonth[availKey]?.increaseCount > 0
+                          ? <span className="font-semibold text-teal-600 dark:text-teal-400">{availByMonth[availKey]?.increaseCount ?? 0}</span>
+                          : <span className="text-muted-foreground">—</span>
+                        }
+                      </TableCell>
+
+                      {/* Increase — hours */}
+                      <TableCell>
+                        {availIncrease > 0
+                          ? <span className="font-semibold text-teal-600 dark:text-teal-400">+{availIncrease}h</span>
+                          : <span className="text-muted-foreground">—</span>
+                        }
+                      </TableCell>
+
                       {/* Leavers — count */}
                       <TableCell>
                         {isEditing ? (
@@ -2930,15 +2960,15 @@ function MonthlyViewSheet({
                         )}
                       </TableCell>
 
-                      {/* Increase (hrs) */}
+                      {/* Decrease — count */}
                       <TableCell>
-                        {availIncrease > 0
-                          ? <span className="font-semibold text-teal-600 dark:text-teal-400">+{availIncrease}h</span>
+                        {availDecrease > 0 || availByMonth[availKey]?.decreaseCount > 0
+                          ? <span className="font-semibold text-orange-600 dark:text-orange-400">{availByMonth[availKey]?.decreaseCount ?? 0}</span>
                           : <span className="text-muted-foreground">—</span>
                         }
                       </TableCell>
 
-                      {/* Decrease (hrs) */}
+                      {/* Decrease — hours */}
                       <TableCell>
                         {availDecrease > 0
                           ? <span className="font-semibold text-orange-600 dark:text-orange-400">−{availDecrease}h</span>
