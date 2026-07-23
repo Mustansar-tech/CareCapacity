@@ -5,8 +5,8 @@ import {
 } from "recharts";
 import {
   TrendingUp, TrendingDown, Minus, Upload, Bot,
-  Calendar, RefreshCw, AlertTriangle, CheckCircle, Zap,
-  ChevronLeft, ChevronRight, MapPin,
+  Calendar, RefreshCw, AlertTriangle, CheckCircle, Zap, Building2,
+  ChevronLeft, ChevronRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -104,7 +104,7 @@ function formatWeekRange(startDate: string, endDate: string) {
   }
 }
 
-// ── Status config ──────────────────────────────────────────────────────────────
+// ── Status badge config ────────────────────────────────────────────────────────
 
 const STATUS_CONFIG = {
   "on track": {
@@ -113,9 +113,7 @@ const STATUS_CONFIG = {
     badge: "bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800",
     headlineClass: "text-emerald-600 dark:text-emerald-400",
     bar: "bg-emerald-500",
-    strip: "from-emerald-500 to-teal-500",
-    glow: "from-emerald-400/8 via-teal-400/4 to-transparent",
-    accent: "bg-emerald-500",
+    strip: "bg-emerald-500",
   },
   "under pressure": {
     icon: AlertTriangle,
@@ -123,9 +121,7 @@ const STATUS_CONFIG = {
     badge: "bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-800",
     headlineClass: "text-amber-500 dark:text-amber-400",
     bar: "bg-amber-500",
-    strip: "from-amber-500 to-orange-500",
-    glow: "from-amber-400/8 via-orange-400/4 to-transparent",
-    accent: "bg-amber-500",
+    strip: "bg-amber-500",
   },
   "at risk": {
     icon: Zap,
@@ -133,13 +129,11 @@ const STATUS_CONFIG = {
     badge: "bg-red-50 dark:bg-red-950/60 text-red-700 dark:text-red-400 border-red-200 dark:border-red-800",
     headlineClass: "text-red-600 dark:text-red-400",
     bar: "bg-red-500",
-    strip: "from-red-500 to-rose-500",
-    glow: "from-red-400/8 via-rose-400/4 to-transparent",
-    accent: "bg-red-500",
+    strip: "bg-red-500",
   },
 } as const;
 
-// ── Greeting ──────────────────────────────────────────────────────────────────
+// ── Time-of-day greeting ───────────────────────────────────────────────────────
 
 function greeting() {
   const h = new Date().getHours();
@@ -184,6 +178,7 @@ export function SmartHero({
     currentIndex > 0 ? sortedHistory[currentIndex - 1] : undefined
   , [sortedHistory, currentIndex]);
 
+  // ── helper: ISO week number ───────────────────────────────────────────────
   function isoWeek(d: Date) {
     const tmp = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
     tmp.setUTCDate(tmp.getUTCDate() + 4 - (tmp.getUTCDay() || 7));
@@ -191,6 +186,7 @@ export function SmartHero({
     return Math.ceil((((tmp.getTime() - yr.getTime()) / 86400000) + 1) / 7);
   }
 
+  // ── all processed weeks ────────────────────────────────────────────────────
   const allWeeksData = useMemo(() => {
     const ci = currentIndex >= 0 ? currentIndex : sortedHistory.length - 1;
     return sortedHistory.map((h, i) => {
@@ -209,15 +205,19 @@ export function SmartHero({
     });
   }, [sortedHistory, currentIndex]);
 
+  // ── linear-regression projection (next week) ──────────────────────────────
   const lineChartData = useMemo(() => {
     if (allWeeksData.length === 0) return allWeeksData;
+
     const base = allWeeksData.map(d => ({ ...d }));
+
     if (allWeeksData.length >= 2) {
       const recent = allWeeksData.slice(-Math.min(6, allWeeksData.length));
       const n = recent.length;
       const sumX   = recent.reduce((s, _, i) => s + i, 0);
       const sumX2  = recent.reduce((s, _, i) => s + i * i, 0);
       const denom  = n * sumX2 - sumX * sumX;
+
       function linReg(vals: number[]) {
         const sumY  = vals.reduce((s, v) => s + v, 0);
         const sumXY = vals.reduce((s, v, i) => s + i * v, 0);
@@ -225,13 +225,19 @@ export function SmartHero({
         const intercept = (sumY - slope * sumX) / n;
         return Math.max(0, Math.round((slope * n + intercept) * 10) / 10);
       }
+
       const projNet = linReg(recent.map(d => d.net));
       const projReq = linReg(recent.map(d => d.required));
+
+      // Bridge: last real point also participates in the dashed series
       base[base.length - 1].projNet = base[base.length - 1].net;
       base[base.length - 1].projReq = base[base.length - 1].required;
+
+      // Next week label
       const lastLabel = base[base.length - 1].label;
       const m = lastLabel.match(/Wk (\d+)/);
       const nextLabel = m ? `Wk ${parseInt(m[1]) + 1}` : "Next";
+
       base.push({
         label: nextLabel, subLabel: "forecast",
         net: undefined as any, required: undefined as any,
@@ -239,8 +245,27 @@ export function SmartHero({
         projNet, projReq,
       });
     }
+
     return base;
   }, [allWeeksData]);
+
+  // keep fourWeekData for the WoW badge
+  const fourWeekData = useMemo(() => {
+    const end   = currentIndex >= 0 ? currentIndex : sortedHistory.length - 1;
+    const start = Math.max(0, end - 3);
+    return sortedHistory.slice(start, end + 1).map((h, i, arr) => {
+      const d = h.weekStartDate ? new Date(h.weekStartDate) : null;
+      const weekNum = d ? isoWeek(d) : null;
+      return {
+        label:     weekNum ? `Wk ${weekNum}` : `Wk ${i + 1}`,
+        subLabel:  d ? d.toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "UTC" }) : "",
+        net:       Math.round((h.kpis?.netCapacitySum ?? 0) * 10) / 10,
+        required:  Math.round((h.kpis?.clientRequiredSum ?? 0) * 10) / 10,
+        scheduled: Math.round((h.kpis?.clientScheduledHoursSum ?? 0) * 10) / 10,
+        isCurrent: i === arr.length - 1,
+      };
+    });
+  }, [sortedHistory, currentIndex]);
 
   const narrative = useMemo(() => {
     if (!data) return null;
@@ -265,85 +290,51 @@ export function SmartHero({
   const StatusIcon = cfg?.icon ?? CheckCircle;
 
   return (
-    <div className="border-b border-border bg-background shrink-0 relative overflow-hidden">
-      {/* Gradient colour wash — shifts with status */}
-      {cfg && (
-        <div className={`absolute inset-0 pointer-events-none bg-gradient-to-br ${cfg.glow}`} />
-      )}
-      {/* Thin gradient top strip */}
-      {cfg && (
-        <div className={`h-[3px] w-full bg-gradient-to-r ${cfg.strip}`} />
-      )}
+    <div className="border-b border-border bg-background shrink-0">
+      {/* Status colour strip */}
+      {cfg && <div className={`h-0.5 w-full ${cfg.strip}`} />}
 
-      <div className="relative w-full px-6 pt-4 pb-3">
-        {/* ── TOP ROW: Branch name (big) + action buttons ─────────────────── */}
-        <div className="flex items-start justify-between gap-4 mb-3">
-          <div>
-            {/* Branch name — big and prominent */}
-            <div className="flex items-center gap-2">
-              <MapPin className="w-5 h-5 text-muted-foreground mt-0.5 shrink-0" />
-              <h1 className="text-[2rem] font-black tracking-tight text-foreground leading-none">
-                {selectedBranch?.displayName ?? "Dashboard"}
-              </h1>
-            </div>
-            {/* Greeting + status row below the branch name */}
-            <div className="flex items-center gap-2 mt-2 pl-7 flex-wrap">
-              {firstName && (
-                <span className="text-sm text-muted-foreground">
-                  {greeting()}, <strong className="text-foreground font-semibold">{firstName}</strong>
-                </span>
-              )}
-              {narrative && cfg && weekLabel && (
-                <>
-                  <span className="text-muted-foreground/50 text-sm">·</span>
+      <div className="w-full px-6 pt-4 pb-2">
+        {/* ── Welcome row ─────────────────────────────────────────────────── */}
+        <div className="flex items-center gap-1.5 mb-3">
+          {firstName && (
+            <span className="text-sm text-muted-foreground">
+              {greeting()}, <strong className="text-foreground font-semibold">{firstName}</strong>
+            </span>
+          )}
+          {selectedBranch && (
+            <span className="text-sm text-muted-foreground">
+              · <span className="font-medium text-foreground">{selectedBranch.displayName}</span>
+            </span>
+          )}
+        </div>
+
+        <div className="flex items-start gap-6 flex-wrap lg:flex-nowrap">
+          {/* ── Left: narrative + controls ── */}
+          <div className="flex-1 min-w-[320px]">
+            {data && narrative && cfg ? (
+              <>
+                {/* Status + week context */}
+                <div className="flex items-center gap-2 mb-2">
                   <span className={`inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-full border ${cfg.badge}`}>
                     <StatusIcon className="w-3 h-3" />
                     {cfg.label}
                   </span>
-                  <span className="text-[12px] font-medium text-muted-foreground">
-                    {weekLabel.range}
-                  </span>
-                </>
-              )}
-            </div>
-          </div>
+                  {weekLabel && (
+                    <span className="text-[11px] text-muted-foreground">
+                      Week {weekLabel.weekNum} · {weekLabel.range}
+                    </span>
+                  )}
+                </div>
 
-          {/* Action buttons — top right */}
-          <div className="flex items-center gap-2 shrink-0 mt-1">
-            <Button
-              onClick={onUploadClick}
-              size="sm"
-              className="h-8 px-4 text-xs bg-emerald-700 hover:bg-emerald-800 text-white border-0 shadow-sm"
-            >
-              <Upload className="w-3.5 h-3.5 mr-1.5" />
-              Upload
-            </Button>
-            <Button
-              onClick={onProcessClick}
-              variant="outline"
-              size="sm"
-              className="h-8 px-4 text-xs border-border hover:bg-muted"
-            >
-              <Bot className="w-3.5 h-3.5 mr-1.5" />
-              Process
-            </Button>
-          </div>
-        </div>
-
-        {/* ── TWO-COLUMN: narrative left, chart right ──────────────────────── */}
-        <div className="flex items-start gap-6 flex-wrap lg:flex-nowrap">
-          {/* ── Left: narrative ── */}
-          <div className="flex-1 min-w-[320px]">
-            {data && narrative && cfg ? (
-              <>
                 {/* Headline */}
-                <h2 className="text-[21px] font-bold text-foreground leading-snug mb-1.5 tracking-tight">
+                <h1 className="text-[22px] font-bold text-foreground leading-tight mb-1.5 tracking-tight">
                   {(() => {
                     const m = narrative.headline.match(/^(Your week is )([^,]+)(,.*)$/);
                     if (!m) return narrative.headline;
                     return <>{m[1]}<span className={cfg.headlineClass}>{m[2]}</span>{m[3]}</>;
                   })()}
-                </h2>
+                </h1>
 
                 {/* Sub-narrative */}
                 <p className="text-sm text-muted-foreground leading-relaxed mb-3">
@@ -359,78 +350,69 @@ export function SmartHero({
                   )}.
                 </p>
 
-                {/* Stat cards — more prominent than before */}
-                <div className="flex flex-wrap gap-2.5 mb-3">
-                  {/* Supply */}
-                  <div className="flex flex-col gap-1.5 bg-card border border-border rounded-xl px-4 py-2.5 shadow-sm min-w-[90px]">
-                    <div className="text-[22px] font-black text-foreground leading-none tracking-tight">
-                      {narrative.supplyPct}%
+                {/* Stat chips */}
+                <div className="flex flex-wrap gap-2 mb-3">
+                  <div className="flex items-center gap-2 bg-muted/60 rounded-lg px-3 py-1.5">
+                    <div className="text-right">
+                      <div className="text-sm font-bold text-foreground">{narrative.supplyPct}%</div>
+                      <div className="text-[10px] text-muted-foreground leading-none">supply</div>
                     </div>
-                    <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide leading-none">
-                      supply
-                    </div>
-                    <div className="w-full h-1.5 rounded-full bg-border overflow-hidden">
-                      <div
-                        className={`h-full rounded-full ${cfg.bar} transition-all duration-700`}
-                        style={{ width: `${Math.min(narrative.supplyPct, 100)}%` }}
-                      />
+                    <div className="w-16 h-1.5 rounded-full bg-border overflow-hidden">
+                      <div className={`h-full rounded-full ${cfg.bar}`} style={{ width: `${Math.min(narrative.supplyPct, 100)}%` }} />
                     </div>
                   </div>
 
-                  {/* Demand met */}
                   {narrative.demandCoverage > 0 && (
-                    <div className="flex flex-col gap-1.5 bg-card border border-border rounded-xl px-4 py-2.5 shadow-sm min-w-[90px]">
-                      <div className="text-[22px] font-black text-foreground leading-none tracking-tight">
-                        {narrative.demandCoverage}%
+                    <div className="flex items-center gap-2 bg-muted/60 rounded-lg px-3 py-1.5">
+                      <div className="text-right">
+                        <div className="text-sm font-bold text-foreground">{narrative.demandCoverage}%</div>
+                        <div className="text-[10px] text-muted-foreground leading-none">demand met</div>
                       </div>
-                      <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide leading-none">
-                        demand met
-                      </div>
-                      <div className="w-full h-1.5 rounded-full bg-border overflow-hidden">
-                        <div
-                          className="h-full rounded-full bg-blue-500 transition-all duration-700"
-                          style={{ width: `${Math.min(narrative.demandCoverage, 100)}%` }}
-                        />
+                      <div className="w-16 h-1.5 rounded-full bg-border overflow-hidden">
+                        <div className="h-full rounded-full bg-blue-500" style={{ width: `${Math.min(narrative.demandCoverage, 100)}%` }} />
                       </div>
                     </div>
                   )}
 
-                  {/* Capacity lost */}
                   {narrative.drainHours > 0 && (
-                    <div className="flex flex-col gap-1.5 bg-card border border-red-100 dark:border-red-900/40 rounded-xl px-4 py-2.5 shadow-sm min-w-[90px]">
-                      <div className="flex items-baseline gap-1">
-                        <AlertTriangle className="w-3.5 h-3.5 text-red-500 shrink-0 mb-0.5 self-center" />
-                        <span className="text-[22px] font-black text-foreground leading-none tracking-tight">
-                          {narrative.drainHours}h
-                        </span>
-                      </div>
-                      <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide leading-none">
-                        capacity lost
+                    <div className="flex items-center gap-1.5 bg-muted/60 rounded-lg px-3 py-1.5">
+                      <AlertTriangle className="w-3 h-3 text-red-500 shrink-0" />
+                      <div>
+                        <div className="text-sm font-bold text-foreground">{narrative.drainHours}h</div>
+                        <div className="text-[10px] text-muted-foreground leading-none">capacity lost</div>
                       </div>
                     </div>
                   )}
                 </div>
 
-                {/* Short days */}
+                {/* Short day pills */}
                 {narrative.shortDays.length > 0 && (
                   <div className="flex items-center gap-1.5 flex-wrap mb-3">
-                    <span className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wide">
-                      Short days:
-                    </span>
+                    <span className="text-[10px] text-muted-foreground font-medium">Short days:</span>
                     {narrative.shortDays.map(day => (
-                      <span
-                        key={day}
-                        className="text-[10px] bg-red-50 dark:bg-red-950 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800 px-2 py-0.5 rounded-full font-semibold"
-                      >
+                      <span key={day} className="text-[10px] bg-red-50 dark:bg-red-950 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800 px-1.5 py-0.5 rounded-full font-medium">
                         {day}
                       </span>
                     ))}
                   </div>
                 )}
 
-                {/* Week navigation row — dates only, no week number */}
-                {weekLabel && (
+                {/* Action bar — row 1: buttons */}
+                <div className="flex flex-wrap items-center gap-2 mb-2">
+                  <Button onClick={onUploadClick} size="sm" className="h-8 px-4 text-xs bg-emerald-700 hover:bg-emerald-800 text-white border-0 shadow-sm">
+                    <Upload className="w-3.5 h-3.5 mr-1.5" />
+                    Upload New Data
+                  </Button>
+                  <Button onClick={onProcessClick} variant="outline" size="sm" className="h-8 px-4 text-xs border-border hover:bg-muted">
+                    <Bot className="w-3.5 h-3.5 mr-1.5" />
+                    Process Data
+                  </Button>
+                </div>
+
+                {/* Action bar — row 2: week nav + sync */}
+                {data && weekLabel && (
                   <div className="flex items-center gap-1">
+                    {/* ← Previous week */}
                     <button
                       onClick={() => {
                         const prev = sortedHistory[currentIndex - 1];
@@ -443,12 +425,13 @@ export function SmartHero({
                       <ChevronLeft className="w-3.5 h-3.5" />
                     </button>
 
+                    {/* Week label + dropdown */}
                     <div className="flex items-center gap-1.5 text-xs text-muted-foreground border border-border rounded-md px-2.5 h-8 bg-background">
                       <Calendar className="w-3.5 h-3.5 flex-shrink-0" />
                       <Select value={selectedWeekId || "latest"} onValueChange={handleWeekChange}>
-                        <SelectTrigger className="border-0 p-0 h-auto text-xs font-medium text-foreground bg-transparent shadow-none focus:ring-0 w-auto min-w-[9rem] max-w-[13rem]">
+                        <SelectTrigger className="border-0 p-0 h-auto text-xs font-medium text-foreground bg-transparent shadow-none focus:ring-0 w-auto min-w-[10rem] max-w-[14rem]">
                           <SelectValue>
-                            {weekLabel.range}
+                            Week {weekLabel.weekNum} · {weekLabel.range}
                           </SelectValue>
                         </SelectTrigger>
                         <SelectContent align="start">
@@ -465,10 +448,10 @@ export function SmartHero({
                               .map(a => {
                                 try {
                                   if (!a.weekStartDate || !a.weekEndDate) return null;
-                                  const { range } = formatWeekRange(a.weekStartDate, a.weekEndDate);
+                                  const { range, weekNum } = formatWeekRange(a.weekStartDate, a.weekEndDate);
                                   return (
                                     <SelectItem key={a.id} value={a.id}>
-                                      {range}
+                                      {weekNum ? `Week ${weekNum} · ` : ""}{range}
                                     </SelectItem>
                                   );
                                 } catch { return null; }
@@ -479,6 +462,7 @@ export function SmartHero({
                       </Select>
                     </div>
 
+                    {/* → Next week */}
                     <button
                       onClick={() => {
                         const next = sortedHistory[currentIndex + 1];
@@ -491,6 +475,7 @@ export function SmartHero({
                       <ChevronRight className="w-3.5 h-3.5" />
                     </button>
 
+                    {/* Last sync */}
                     {lastSyncedAt && (
                       <span className="flex items-center gap-1 text-[10px] text-muted-foreground ml-1 whitespace-nowrap">
                         <RefreshCw className="w-3 h-3 shrink-0" />
@@ -505,9 +490,22 @@ export function SmartHero({
               </>
             ) : (
               <>
+                <h1 className="text-[22px] font-bold text-foreground leading-tight mb-1.5 tracking-tight">
+                  Care Capacity Dashboard
+                </h1>
                 <p className="text-sm text-muted-foreground mb-3">
                   Upload or sync data to see your week's capacity story.
                 </p>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Button onClick={onUploadClick} size="sm" className="h-8 px-4 text-xs bg-emerald-700 hover:bg-emerald-800 text-white border-0 shadow-sm">
+                    <Upload className="w-3.5 h-3.5 mr-1.5" />
+                    Upload New Data
+                  </Button>
+                  <Button onClick={onProcessClick} variant="outline" size="sm" className="h-8 px-4 text-xs border-border hover:bg-muted">
+                    <Bot className="w-3.5 h-3.5 mr-1.5" />
+                    Process Data
+                  </Button>
+                </div>
               </>
             )}
           </div>
@@ -515,6 +513,7 @@ export function SmartHero({
           {/* ── Right: all-weeks trend chart ── */}
           {narrative && cfg && (
             <div className="flex-1 min-w-[400px] border border-border rounded-xl bg-card p-4 shadow-sm">
+              {/* Header */}
               <div className="flex items-center justify-between mb-2">
                 <div>
                   <span className="text-[11px] font-semibold text-foreground">Capacity vs Demand Trend</span>
@@ -586,6 +585,7 @@ export function SmartHero({
                         tickFormatter={(v) => `${v}h`}
                       />
 
+                      {/* Current-week reference line */}
                       {lineChartData.some(d => d.isCurrent) && (
                         <ReferenceLine
                           x={lineChartData.find(d => d.isCurrent)?.label}
@@ -597,6 +597,7 @@ export function SmartHero({
                         />
                       )}
 
+                      {/* Tooltip */}
                       <Tooltip
                         content={({ active, payload, label }: any) => {
                           if (!active || !payload?.length) return null;
@@ -644,6 +645,7 @@ export function SmartHero({
                         }}
                       />
 
+                      {/* Gradient area fills — actuals */}
                       <Area
                         type="monotone" dataKey="net"
                         stroke="#2c4f26" strokeWidth={3.5}
@@ -679,9 +681,11 @@ export function SmartHero({
                         connectNulls={false}
                       />
 
+                      {/* Dashed projected bridge */}
                       <Area type="monotone" dataKey="projNet" stroke="#2c4f26" strokeWidth={1.5} strokeDasharray="5 3" fill="none" dot={false} connectNulls={false} legendType="none" />
                       <Area type="monotone" dataKey="projReq" stroke="#f59e0b" strokeWidth={1.5} strokeDasharray="5 3" fill="none" dot={false} connectNulls={false} legendType="none" />
 
+                      {/* Forecast endpoint dots */}
                       {lineChartData.some(d => d.isProjected) && (() => {
                         const proj = lineChartData[lineChartData.length - 1];
                         return (
