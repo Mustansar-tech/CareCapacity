@@ -995,6 +995,8 @@ export const availabilityChanges = pgTable("availability_changes", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   branchId: varchar("branch_id").notNull().references(() => branches.id),
   employeeName: text("employee_name").notNull(),
+  gender: text("gender", { enum: ["male", "female", "other"] }),
+  postcode: text("postcode"),
   employmentType: text("employment_type", { enum: ["driver", "walker"] }).notNull(),
   changeType: text("change_type", { enum: ["increase", "decrease"] }).notNull(),
   previousHours: real("previous_hours"),
@@ -1017,6 +1019,8 @@ export const insertAvailabilityChangeSchema = createInsertSchema(availabilityCha
   changeType: z.enum(["increase", "decrease"]),
   newHours: z.number().nonnegative(),
   previousHours: z.number().nonnegative().optional().nullable(),
+  gender: z.enum(["male", "female", "other"]).optional().nullable(),
+  postcode: z.string().optional().nullable(),
 });
 
 export type InsertAvailabilityChange = z.infer<typeof insertAvailabilityChangeSchema>;

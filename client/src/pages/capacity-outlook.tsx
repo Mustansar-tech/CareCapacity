@@ -127,13 +127,13 @@ function ragBgClass(rag: string): string {
 
 const leaverFormSchema = z.object({
   employeeName: z.string().min(1, "Name is required"),
-  employeeNo: z.string().optional(),
-  gender: z.enum(["male", "female", "other"]).optional(),
+  employeeNo: z.string().min(1, "Employee number is required"),
+  gender: z.enum(["male", "female", "other"], { required_error: "Gender is required" }),
   employmentType: z.enum(["driver", "walker"], { required_error: "Type is required" }),
   weeklyHours: z.coerce.number({ invalid_type_error: "Enter hours or select Bank" }).nonnegative("Enter hours or select Bank"),
-  contractedHours: z.coerce.number().nonnegative().optional().or(z.literal("")),
-  postcode: z.string().optional(),
-  firstDayOfNotice: z.string().optional(),
+  contractedHours: z.coerce.number({ invalid_type_error: "Enter contracted hours" }).nonnegative("Must be 0 or more"),
+  postcode: z.string().min(1, "Postcode is required"),
+  firstDayOfNotice: z.string().min(1, "Day of notice is required"),
   lastWorkingDay: z.string().min(1, "Termination day is required"),
   notes: z.string().optional(),
 });
@@ -144,12 +144,12 @@ type LeaverFormData = z.infer<typeof leaverFormSchema>;
 
 const joinerFormSchema = z.object({
   candidateName: z.string().min(1, "Name is required"),
-  gender: z.enum(["male", "female", "other"]).optional(),
+  gender: z.enum(["male", "female", "other"], { required_error: "Gender is required" }),
   employmentType: z.enum(["driver", "walker"], { required_error: "Type is required" }),
   desiredWeeklyHours: z.coerce.number({ invalid_type_error: "Enter hours or select Bank" }).nonnegative("Enter hours or select Bank"),
-  contractedHours: z.coerce.number().nonnegative().optional().or(z.literal("")),
-  postcode: z.string().optional(),
-  trainingDate: z.string().optional(),
+  contractedHours: z.coerce.number({ invalid_type_error: "Enter contracted hours" }).nonnegative("Must be 0 or more"),
+  postcode: z.string().min(1, "Postcode is required"),
+  trainingDate: z.string().min(1, "Training date is required"),
   completedStages: z.array(z.string()).default([]),
   status: z.enum(["active", "dropped", "hired", "hired_archived"]).default("active"),
   hiredAt: z.string().optional(),
@@ -272,7 +272,7 @@ function LeaverModal({
 
               <FormField control={form.control} name="employeeNo" render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Employee No</FormLabel>
+                  <FormLabel>Employee No <span className="text-red-500">*</span></FormLabel>
                   <FormControl><Input placeholder="e.g. 10042" {...field} /></FormControl>
                   <FormMessage />
                 </FormItem>
@@ -282,7 +282,7 @@ function LeaverModal({
             <div className="grid grid-cols-3 gap-4">
               <FormField control={form.control} name="gender" render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Gender</FormLabel>
+                  <FormLabel>Gender <span className="text-red-500">*</span></FormLabel>
                   <Select onValueChange={field.onChange} value={field.value ?? ""}>
                     <FormControl><SelectTrigger><SelectValue placeholder="Select…" /></SelectTrigger></FormControl>
                     <SelectContent>
@@ -362,7 +362,7 @@ function LeaverModal({
             <div className="grid grid-cols-2 gap-4">
               <FormField control={form.control} name="contractedHours" render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Contracted Hours</FormLabel>
+                  <FormLabel>Contracted Hours <span className="text-red-500">*</span></FormLabel>
                   <FormControl><Input type="number" step="0.5" placeholder="e.g. 30" {...field} value={field.value ?? ""} /></FormControl>
                   <FormMessage />
                 </FormItem>
@@ -370,7 +370,7 @@ function LeaverModal({
 
               <FormField control={form.control} name="postcode" render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Postcode</FormLabel>
+                  <FormLabel>Postcode <span className="text-red-500">*</span></FormLabel>
                   <FormControl><Input placeholder="e.g. G1 1AA" {...field} /></FormControl>
                   <FormMessage />
                 </FormItem>
@@ -378,7 +378,7 @@ function LeaverModal({
 
               <FormField control={form.control} name="firstDayOfNotice" render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Day of Notice</FormLabel>
+                  <FormLabel>Day of Notice <span className="text-red-500">*</span></FormLabel>
                   <FormControl><Input type="date" {...field} /></FormControl>
                   <FormMessage />
                 </FormItem>
@@ -538,7 +538,7 @@ function JoinerModal({
             <div className="grid grid-cols-3 gap-4">
               <FormField control={form.control} name="gender" render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Gender</FormLabel>
+                  <FormLabel>Gender <span className="text-red-500">*</span></FormLabel>
                   <Select onValueChange={field.onChange} value={field.value ?? ""}>
                     <FormControl><SelectTrigger><SelectValue placeholder="Select…" /></SelectTrigger></FormControl>
                     <SelectContent>
@@ -618,7 +618,7 @@ function JoinerModal({
             <div className="grid grid-cols-2 gap-4">
               <FormField control={form.control} name="contractedHours" render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Contracted Hours</FormLabel>
+                  <FormLabel>Contracted Hours <span className="text-red-500">*</span></FormLabel>
                   <FormControl><Input type="number" step="0.5" placeholder="e.g. 30" {...field} value={field.value ?? ""} /></FormControl>
                   <FormMessage />
                 </FormItem>
@@ -626,7 +626,7 @@ function JoinerModal({
 
               <FormField control={form.control} name="postcode" render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Postcode</FormLabel>
+                  <FormLabel>Postcode <span className="text-red-500">*</span></FormLabel>
                   <FormControl><Input placeholder="e.g. G12 8QQ" {...field} /></FormControl>
                   <FormMessage />
                 </FormItem>
@@ -714,7 +714,7 @@ function JoinerModal({
               const selected = (field.value ?? '').split(',').map(s => s.trim()).filter(Boolean);
               return (
                 <FormItem>
-                  <FormLabel>Training Attended</FormLabel>
+                  <FormLabel>Training Attended <span className="text-red-500">*</span></FormLabel>
                   <FormControl>
                     <div className="flex items-center gap-2">
                       {[1, 2, 3, 4].map(day => {
@@ -781,6 +781,19 @@ function JoinerModal({
 
 // ── AvailabilityChangeModal ───────────────────────────────────────────────────
 
+const availChangeFormSchema = z.object({
+  employeeName: z.string().min(1, "Name is required"),
+  gender: z.enum(["male", "female", "other"], { required_error: "Gender is required" }),
+  postcode: z.string().min(1, "Postcode is required"),
+  employmentType: z.enum(["driver", "walker"], { required_error: "Type is required" }),
+  previousHours: z.coerce.number({ invalid_type_error: "Enter previous hours" }).nonnegative("Must be 0 or more"),
+  newHours: z.coerce.number({ invalid_type_error: "Enter new hours" }).nonnegative("Must be 0 or more"),
+  effectiveDate: z.string().min(1, "Effective date is required"),
+  notes: z.string().optional(),
+});
+
+type AvailChangeFormData = z.infer<typeof availChangeFormSchema>;
+
 function AvailabilityChangeModal({
   open,
   onClose,
@@ -797,19 +810,15 @@ function AvailabilityChangeModal({
   const { toast } = useToast();
   const { user } = useAuth();
 
-  const form = useForm<{
-    employeeName: string;
-    employmentType: 'driver' | 'walker';
-    previousHours: number | '';
-    newHours: number | '';
-    effectiveDate: string;
-    notes: string;
-  }>({
+  const form = useForm<AvailChangeFormData>({
+    resolver: zodResolver(availChangeFormSchema),
     defaultValues: {
       employeeName: '',
+      gender: undefined,
+      postcode: '',
       employmentType: 'driver',
-      previousHours: '',
-      newHours: '',
+      previousHours: undefined as any,
+      newHours: undefined as any,
       effectiveDate: '',
       notes: '',
     },
@@ -820,18 +829,22 @@ function AvailabilityChangeModal({
       if (editing) {
         form.reset({
           employeeName: editing.employeeName ?? '',
+          gender: (editing.gender as 'male' | 'female' | 'other') ?? undefined,
+          postcode: editing.postcode ?? '',
           employmentType: (editing.employmentType as 'driver' | 'walker') ?? 'driver',
-          previousHours: editing.previousHours ?? '',
-          newHours: editing.newHours ?? '',
+          previousHours: editing.previousHours ?? (undefined as any),
+          newHours: editing.newHours ?? (undefined as any),
           effectiveDate: editing.effectiveDate ?? '',
           notes: editing.notes ?? '',
         });
       } else {
         form.reset({
           employeeName: '',
+          gender: undefined,
+          postcode: '',
           employmentType: 'driver',
-          previousHours: '',
-          newHours: '',
+          previousHours: undefined as any,
+          newHours: undefined as any,
           effectiveDate: '',
           notes: '',
         });
@@ -840,14 +853,16 @@ function AvailabilityChangeModal({
   }, [open, editing]);
 
   const saveMutation = useMutation({
-    mutationFn: async (values: ReturnType<typeof form.getValues>) => {
+    mutationFn: async (values: AvailChangeFormData) => {
       const payload = {
         branchId,
         changeType,
         employeeName: values.employeeName,
+        gender: values.gender,
+        postcode: values.postcode,
         employmentType: values.employmentType,
-        previousHours: values.previousHours === '' ? null : Number(values.previousHours),
-        newHours: Number(values.newHours),
+        previousHours: values.previousHours,
+        newHours: values.newHours,
         effectiveDate: values.effectiveDate || null,
         notes: values.notes || null,
       };
@@ -885,17 +900,42 @@ function AvailabilityChangeModal({
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(v => saveMutation.mutate(v))} className="space-y-4">
-            <FormField control={form.control} name="employeeName" rules={{ required: 'Name is required' }} render={({ field }) => (
+            <FormField control={form.control} name="employeeName" render={({ field }) => (
               <FormItem>
-                <FormLabel>Care Pro Name</FormLabel>
+                <FormLabel>Care Pro Name <span className="text-red-500">*</span></FormLabel>
                 <FormControl><Input placeholder="e.g. Jane Smith" {...field} /></FormControl>
                 <FormMessage />
               </FormItem>
             )} />
 
+            <div className="grid grid-cols-2 gap-4">
+              <FormField control={form.control} name="gender" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Gender <span className="text-red-500">*</span></FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value ?? ""}>
+                    <FormControl><SelectTrigger><SelectValue placeholder="Select…" /></SelectTrigger></FormControl>
+                    <SelectContent>
+                      <SelectItem value="male">Male</SelectItem>
+                      <SelectItem value="female">Female</SelectItem>
+                      <SelectItem value="other">Other</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )} />
+
+              <FormField control={form.control} name="postcode" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Postcode <span className="text-red-500">*</span></FormLabel>
+                  <FormControl><Input placeholder="e.g. G1 1AA" {...field} /></FormControl>
+                  <FormMessage />
+                </FormItem>
+              )} />
+            </div>
+
             <FormField control={form.control} name="employmentType" render={({ field }) => (
               <FormItem>
-                <FormLabel>Type</FormLabel>
+                <FormLabel>Type <span className="text-red-500">*</span></FormLabel>
                 <Select value={field.value} onValueChange={field.onChange}>
                   <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
                   <SelectContent>
@@ -910,26 +950,26 @@ function AvailabilityChangeModal({
             <div className="grid grid-cols-2 gap-4">
               <FormField control={form.control} name="previousHours" render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Previous Hours</FormLabel>
+                  <FormLabel>Previous Hours <span className="text-red-500">*</span></FormLabel>
                   <FormControl>
                     <Input
                       type="number" step="0.5" placeholder="e.g. 20"
                       value={field.value ?? ''}
-                      onChange={e => field.onChange(e.target.value === '' ? '' : Number(e.target.value))}
+                      onChange={e => field.onChange(e.target.value === '' ? undefined : Number(e.target.value))}
                     />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
               )} />
 
-              <FormField control={form.control} name="newHours" rules={{ required: 'New hours required', validate: v => (v !== '' && Number(v) >= 0) || 'Must be 0 or more' }} render={({ field }) => (
+              <FormField control={form.control} name="newHours" render={({ field }) => (
                 <FormItem>
-                  <FormLabel>New Hours</FormLabel>
+                  <FormLabel>New Hours <span className="text-red-500">*</span></FormLabel>
                   <FormControl>
                     <Input
                       type="number" step="0.5" placeholder="e.g. 30"
                       value={field.value ?? ''}
-                      onChange={e => field.onChange(e.target.value === '' ? '' : Number(e.target.value))}
+                      onChange={e => field.onChange(e.target.value === '' ? undefined : Number(e.target.value))}
                     />
                   </FormControl>
                   <FormMessage />
@@ -939,7 +979,7 @@ function AvailabilityChangeModal({
 
             <FormField control={form.control} name="effectiveDate" render={({ field }) => (
               <FormItem>
-                <FormLabel>Effective Date <span className="text-muted-foreground text-xs">(optional)</span></FormLabel>
+                <FormLabel>Effective Date <span className="text-red-500">*</span></FormLabel>
                 <FormControl><Input type="date" {...field} /></FormControl>
                 <FormMessage />
               </FormItem>
