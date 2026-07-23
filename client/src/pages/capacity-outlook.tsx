@@ -2856,20 +2856,29 @@ function MonthlyViewSheet({
                   const maleLeaversCount: number = isLive
                     ? currentMonthLeavers.filter(l => l.gender?.toLowerCase() === 'male').length
                     : (row.maleHeadsOut ?? 0);
-                  const femaleNet = Math.round((femaleHiresH - femaleLeaversH) * 10) / 10;
-                  const maleNet   = Math.round((maleHiresH   - maleLeaversH)   * 10) / 10;
+                  // Availability changes for this month (needed before net calc)
+                  const availKey = `${row.year}-${row.month}`;
+                  const availMonth = availByMonth[availKey];
+                  const availIncrease = availMonth?.increase ?? 0;
+                  const availDecrease = availMonth?.decrease ?? 0;
+                  const femaleIncreaseHrs = availMonth?.femaleIncreaseHrs ?? 0;
+                  const maleIncreaseHrs   = availMonth?.maleIncreaseHrs   ?? 0;
+                  const femaleDecreaseHrs = availMonth?.femaleDecreaseHrs ?? 0;
+                  const maleDecreaseHrs   = availMonth?.maleDecreaseHrs   ?? 0;
+
+                  // Net = hires + increases − leavers − decreases
+                  const femaleNet = Math.round((femaleHiresH + femaleIncreaseHrs - femaleLeaversH - femaleDecreaseHrs) * 10) / 10;
+                  const maleNet   = Math.round((maleHiresH   + maleIncreaseHrs   - maleLeaversH   - maleDecreaseHrs)   * 10) / 10;
                   const totalNet  = Math.round((femaleNet + maleNet) * 10) / 10;
+                  // Non-gender-split fallback net also includes availability changes
+                  const netWithAvail = Math.round((displayHoursIn + availIncrease - displayHoursOut - availDecrease) * 10) / 10;
+
                   // Show gender split if live (always has data) or closed with stored gender data
                   const hasStoredGender = !isLive && isClosed && (
                     row.femaleHoursIn != null || row.maleHoursIn != null ||
                     row.femaleHoursOut != null || row.maleHoursOut != null
                   );
                   const showGenderSplit = isLive || hasStoredGender;
-
-                  // Availability changes for this month
-                  const availKey = `${row.year}-${row.month}`;
-                  const availIncrease = availByMonth[availKey]?.increase ?? 0;
-                  const availDecrease = availByMonth[availKey]?.decrease ?? 0;
 
                   return (
                     <TableRow
@@ -3030,7 +3039,7 @@ function MonthlyViewSheet({
                         })()}
                       </TableCell>
 
-                      {/* Net (gender split) */}
+                      {/* Net (gender split, includes availability changes) */}
                       <TableCell>
                         {showGenderSplit ? (
                           <div className="flex flex-col gap-0.5">
@@ -3044,16 +3053,16 @@ function MonthlyViewSheet({
                         ) : (
                           <span className={[
                             "font-semibold",
-                            net > 0 ? "text-emerald-600 dark:text-emerald-400"
-                            : net < 0 ? "text-red-600 dark:text-red-400"
+                            netWithAvail > 0 ? "text-emerald-600 dark:text-emerald-400"
+                            : netWithAvail < 0 ? "text-red-600 dark:text-red-400"
                             : "text-muted-foreground",
                           ].join(' ')}>
-                            {net === 0 ? '±0h' : net > 0 ? `+${net}h` : `${net}h`}
+                            {netWithAvail === 0 ? '±0h' : netWithAvail > 0 ? `+${netWithAvail}h` : `${netWithAvail}h`}
                           </span>
                         )}
                       </TableCell>
 
-                      {/* Total Net (combined male + female) */}
+                      {/* Total Net (combined, includes availability changes) */}
                       <TableCell>
                         <span className={[
                           "font-bold text-sm",
@@ -3063,7 +3072,7 @@ function MonthlyViewSheet({
                         ].join(' ')}>
                           {showGenderSplit
                             ? (totalNet === 0 ? '±0h' : totalNet > 0 ? `+${totalNet}h` : `${totalNet}h`)
-                            : (net === 0 ? '±0h' : net > 0 ? `+${net}h` : `${net}h`)
+                            : (netWithAvail === 0 ? '±0h' : netWithAvail > 0 ? `+${netWithAvail}h` : `${netWithAvail}h`)
                           }
                         </span>
                       </TableCell>
