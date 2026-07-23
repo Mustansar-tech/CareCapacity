@@ -2706,7 +2706,7 @@ function MonthlyViewSheet({
 
   return (
     <Sheet open={open} onOpenChange={v => { if (!v) onClose(); }}>
-      <SheetContent side="right" className="w-full sm:max-w-2xl flex flex-col gap-0 p-0">
+      <SheetContent side="right" className="w-full sm:max-w-[90vw] flex flex-col gap-0 p-0">
         <SheetHeader className="px-6 py-4 border-b border-border shrink-0">
           <div className="flex items-center justify-between">
             <SheetTitle className="flex items-center gap-2">
