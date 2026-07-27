@@ -1,0 +1,81 @@
+Subject: Care Capacity Dashboard — Redesigned Home & Capacity Outlook
+
+Hi team,
+
+We've redesigned the Home dashboard and Capacity Outlook pages. If you've logged in recently you'll already see the new look — here's a breakdown of exactly what changed and why.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+HOME DASHBOARD — BEFORE & AFTER
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+BEFORE
+  • Large centred "Welcome to Care Capacity Dashboard" banner taking up
+    the top quarter of the screen
+  • Upload and Process buttons on their own separate row
+  • "Select Week:" label with a standalone week picker below that
+  • Two rows of 10 KPI tiles (Desired Hours, Unavailability, Sickness,
+    Holidays, Net Capacity, Domiciliary Hours, Client Scheduled,
+    Other Scheduled, Capacity After Scheduling, GH Loss)
+
+AFTER
+  ✓ New compact hero header:
+    — "This week at a glance" pill badge
+    — "Welcome back — [Branch Name]" headline with your branch name
+      highlighted in green — instantly tells you which branch you're on
+    — One-line subtitle beneath it
+
+  ✓ Live capacity vs demand trend chart sits alongside the header,
+    showing all processed weeks plus a 1-week forecast at a glance.
+    Chart labels now show real dates (e.g. "27 Jul") instead of
+    week numbers like "Wk 31".
+
+  ✓ Controls are now one clean row pinned to the bottom of the header:
+    Upload New Data · Process Data · week navigation · last-sync time.
+    No more hunting across the page for these.
+
+  ✓ Removed noise: the short-days pill row, stat chips (supply %,
+    demand met, capacity lost), and the old status/greeting narrative
+    have all been stripped out.
+
+  ✓ KPI tiles remain below the header, unchanged in data — just
+    easier to reach now that the header doesn't dominate.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+CAPACITY OUTLOOK — BEFORE & AFTER
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+BEFORE
+  • 5-column KPI card grid (In Pipeline, Staff Leaving, Risk, Running Net,
+    Available Changes — in no particular workflow order)
+  • A standalone Risk card shown in the KPI row
+  • Stage badges (PVG, REF1, REF2) only visible when a stage was active —
+    you couldn't tell at a glance what was still outstanding
+  • Joiner edit modal included a Confidence % field
+
+AFTER
+  ✓ KPI cards reordered to match your actual workflow:
+    In Pipeline → Available Changes → Staff Leaving → Running Net
+    Grid tightened from 5 to 4 columns.
+
+  ✓ Risk card removed from the KPI row — reduces visual noise.
+
+  ✓ Stage badges always visible on every joiner row:
+    — RED  = PVG / REF1 / REF2 not yet completed
+    — GREEN = stage saved and complete
+    No more expanding rows to check what's outstanding.
+
+  ✓ Confidence % field removed from the joiner edit modal.
+    Simplified the data entry to only what's needed.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Everything is live now — just refresh your browser.
+No changes to your data, only the layout and presentation.
+
+Questions or feedback? Reply to this email.
+
+Best,
+Care Capacity Dashboard Team
+Home Instead

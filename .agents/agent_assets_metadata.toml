@@ -18,3 +18,9 @@ id = "bEZwEICwK27G4JGD7NIjQ"
 uri = "file://email-update.txt"
 type = "text"
 title = "Email — ready to paste into Outlook"
+
+[[outputs]]
+id = "rrWIM-fbnm8IXvjZT_j_Z"
+uri = "file://email-platform-update.txt"
+type = "text"
+title = "Updated Email — Before & After Dashboard Redesign"
