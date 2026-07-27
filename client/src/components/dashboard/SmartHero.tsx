@@ -299,24 +299,37 @@ export function SmartHero({
           <div className="flex-1 min-w-[320px] flex flex-col">
 
             {/* ── Opening section ── */}
-            <div className="flex items-start gap-4 mb-3">
-              <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-emerald-600 to-emerald-900 flex items-center justify-center shadow-lg ring-2 ring-emerald-700/20 shrink-0 mt-0.5">
-                <Building2 className="w-5 h-5 text-white" />
-              </div>
-              <div className="min-w-0 flex-1">
-                {/* Branch name */}
-                <h1 className="text-[26px] font-black tracking-tight leading-none text-foreground truncate mb-2">
+            <div className="mb-4">
+
+              {/* Row 1: icon + branch name */}
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-900 flex items-center justify-center shadow-md shrink-0">
+                  <Building2 className="w-5 h-5 text-white" />
+                </div>
+                <h1 className="text-[28px] font-black tracking-tight leading-none bg-gradient-to-r from-foreground via-foreground to-emerald-700 dark:to-emerald-400 bg-clip-text text-transparent">
                   {selectedBranch?.displayName ?? <span className="text-muted-foreground font-normal text-xl">No branch selected</span>}
                 </h1>
+              </div>
 
-                {/* Narrative */}
-                <p className="text-sm leading-relaxed max-w-md">
-                  <span className="font-bold text-foreground">Intelligent</span>{" "}
-                  <span className="text-muted-foreground">workforce capacity analysis for</span>{" "}
-                  <span className="font-bold text-emerald-600 dark:text-emerald-400">optimal care scheduling</span>{" "}
-                  <span className="text-muted-foreground">and</span>{" "}
-                  <span className="font-bold text-foreground">resource management.</span>
-                </p>
+              {/* Row 2: large narrative */}
+              <p className="text-[15px] font-medium leading-snug text-foreground/70 max-w-sm mb-3">
+                <span className="font-extrabold text-foreground">Intelligent</span>{" "}workforce capacity analysis for{" "}
+                <span className="font-extrabold text-emerald-600 dark:text-emerald-400">optimal care scheduling</span>{" "}
+                and <span className="font-extrabold text-foreground">resource management</span>
+                <span className="text-emerald-500 font-black">.</span>
+              </p>
+
+              {/* Row 3: capability pills */}
+              <div className="flex flex-wrap gap-1.5">
+                <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+                  <Zap className="w-3 h-3" /> Live Analytics
+                </span>
+                <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full bg-blue-50 dark:bg-blue-950/50 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+                  <Calendar className="w-3 h-3" /> Smart Scheduling
+                </span>
+                <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full bg-violet-50 dark:bg-violet-950/50 text-violet-700 dark:text-violet-300 border border-violet-200 dark:border-violet-800">
+                  <TrendingUp className="w-3 h-3" /> Capacity Trends
+                </span>
               </div>
             </div>
 
