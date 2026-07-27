@@ -191,10 +191,10 @@ export function SmartHero({
     const ci = currentIndex >= 0 ? currentIndex : sortedHistory.length - 1;
     return sortedHistory.map((h, i) => {
       const d = h.weekStartDate ? new Date(h.weekStartDate) : null;
-      const weekNum = d ? isoWeek(d) : null;
+      const shortDate = d ? d.toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "UTC" }) : null;
       return {
-        label:      weekNum ? `Wk ${weekNum}` : `Wk ${i + 1}`,
-        subLabel:   d ? d.toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "UTC" }) : "",
+        label:      shortDate ?? `Wk ${i + 1}`,
+        subLabel:   shortDate ?? "",
         net:        Math.round((h.kpis?.netCapacitySum      ?? 0) * 10) / 10,
         required:   Math.round((h.kpis?.clientRequiredSum   ?? 0) * 10) / 10,
         isCurrent:  i === ci,
@@ -234,9 +234,7 @@ export function SmartHero({
       base[base.length - 1].projReq = base[base.length - 1].required;
 
       // Next week label
-      const lastLabel = base[base.length - 1].label;
-      const m = lastLabel.match(/Wk (\d+)/);
-      const nextLabel = m ? `Wk ${parseInt(m[1]) + 1}` : "Next";
+      const nextLabel = "Next";
 
       base.push({
         label: nextLabel, subLabel: "forecast",
@@ -255,10 +253,10 @@ export function SmartHero({
     const start = Math.max(0, end - 3);
     return sortedHistory.slice(start, end + 1).map((h, i, arr) => {
       const d = h.weekStartDate ? new Date(h.weekStartDate) : null;
-      const weekNum = d ? isoWeek(d) : null;
+      const shortDate = d ? d.toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "UTC" }) : null;
       return {
-        label:     weekNum ? `Wk ${weekNum}` : `Wk ${i + 1}`,
-        subLabel:  d ? d.toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "UTC" }) : "",
+        label:     shortDate ?? `Wk ${i + 1}`,
+        subLabel:  shortDate ?? "",
         net:       Math.round((h.kpis?.netCapacitySum ?? 0) * 10) / 10,
         required:  Math.round((h.kpis?.clientRequiredSum ?? 0) * 10) / 10,
         scheduled: Math.round((h.kpis?.clientScheduledHoursSum ?? 0) * 10) / 10,
@@ -431,7 +429,7 @@ export function SmartHero({
                       <Select value={selectedWeekId || "latest"} onValueChange={handleWeekChange}>
                         <SelectTrigger className="border-0 p-0 h-auto text-xs font-medium text-foreground bg-transparent shadow-none focus:ring-0 w-auto min-w-[10rem] max-w-[14rem]">
                           <SelectValue>
-                            {weekLabel.range}
+                            Week · {weekLabel.range}
                           </SelectValue>
                         </SelectTrigger>
                         <SelectContent align="start">
@@ -451,7 +449,7 @@ export function SmartHero({
                                   const { range, weekNum } = formatWeekRange(a.weekStartDate, a.weekEndDate);
                                   return (
                                     <SelectItem key={a.id} value={a.id}>
-                                      {weekNum ? `Week ${weekNum} · ` : ""}{range}
+                                      {range}
                                     </SelectItem>
                                   );
                                 } catch { return null; }
