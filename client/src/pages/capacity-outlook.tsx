@@ -1787,16 +1787,26 @@ export default function CapacityOutlookPage() {
                               <div className="flex items-center gap-1 flex-wrap">
                                 {j.stage === 'Dropped' ? (
                                   <Badge className="text-xs bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400">Dropped</Badge>
-                                ) : (j.completedStages && j.completedStages.length > 0 ? j.completedStages : [j.stage])
-                                  .filter(m => m !== 'Onboarding' && m !== 'Training Attended')
-                                  .map(m => (
-                                  <Badge key={m} className={[
-                                    "text-xs",
-                                    m === 'PVG' || m === 'REF1' || m === 'REF2'
-                                      ? "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300"
-                                      : "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300",
-                                  ].join(' ')}>{m}</Badge>
-                                ))}
+                                ) : (<>
+                                  {/* PVG / REF1 / REF2 — always shown: red until saved, green once completed */}
+                                  {(['PVG', 'REF1', 'REF2'] as const).map(m => {
+                                    const done = (j.completedStages ?? []).includes(m);
+                                    return (
+                                      <Badge key={m} className={[
+                                        "text-xs",
+                                        done
+                                          ? "bg-emerald-500 text-white dark:bg-emerald-600"
+                                          : "bg-red-400 text-white dark:bg-red-500",
+                                      ].join(' ')}>{m}</Badge>
+                                    );
+                                  })}
+                                  {/* Other completed stages (e.g. Hired) — amber, only shown when present */}
+                                  {(j.completedStages && j.completedStages.length > 0 ? j.completedStages : [j.stage])
+                                    .filter(m => m !== 'Onboarding' && m !== 'Training Attended' && m !== 'PVG' && m !== 'REF1' && m !== 'REF2')
+                                    .map(m => (
+                                      <Badge key={m} className="text-xs bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300">{m}</Badge>
+                                    ))}
+                                </>)}
                               </div>
                             </TableCell>
                             <TableCell>
