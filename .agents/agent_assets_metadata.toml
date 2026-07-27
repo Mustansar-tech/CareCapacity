@@ -12,3 +12,9 @@ id = "5lQOzoQCpRDW6g1aQBv6a"
 uri = "file://email-update.html"
 type = "unspecified"
 title = "Platform Update Email — Dashboard & Capacity Outlook"
+
+[[outputs]]
+id = "bEZwEICwK27G4JGD7NIjQ"
+uri = "file://email-update.txt"
+type = "text"
+title = "Email — ready to paste into Outlook"

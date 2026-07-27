@@ -1,0 +1,60 @@
+Subject: Platform Update — Dashboard & Capacity Outlook improvements now live
+
+Hi team,
+
+We've shipped a focused set of improvements to two key pages on the Care Capacity Dashboard. Everything is live now — just refresh your browser to see the changes.
+
+Here's a summary of what's new.
+
+──────────────────────────────────────────
+HOME DASHBOARD
+──────────────────────────────────────────
+
+▸ Redesigned header
+  The opening section now shows a clean "Welcome back — [Branch Name]" headline
+  with a "This week at a glance" badge and a short description beneath it.
+
+▸ Controls moved to the bottom
+  Upload New Data, Process Data, week navigation, and the last-sync timestamp
+  are now in a single row pinned to the bottom of the panel — out of the way
+  until you need them.
+
+▸ Chart labels now show dates, not week numbers
+  The capacity vs demand chart now displays short dates like "27 Jul" instead
+  of "Wk 31", so you no longer need to mentally translate week numbers.
+
+▸ Removed clutter
+  The short-days pill row, stat chips (supply %, demand met, capacity lost),
+  and the old status/greeting narrative have all been removed.
+
+
+──────────────────────────────────────────
+CAPACITY OUTLOOK
+──────────────────────────────────────────
+
+▸ Stage badges always visible
+  PVG, REF1, and REF2 badges now appear on every joiner row at all times —
+  red when not yet completed, green once saved. No more expanding rows just
+  to check what's outstanding.
+
+▸ KPI cards reordered
+  The four summary cards are now in workflow order:
+  In Pipeline → Available Changes → Staff Leaving → Running Net
+
+▸ Risk card removed
+  The standalone Risk card has been removed from the KPI row to reduce noise.
+
+▸ Confidence % removed from joiner modal
+  The Confidence % field has been removed from the joiner edit modal to
+  simplify the data entry workflow.
+
+
+──────────────────────────────────────────
+
+All changes are live now. Just refresh the dashboard to see them.
+
+Questions or feedback? Reply to this email and we'll get back to you.
+
+Best,
+Care Capacity Dashboard Team
+Home Instead
