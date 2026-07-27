@@ -17,7 +17,7 @@ import { WeekProvider, useWeek } from "@/contexts/WeekContext";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { CookieBanner } from "@/components/CookieBanner";
 import { Component, ComponentType, ErrorInfo, ReactNode, useState, useEffect, useRef, useCallback } from "react";
-import { Shield, LogOut, ChevronDown, Clock, AlertTriangle } from "lucide-react";
+import { Shield, LogOut, ChevronDown, Clock, AlertTriangle, BookOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,

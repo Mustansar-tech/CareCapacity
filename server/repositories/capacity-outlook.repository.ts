@@ -235,7 +235,7 @@ export async function computeOutlook(
   // Future-dated availability changes that kick in within the forecast horizon
   const todayMonday = currentIsoWeekMonday();
   const allAvailChangesForOutlook = await getAvailabilityChanges(branchId);
-  const futureAvailChanges = allAvailChangesForOutlook.filter(c => c.effectiveDate >= todayMonday);
+  const futureAvailChanges = allAvailChangesForOutlook.filter(c => c.effectiveDate != null && c.effectiveDate >= todayMonday);
 
   const weeks: OutlookWeek[] = [];
 
@@ -253,7 +253,7 @@ export async function computeOutlook(
     }
     // Availability changes effective this week
     for (const ac of futureAvailChanges) {
-      if (ac.effectiveDate >= weekStart && ac.effectiveDate <= weekEnd) {
+      if (ac.effectiveDate != null && ac.effectiveDate >= weekStart && ac.effectiveDate <= weekEnd) {
         const delta = (ac.newHours ?? 0) - (ac.previousHours ?? 0);
         if (delta > 0) hoursGained += delta;
         else if (delta < 0) hoursLost += Math.abs(delta);
@@ -432,8 +432,8 @@ export async function computeCumulativeKpi(branchId: string): Promise<Cumulative
 
   // ── Availability changes ────────────────────────────────────────────────────
   const allAvailChanges = await getAvailabilityChanges(branchId);
-  const effectiveAvail = allAvailChanges.filter(c => c.effectiveDate <= todayStr);
-  const pendingAvail   = allAvailChanges.filter(c => c.effectiveDate >  todayStr);
+  const effectiveAvail = allAvailChanges.filter(c => c.effectiveDate != null && c.effectiveDate <= todayStr);
+  const pendingAvail   = allAvailChanges.filter(c => c.effectiveDate != null && c.effectiveDate >  todayStr);
 
   let availIncreasedHours = 0;
   let availDecreasedHours = 0;
