@@ -383,17 +383,6 @@ export function SmartHero({
                   )}
                 </div>
 
-                {/* Short day pills */}
-                {narrative.shortDays.length > 0 && (
-                  <div className="flex items-center gap-1.5 flex-wrap mb-3">
-                    <span className="text-[10px] text-muted-foreground font-medium">Short days:</span>
-                    {narrative.shortDays.map(day => (
-                      <span key={day} className="text-[10px] bg-red-50 dark:bg-red-950 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800 px-1.5 py-0.5 rounded-full font-medium">
-                        {day}
-                      </span>
-                    ))}
-                  </div>
-                )}
 
                 {/* Action bar — row 1: buttons */}
                 <div className="flex flex-wrap items-center gap-2 mb-2">
