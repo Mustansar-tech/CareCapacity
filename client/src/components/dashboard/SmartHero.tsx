@@ -348,40 +348,6 @@ export function SmartHero({
                   )}.
                 </p>
 
-                {/* Stat chips */}
-                <div className="flex flex-wrap gap-2 mb-3">
-                  <div className="flex items-center gap-2 bg-muted/60 rounded-lg px-3 py-1.5">
-                    <div className="text-right">
-                      <div className="text-sm font-bold text-foreground">{narrative.supplyPct}%</div>
-                      <div className="text-[10px] text-muted-foreground leading-none">supply</div>
-                    </div>
-                    <div className="w-16 h-1.5 rounded-full bg-border overflow-hidden">
-                      <div className={`h-full rounded-full ${cfg.bar}`} style={{ width: `${Math.min(narrative.supplyPct, 100)}%` }} />
-                    </div>
-                  </div>
-
-                  {narrative.demandCoverage > 0 && (
-                    <div className="flex items-center gap-2 bg-muted/60 rounded-lg px-3 py-1.5">
-                      <div className="text-right">
-                        <div className="text-sm font-bold text-foreground">{narrative.demandCoverage}%</div>
-                        <div className="text-[10px] text-muted-foreground leading-none">demand met</div>
-                      </div>
-                      <div className="w-16 h-1.5 rounded-full bg-border overflow-hidden">
-                        <div className="h-full rounded-full bg-blue-500" style={{ width: `${Math.min(narrative.demandCoverage, 100)}%` }} />
-                      </div>
-                    </div>
-                  )}
-
-                  {narrative.drainHours > 0 && (
-                    <div className="flex items-center gap-1.5 bg-muted/60 rounded-lg px-3 py-1.5">
-                      <AlertTriangle className="w-3 h-3 text-red-500 shrink-0" />
-                      <div>
-                        <div className="text-sm font-bold text-foreground">{narrative.drainHours}h</div>
-                        <div className="text-[10px] text-muted-foreground leading-none">capacity lost</div>
-                      </div>
-                    </div>
-                  )}
-                </div>
 
 
                 {/* Action bar — row 1: buttons */}
