@@ -6,3 +6,9 @@ id = "vOW6smyHGL0lqhHfheYYw"
 uri = "file://docs/capacity-outlook.md"
 type = "text"
 title = "Capacity Outlook — Rules, Logic & Improvements"
+
+[[outputs]]
+id = "5lQOzoQCpRDW6g1aQBv6a"
+uri = "file://email-update.html"
+type = "unspecified"
+title = "Platform Update Email — Dashboard & Capacity Outlook"

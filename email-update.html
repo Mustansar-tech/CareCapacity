@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Platform Update — Dashboard &amp; Capacity Outlook</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #f4f4f5;
+      color: #18181b;
+      padding: 32px 16px;
+    }
+    .wrapper {
+      max-width: 600px;
+      margin: 0 auto;
+      background: #ffffff;
+      border-radius: 12px;
+      overflow: hidden;
+      border: 1px solid #e4e4e7;
+    }
+
+    /* Header */
+    .header {
+      background: #14532d;
+      padding: 36px 40px 28px;
+    }
+    .header-logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+    .header-logo-icon {
+      width: 36px; height: 36px;
+      background: #16a34a;
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .header-logo-icon svg { display: block; }
+    .header-logo-text {
+      font-size: 13px;
+      font-weight: 700;
+      color: #bbf7d0;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+    .header-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(255,255,255,0.12);
+      border: 1px solid rgba(255,255,255,0.2);
+      border-radius: 999px;
+      padding: 4px 12px;
+      font-size: 11px;
+      font-weight: 600;
+      color: #d1fae5;
+      letter-spacing: 0.03em;
+      margin-bottom: 14px;
+    }
+    .header h1 {
+      font-size: 26px;
+      font-weight: 800;
+      color: #ffffff;
+      line-height: 1.2;
+      margin-bottom: 8px;
+    }
+    .header h1 span { color: #4ade80; }
+    .header p {
+      font-size: 13px;
+      color: #86efac;
+      line-height: 1.6;
+    }
+
+    /* Body */
+    .body { padding: 36px 40px; }
+
+    .intro {
+      font-size: 14px;
+      color: #3f3f46;
+      line-height: 1.7;
+      margin-bottom: 32px;
+      padding-bottom: 24px;
+      border-bottom: 1px solid #f4f4f5;
+    }
+
+    /* Section */
+    .section { margin-bottom: 32px; }
+    .section-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+    .section-icon {
+      width: 32px; height: 32px;
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .section-icon.green  { background: #dcfce7; }
+    .section-icon.blue   { background: #dbeafe; }
+    .section-label {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #71717a;
+    }
+    .section-title {
+      font-size: 17px;
+      font-weight: 700;
+      color: #18181b;
+    }
+
+    /* Change cards */
+    .change-list { display: flex; flex-direction: column; gap: 10px; }
+    .change-card {
+      background: #fafafa;
+      border: 1px solid #e4e4e7;
+      border-radius: 8px;
+      padding: 14px 16px;
+      display: flex;
+      gap: 12px;
+      align-items: flex-start;
+    }
+    .change-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      margin-top: 6px;
+      flex-shrink: 0;
+    }
+    .change-dot.green  { background: #16a34a; }
+    .change-dot.blue   { background: #2563eb; }
+    .change-dot.violet { background: #7c3aed; }
+    .change-dot.amber  { background: #d97706; }
+    .change-card-content {}
+    .change-card-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: #18181b;
+      margin-bottom: 3px;
+    }
+    .change-card-desc {
+      font-size: 12px;
+      color: #71717a;
+      line-height: 1.5;
+    }
+
+    /* Divider */
+    .divider {
+      border: none;
+      border-top: 1px solid #f4f4f5;
+      margin: 28px 0;
+    }
+
+    /* Footer */
+    .footer {
+      background: #fafafa;
+      border-top: 1px solid #e4e4e7;
+      padding: 24px 40px;
+      text-align: center;
+    }
+    .footer p {
+      font-size: 12px;
+      color: #a1a1aa;
+      line-height: 1.6;
+    }
+    .footer strong { color: #71717a; }
+  </style>
+</head>
+<body>
+  <div class="wrapper">
+
+    <!-- Header -->
+    <div class="header">
+      <div class="header-logo">
+        <div class="header-logo-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+            <polyline points="9 22 9 12 15 12 15 22"/>
+          </svg>
+        </div>
+        <span class="header-logo-text">Care Capacity Dashboard</span>
+      </div>
+      <div class="header-pill">
+        ✦ &nbsp;Platform Update · 27 July 2026
+      </div>
+      <h1>What's new in your <span>dashboard</span></h1>
+      <p>We've updated two key pages — the Home dashboard and Capacity Outlook — to make your workforce data cleaner and easier to act on.</p>
+    </div>
+
+    <!-- Body -->
+    <div class="body">
+
+      <p class="intro">
+        Hi team,<br /><br />
+        We've shipped a focused round of improvements to the <strong>Home dashboard</strong> and <strong>Capacity Outlook</strong> pages. The changes are live now — here's a quick summary of everything that's changed and why.
+      </p>
+
+      <!-- Section 1: Dashboard -->
+      <div class="section">
+        <div class="section-header">
+          <div class="section-icon green">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/>
+              <rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>
+            </svg>
+          </div>
+          <div>
+            <div class="section-label">Page 1</div>
+            <div class="section-title">Home Dashboard</div>
+          </div>
+        </div>
+
+        <div class="change-list">
+          <div class="change-card">
+            <div class="change-dot green"></div>
+            <div class="change-card-content">
+              <div class="change-card-title">Redesigned hero header</div>
+              <div class="change-card-desc">The opening section now shows a clear "Welcome back — Branch Name" headline with your active branch name highlighted in green. A "This week at a glance" pill badge and a short description sit beneath it. Cleaner, faster to read at a glance.</div>
+            </div>
+          </div>
+
+          <div class="change-card">
+            <div class="change-dot green"></div>
+            <div class="change-card-content">
+              <div class="change-card-title">Controls moved to the bottom</div>
+              <div class="change-card-desc">Upload New Data, Process Data, week navigation and the sync timestamp are now all in a single row pinned to the bottom of the panel — out of the way until you need them.</div>
+            </div>
+          </div>
+
+          <div class="change-card">
+            <div class="change-dot blue"></div>
+            <div class="change-card-content">
+              <div class="change-card-title">Chart labels now show dates, not week numbers</div>
+              <div class="change-card-desc">The capacity vs demand trend chart X-axis now displays short dates (e.g. "27 Jul") instead of "Wk 31". No more mentally mapping week numbers to actual dates.</div>
+            </div>
+          </div>
+
+          <div class="change-card">
+            <div class="change-dot violet"></div>
+            <div class="change-card-content">
+              <div class="change-card-title">Removed clutter</div>
+              <div class="change-card-desc">The short-days pill row, stat chips (supply %, demand met, capacity lost), and the status/greeting narrative block have all been removed. The page is now significantly less noisy.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <hr class="divider" />
+
+      <!-- Section 2: Capacity Outlook -->
+      <div class="section">
+        <div class="section-header">
+          <div class="section-icon blue">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+            </svg>
+          </div>
+          <div>
+            <div class="section-label">Page 2</div>
+            <div class="section-title">Capacity Outlook</div>
+          </div>
+        </div>
+
+        <div class="change-list">
+          <div class="change-card">
+            <div class="change-dot green"></div>
+            <div class="change-card-content">
+              <div class="change-card-title">Stage badges always visible</div>
+              <div class="change-card-desc">PVG, REF1, and REF2 stage badges are now always shown on every joiner row — red when not yet completed, green once saved. You can instantly see what's outstanding without expanding a row.</div>
+            </div>
+          </div>
+
+          <div class="change-card">
+            <div class="change-dot blue"></div>
+            <div class="change-card-content">
+              <div class="change-card-title">KPI cards reordered</div>
+              <div class="change-card-desc">The four summary cards are now ordered to match the natural workflow: <strong>In Pipeline → Available Changes → Staff Leaving → Running Net</strong>. The grid is also tightened from 5 to 4 columns.</div>
+            </div>
+          </div>
+
+          <div class="change-card">
+            <div class="change-dot amber"></div>
+            <div class="change-card-content">
+              <div class="change-card-title">Risk card removed</div>
+              <div class="change-card-desc">The standalone Risk card has been removed from the KPI row to reduce noise. Risk context is still available within individual row data.</div>
+            </div>
+          </div>
+
+          <div class="change-card">
+            <div class="change-dot violet"></div>
+            <div class="change-card-content">
+              <div class="change-card-title">Confidence % removed from joiner modal</div>
+              <div class="change-card-desc">The Confidence % field has been removed from the joiner edit modal. It was creating unnecessary friction and has been simplified out of the workflow.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /body -->
+
+    <!-- Footer -->
+    <div class="footer">
+      <p>
+        These changes are live on your dashboard now — just refresh to see them.<br />
+        Questions or feedback? Reply directly to this email.<br /><br />
+        <strong>Care Capacity Dashboard</strong> &nbsp;·&nbsp; Home Instead
+      </p>
+    </div>
+
+  </div>
+</body>
+</html>
