@@ -299,18 +299,25 @@ export function SmartHero({
           <div className="flex-1 min-w-[320px] flex flex-col">
 
             {/* ── Opening section ── */}
-            <div className="flex items-start gap-3 mb-5">
-              <div className="w-10 h-10 rounded-xl bg-emerald-700 flex items-center justify-center shadow-sm shrink-0 mt-0.5">
-                <Building2 className="w-5 h-5 text-white" />
+            <div className="mb-5">
+              {/* Pill badge */}
+              <div className="inline-flex items-center gap-1.5 text-[11px] font-medium text-foreground/70 border border-border rounded-full px-3 py-1 mb-3">
+                <Zap className="w-3 h-3 text-emerald-600" />
+                This week at a glance
               </div>
-              <div className="min-w-0">
-                <h1 className="text-[28px] font-extrabold tracking-tight leading-none text-foreground truncate">
-                  {selectedBranch?.displayName ?? <span className="text-muted-foreground font-normal text-xl">No branch selected</span>}
-                </h1>
-                <p className="text-[13px] text-muted-foreground mt-1.5 leading-relaxed">
-                  Intelligent workforce capacity analysis for optimal care scheduling and resource management.
-                </p>
-              </div>
+
+              {/* Headline */}
+              <h1 className="text-[30px] font-extrabold tracking-tight leading-tight text-foreground">
+                Welcome back —{" "}
+                <span className="text-emerald-700 dark:text-emerald-400">
+                  {selectedBranch?.displayName ?? "select a branch"}
+                </span>
+              </h1>
+
+              {/* Subtitle */}
+              <p className="text-[13px] text-muted-foreground mt-1.5">
+                Intelligent workforce capacity for optimal care scheduling and resource management.
+              </p>
             </div>
 
             {/* ── Single control bar — pinned to bottom ── */}
