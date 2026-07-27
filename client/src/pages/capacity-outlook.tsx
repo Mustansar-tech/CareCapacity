@@ -680,15 +680,6 @@ function JoinerModal({
                 })}
               </div>
               <div className="flex items-center gap-3 mt-2">
-                <div className={[
-                  "text-sm font-semibold",
-                  liveConfidence >= 1.0 ? "text-yellow-600 dark:text-yellow-400"
-                  : liveConfidence >= 0.7 ? "text-emerald-600 dark:text-emerald-400"
-                  : liveConfidence >= 0.4 ? "text-amber-600 dark:text-amber-400"
-                  : "text-muted-foreground",
-                ].join(' ')}>
-                  {isHired ? '✓ Hired — 100% confident' : `Total confidence: ${Math.round(liveConfidence * 100)}%`}
-                </div>
                 {!isHired && (
                   <button
                     type="button"
@@ -1473,57 +1464,7 @@ export default function CapacityOutlookPage() {
       <div className="flex-1 overflow-y-auto px-6 py-4 space-y-5">
 
         {/* KPI cards */}
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-
-          {/* Staff Leaving */}
-          <Card className="hover-lift animate-scale-in border-l-4 border-l-red-400 bg-red-50/40 dark:bg-red-950/10">
-            <CardHeader className="pb-2 pt-4 px-4">
-              <CardTitle className="text-xs font-semibold text-red-700 dark:text-red-400 flex items-center gap-1.5">
-                <div className="w-6 h-6 rounded-md bg-gradient-to-br from-red-500 to-red-600 flex items-center justify-center shadow-sm">
-                  <TrendingDown className="w-3.5 h-3.5 text-white" />
-                </div>
-                Staff Leaving
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="px-4 pb-4">
-              {leaversQuery.isLoading ? (
-                <div className="h-8 bg-muted animate-pulse rounded" />
-              ) : (
-                <>
-                  <div className="mt-1 space-y-1">
-                    {alreadyGone.length === 0 && onNotice.length === 0 ? (
-                      <div className="text-sm text-muted-foreground">no active leavers</div>
-                    ) : (
-                      <>
-                        {alreadyGone.length > 0 && (
-                          <div className="flex items-baseline gap-1.5 text-red-600 dark:text-red-400">
-                            <span className="text-2xl font-bold leading-none">{alreadyGone.length}</span>
-                            <span className="text-xs font-medium">{hoursAlreadyGone}h/wk already gone</span>
-                          </div>
-                        )}
-                        {onNotice.length > 0 && (
-                          <div className="flex items-baseline gap-1.5 text-amber-600 dark:text-amber-400">
-                            <span className="text-2xl font-bold leading-none">{onNotice.length}</span>
-                            <span className="text-xs">{hoursOnNotice}h/wk still on notice</span>
-                          </div>
-                        )}
-                      </>
-                    )}
-                    {((monthlyQuery.data?.live.hoursOut ?? 0) > 0 || (monthlyQuery.data?.live.headsOut ?? 0) > 0) && (
-                      <div className="text-xs text-red-500/70 dark:text-red-400/70 border-t border-red-100 dark:border-red-900/30 pt-1 mt-1">
-                        {monthlyQuery.data!.live.hoursOut}h out · {monthlyQuery.data!.live.headsOut} {monthlyQuery.data!.live.headsOut === 1 ? 'leaver' : 'leavers'} this month
-                      </div>
-                    )}
-                    {(cumKpi?.terminatedYtd ?? 0) > 0 && (
-                      <div className="text-xs text-red-400/70 dark:text-red-500/60 mt-1">
-                        {cumKpi!.terminatedYtd} terminated this year
-                      </div>
-                    )}
-                  </div>
-                </>
-              )}
-            </CardContent>
-          </Card>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
 
           {/* In Pipeline */}
           <Card className="hover-lift animate-scale-in border-l-4 border-l-emerald-400 bg-emerald-50/40 dark:bg-emerald-950/10">
@@ -1621,6 +1562,56 @@ export default function CapacityOutlookPage() {
             </CardContent>
           </Card>
 
+          {/* Staff Leaving */}
+          <Card className="hover-lift animate-scale-in border-l-4 border-l-red-400 bg-red-50/40 dark:bg-red-950/10">
+            <CardHeader className="pb-2 pt-4 px-4">
+              <CardTitle className="text-xs font-semibold text-red-700 dark:text-red-400 flex items-center gap-1.5">
+                <div className="w-6 h-6 rounded-md bg-gradient-to-br from-red-500 to-red-600 flex items-center justify-center shadow-sm">
+                  <TrendingDown className="w-3.5 h-3.5 text-white" />
+                </div>
+                Staff Leaving
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="px-4 pb-4">
+              {leaversQuery.isLoading ? (
+                <div className="h-8 bg-muted animate-pulse rounded" />
+              ) : (
+                <>
+                  <div className="mt-1 space-y-1">
+                    {alreadyGone.length === 0 && onNotice.length === 0 ? (
+                      <div className="text-sm text-muted-foreground">no active leavers</div>
+                    ) : (
+                      <>
+                        {alreadyGone.length > 0 && (
+                          <div className="flex items-baseline gap-1.5 text-red-600 dark:text-red-400">
+                            <span className="text-2xl font-bold leading-none">{alreadyGone.length}</span>
+                            <span className="text-xs font-medium">{hoursAlreadyGone}h/wk already gone</span>
+                          </div>
+                        )}
+                        {onNotice.length > 0 && (
+                          <div className="flex items-baseline gap-1.5 text-amber-600 dark:text-amber-400">
+                            <span className="text-2xl font-bold leading-none">{onNotice.length}</span>
+                            <span className="text-xs">{hoursOnNotice}h/wk still on notice</span>
+                          </div>
+                        )}
+                      </>
+                    )}
+                    {((monthlyQuery.data?.live.hoursOut ?? 0) > 0 || (monthlyQuery.data?.live.headsOut ?? 0) > 0) && (
+                      <div className="text-xs text-red-500/70 dark:text-red-400/70 border-t border-red-100 dark:border-red-900/30 pt-1 mt-1">
+                        {monthlyQuery.data!.live.hoursOut}h out · {monthlyQuery.data!.live.headsOut} {monthlyQuery.data!.live.headsOut === 1 ? 'leaver' : 'leavers'} this month
+                      </div>
+                    )}
+                    {(cumKpi?.terminatedYtd ?? 0) > 0 && (
+                      <div className="text-xs text-red-400/70 dark:text-red-500/60 mt-1">
+                        {cumKpi!.terminatedYtd} terminated this year
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
+            </CardContent>
+          </Card>
+
           {/* Running Net */}
           <Card className="hover-lift animate-scale-in border-l-4 border-l-blue-400 bg-blue-50/40 dark:bg-blue-950/10">
             <CardHeader className="pb-2 pt-4 px-4">
@@ -1661,27 +1652,6 @@ export default function CapacityOutlookPage() {
                   </>
                 );
               })()}
-            </CardContent>
-          </Card>
-
-          {/* Risk */}
-          <Card className={`hover-lift animate-scale-in border-l-4 ${cumKpi?.rag === 'red' ? 'border-l-red-500 bg-red-50/40 dark:bg-red-950/10' : cumKpi?.rag === 'amber' ? 'border-l-amber-400 bg-amber-50/40 dark:bg-amber-950/10' : 'border-l-emerald-400 bg-emerald-50/30 dark:bg-emerald-950/10'}`}>
-            <CardHeader className="pb-2 pt-4 px-4">
-              <CardTitle className={`text-xs font-semibold flex items-center gap-1.5 ${cumKpi?.rag === 'red' ? 'text-red-700 dark:text-red-400' : cumKpi?.rag === 'amber' ? 'text-amber-700 dark:text-amber-400' : 'text-emerald-700 dark:text-emerald-400'}`}>
-                <div className={`w-6 h-6 rounded-md bg-gradient-to-br ${ragBgClass(cumKpi?.rag ?? 'green')} flex items-center justify-center shadow-sm`}>
-                  <AlertTriangle className="w-3.5 h-3.5 text-white" />
-                </div>
-                Risk
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="px-4 pb-4">
-              {cumulativeKpiQuery.isLoading ? (
-                <div className="h-8 bg-muted animate-pulse rounded" />
-              ) : (
-                <div className="mt-1">
-                  <RagBadge rag={cumKpi?.rag ?? 'green'} />
-                </div>
-              )}
             </CardContent>
           </Card>
         </div>
