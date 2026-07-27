@@ -299,24 +299,37 @@ export function SmartHero({
           <div className="flex-1 min-w-[320px]">
 
             {/* ── Opening section ── */}
-            <div className="flex items-center gap-4 mb-3">
-              <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-emerald-600 to-emerald-900 flex items-center justify-center shadow-lg ring-2 ring-emerald-700/20 shrink-0">
+            <div className="flex items-start gap-4 mb-3">
+              <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-emerald-600 to-emerald-900 flex items-center justify-center shadow-lg ring-2 ring-emerald-700/20 shrink-0 mt-0.5">
                 <Building2 className="w-5 h-5 text-white" />
               </div>
-              <div className="min-w-0">
+              <div className="min-w-0 flex-1">
+                {/* Branch label */}
                 <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest block mb-0.5">Active Branch</span>
-                <h1 className="text-2xl font-extrabold tracking-tight leading-none text-foreground truncate">
-                  {selectedBranch?.displayName ?? <span className="text-muted-foreground font-normal">No branch selected</span>}
+
+                {/* Branch name */}
+                <h1 className="text-[26px] font-black tracking-tight leading-none text-foreground truncate mb-2">
+                  {selectedBranch?.displayName ?? <span className="text-muted-foreground font-normal text-xl">No branch selected</span>}
                 </h1>
-                <p className="text-[11px] text-muted-foreground mt-1.5 leading-snug max-w-sm">
-                  Every caregiver, every shift —{" "}
-                  <span className="text-emerald-600 dark:text-emerald-400 font-semibold">live workforce intelligence at your fingertips.</span>
-                </p>
+
+                {/* Live pulse + tagline */}
+                <div className="flex items-start gap-2.5">
+                  <span className="relative flex h-2 w-2 mt-1.5 shrink-0">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+                  </span>
+                  <p className="text-sm leading-relaxed">
+                    <span className="font-black text-foreground">Know your team.</span>{" "}
+                    <span className="font-black text-emerald-600 dark:text-emerald-400">Own the week.</span>{" "}
+                    <span className="text-muted-foreground">Every caregiver tracked, every shift covered —{" "}</span>
+                    <span className="font-bold text-foreground">zero guesswork.</span>
+                  </p>
+                </div>
               </div>
             </div>
 
-            {/* ── Single control bar ── */}
-            <div className="flex flex-wrap items-center gap-2">
+            {/* ── Single control bar (bottom) ── */}
+            <div className="flex flex-wrap items-center gap-2 mt-1">
               <Button onClick={onUploadClick} size="sm" className="h-8 px-4 text-xs bg-emerald-700 hover:bg-emerald-800 text-white border-0 shadow-sm">
                 <Upload className="w-3.5 h-3.5 mr-1.5" />
                 Upload New Data
