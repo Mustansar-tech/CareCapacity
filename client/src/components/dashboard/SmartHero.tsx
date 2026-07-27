@@ -431,7 +431,7 @@ export function SmartHero({
                       <Select value={selectedWeekId || "latest"} onValueChange={handleWeekChange}>
                         <SelectTrigger className="border-0 p-0 h-auto text-xs font-medium text-foreground bg-transparent shadow-none focus:ring-0 w-auto min-w-[10rem] max-w-[14rem]">
                           <SelectValue>
-                            Week {weekLabel.weekNum} · {weekLabel.range}
+                            {weekLabel.range}
                           </SelectValue>
                         </SelectTrigger>
                         <SelectContent align="start">
