@@ -296,7 +296,7 @@ export function SmartHero({
 
         <div className="flex items-start gap-6 flex-wrap lg:flex-nowrap">
           {/* ── Left: branch hero + controls ── */}
-          <div className="flex-1 min-w-[320px]">
+          <div className="flex-1 min-w-[320px] flex flex-col">
 
             {/* ── Opening section ── */}
             <div className="flex items-start gap-4 mb-3">
@@ -304,32 +304,24 @@ export function SmartHero({
                 <Building2 className="w-5 h-5 text-white" />
               </div>
               <div className="min-w-0 flex-1">
-                {/* Branch label */}
-                <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest block mb-0.5">Active Branch</span>
-
                 {/* Branch name */}
                 <h1 className="text-[26px] font-black tracking-tight leading-none text-foreground truncate mb-2">
                   {selectedBranch?.displayName ?? <span className="text-muted-foreground font-normal text-xl">No branch selected</span>}
                 </h1>
 
-                {/* Live pulse + tagline */}
-                <div className="flex items-start gap-2.5">
-                  <span className="relative flex h-2 w-2 mt-1.5 shrink-0">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                    <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
-                  </span>
-                  <p className="text-sm leading-relaxed">
-                    <span className="font-black text-foreground">Know your team.</span>{" "}
-                    <span className="font-black text-emerald-600 dark:text-emerald-400">Own the week.</span>{" "}
-                    <span className="text-muted-foreground">Every caregiver tracked, every shift covered —{" "}</span>
-                    <span className="font-bold text-foreground">zero guesswork.</span>
-                  </p>
-                </div>
+                {/* Narrative */}
+                <p className="text-sm leading-relaxed max-w-md">
+                  <span className="font-bold text-foreground">Intelligent</span>{" "}
+                  <span className="text-muted-foreground">workforce capacity analysis for</span>{" "}
+                  <span className="font-bold text-emerald-600 dark:text-emerald-400">optimal care scheduling</span>{" "}
+                  <span className="text-muted-foreground">and</span>{" "}
+                  <span className="font-bold text-foreground">resource management.</span>
+                </p>
               </div>
             </div>
 
-            {/* ── Single control bar (bottom) ── */}
-            <div className="flex flex-wrap items-center gap-2 mt-1">
+            {/* ── Single control bar — pinned to bottom ── */}
+            <div className="flex flex-wrap items-center gap-2 mt-auto pt-2">
               <Button onClick={onUploadClick} size="sm" className="h-8 px-4 text-xs bg-emerald-700 hover:bg-emerald-800 text-white border-0 shadow-sm">
                 <Upload className="w-3.5 h-3.5 mr-1.5" />
                 Upload New Data
