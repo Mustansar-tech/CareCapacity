@@ -2,7 +2,8 @@ Subject: Care Capacity Dashboard — Redesigned Home & Capacity Outlook
 
 Hi team,
 
-We've redesigned the Home dashboard and Capacity Outlook pages. If you've logged in recently you'll already see the new look — here's a breakdown of exactly what changed and why.
+We've redesigned the Home dashboard and Capacity Outlook pages. If you've logged in recently you'll already see the new look — here's a breakdown of
+ exactly what changed and why.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 HOME DASHBOARD — BEFORE & AFTER
