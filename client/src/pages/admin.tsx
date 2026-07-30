@@ -1047,143 +1047,152 @@ function CommunicationsTab() {
   const logoUrl = 'https://carecapacity.sur-group.co.uk/favicon.png';
 
   // ── Markdown-lite body parser ──────────────────────────────────────────────
-  // Supports: # H1  ## H2  ### H3  **bold**  - bullet  regular paragraphs
   function parseBodyPreview(raw: string): string {
     if (!raw.trim()) return '<p class="placeholder">Your message body will appear here…</p>';
-    const inline = (s: string) => s.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
-    const blocks = raw.split(/\n{2,}/);
-    return blocks.map(block => {
-      const trimmed = block.trim();
-      if (!trimmed) return '';
-      if (trimmed.startsWith('### ')) return `<h3 class="bh3">${inline(trimmed.slice(4))}</h3>`;
-      if (trimmed.startsWith('## '))  return `<h2 class="bh2">${inline(trimmed.slice(3))}</h2>`;
-      if (trimmed.startsWith('# '))   return `<h1 class="bh1">${inline(trimmed.slice(2))}</h1>`;
-      const lines = trimmed.split('\n');
-      const allBullets = lines.every(l => /^[-*]\s/.test(l.trim()));
-      if (allBullets) {
-        const items = lines.map(l => `<li>${inline(l.trim().replace(/^[-*]\s/, ''))}</li>`).join('');
-        return `<ul class="bul">${items}</ul>`;
+    const inline = (s: string) =>
+      s.replace(/\*\*(.+?)\*\*/g, '<strong style="color:#0c1628;font-weight:700;">$1</strong>')
+       .replace(/_(.+?)_/g, '<em>$1</em>');
+    return raw.split(/\n{2,}/).map(block => {
+      const t = block.trim();
+      if (!t) return '';
+      if (t === '---') return '<hr class="hr">';
+      if (t.startsWith('### ')) return `<p class="eyebrow">${inline(t.slice(4))}</p>`;
+      if (t.startsWith('## '))  return `<h2 class="bh2">${inline(t.slice(3))}</h2>`;
+      if (t.startsWith('# '))   return `<h1 class="bh1">${inline(t.slice(2))}</h1>`;
+      const lines = t.split('\n');
+      if (lines.every(l => /^[-*]\s/.test(l.trim()))) {
+        return `<ul class="bul">${lines.map(l => `<li>${inline(l.trim().replace(/^[-*]\s/, ''))}</li>`).join('')}</ul>`;
       }
       return `<p class="bp">${inline(lines.join('<br>'))}</p>`;
     }).join('');
   }
 
   // Live preview rendered in an iframe srcDoc
-  const previewHtml = `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>
+  const previewHtml = `<!DOCTYPE html><html><head><meta charset="UTF-8">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
     *{box-sizing:border-box;margin:0;padding:0}
-    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#e9eef5;padding:24px 14px 36px}
-    .wrap{max-width:560px;margin:0 auto;filter:drop-shadow(0 8px 32px rgba(0,0,0,0.13))}
+    body{font-family:'Inter',system-ui,sans-serif;background:#f0f2f5;padding:32px 16px 48px;-webkit-font-smoothing:antialiased}
+    .outer{max-width:580px;margin:0 auto}
 
-    /* Logo row */
-    .preheader{background:#ffffff;border-radius:14px 14px 0 0;padding:18px 28px 16px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #f0f4f8}
-    .logo-row{display:flex;align-items:center;gap:10px}
-    .preheader img{width:32px;height:33px;border-radius:7px;display:block}
-    .brand-name{font-size:14px;font-weight:700;color:#0f172a;letter-spacing:-0.02em}
-    .brand-tag{font-size:10px;color:#94a3b8;margin-top:1px}
-    .badge{font-size:10px;font-weight:600;color:#1d4ed8;background:#eff6ff;padding:3px 10px;border-radius:20px;border:1px solid #bfdbfe;letter-spacing:0.04em;text-transform:uppercase}
+    /* Card shell */
+    .card{border-radius:16px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.06),0 20px 60px rgba(0,0,0,0.10),0 0 0 1px rgba(0,0,0,0.04)}
+
+    /* Top stripe */
+    .stripe{height:3px;background:linear-gradient(90deg,#059669 0%,#10b981 50%,#34d399 100%)}
+
+    /* Preheader */
+    .pre{background:#fff;padding:20px 36px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #f4f6f8}
+    .logo-wrap{display:flex;align-items:center;gap:11px}
+    .pre img{width:30px;height:31px;border-radius:7px;display:block}
+    .brand{font-size:14px;font-weight:700;color:#0c1628;letter-spacing:-0.02em;line-height:1}
+    .brandtag{font-size:10px;color:#94a3b8;margin-top:3px;font-weight:400}
+    .pill{font-size:10px;font-weight:600;color:#059669;background:#f0fdf4;padding:4px 10px;border-radius:20px;border:1px solid #bbf7d0;letter-spacing:0.05em;text-transform:uppercase}
 
     /* Hero */
-    .hero{background:linear-gradient(135deg,#0f172a 0%,#1e3a5f 55%,#1e3055 100%);padding:40px 32px 36px;position:relative;overflow:hidden}
-    .hero-dots{position:absolute;top:0;right:0;width:200px;height:100%;background-image:radial-gradient(circle,rgba(255,255,255,0.06) 1px,transparent 1px);background-size:16px 16px;pointer-events:none}
-    .hero-eyebrow{font-size:10px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:#60a5fa;margin-bottom:14px;display:flex;align-items:center;gap:6px}
-    .hero-eyebrow::before{content:'';display:inline-block;width:16px;height:2px;background:#3b82f6;border-radius:2px}
-    .hero h1{font-size:28px;font-weight:800;color:#ffffff;line-height:1.15;letter-spacing:-0.03em;margin-bottom:14px}
-    .hero-sub{font-size:13px;color:#93c5fd;line-height:1.65}
+    .hero{background:#0c1628;padding:52px 44px 48px;position:relative;overflow:hidden}
+    .hero::after{content:'';position:absolute;bottom:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(5,150,105,0.4),transparent)}
+    .hero-date{font-size:11px;font-weight:600;color:#34d399;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:18px}
+    .hero h1{font-size:34px;font-weight:800;color:#fff;line-height:1.1;letter-spacing:-0.04em;margin-bottom:18px;max-width:420px}
+    .hero-sub{font-size:14px;color:#64748b;line-height:1.65;max-width:380px}
 
     /* Body */
-    .body{background:#ffffff;padding:32px 32px 20px}
+    .body{background:#fff;padding:44px 44px 36px}
+    .greeting{font-size:15px;color:#374151;line-height:1.6;margin-bottom:28px}
 
-    /* Rich typography */
-    .greeting{font-size:13px;color:#64748b;margin-bottom:22px;padding-bottom:18px;border-bottom:1px solid #f1f5f9}
-    .bh1{font-size:20px;font-weight:800;color:#0f172a;letter-spacing:-0.02em;line-height:1.25;margin:22px 0 10px}
-    .bh2{font-size:16px;font-weight:700;color:#1e3a5f;line-height:1.3;margin:20px 0 8px;padding-left:10px;border-left:3px solid #3b82f6}
-    .bh3{font-size:13px;font-weight:700;color:#475569;letter-spacing:0.06em;text-transform:uppercase;margin:18px 0 6px}
-    .bp{font-size:14px;color:#374151;line-height:1.8;margin-bottom:14px}
-    .bul{margin:10px 0 14px 0;padding-left:0;list-style:none}
-    .bul li{font-size:14px;color:#374151;line-height:1.7;padding:3px 0 3px 20px;position:relative}
-    .bul li::before{content:'›';position:absolute;left:4px;color:#3b82f6;font-weight:700;font-size:16px}
-    .placeholder{font-size:14px;color:#c0c4cc;font-style:italic;line-height:1.75}
+    /* Typography */
+    .bh1{font-size:20px;font-weight:800;color:#0c1628;letter-spacing:-0.025em;line-height:1.2;margin:28px 0 12px}
+    .bh1:first-child{margin-top:0}
+    .bh2{font-size:15px;font-weight:700;color:#0c1628;line-height:1.35;margin:24px 0 8px;display:flex;align-items:center;gap:8px}
+    .bh2::before{content:'';display:inline-block;width:3px;height:14px;background:#059669;border-radius:2px;flex-shrink:0}
+    .eyebrow{font-size:10px;font-weight:700;color:#059669;letter-spacing:0.1em;text-transform:uppercase;margin:22px 0 8px}
+    .bp{font-size:15px;color:#4b5563;line-height:1.8;margin-bottom:16px}
+    .bp:last-child{margin-bottom:0}
+    .bul{list-style:none;padding:0;margin:4px 0 18px}
+    .bul li{font-size:14px;color:#4b5563;line-height:1.75;padding:6px 0 6px 20px;position:relative;border-bottom:1px solid #f8fafc}
+    .bul li:last-child{border-bottom:none}
+    .bul li::before{content:'';position:absolute;left:2px;top:14px;width:6px;height:6px;border-radius:50%;background:#059669}
+    .hr{border:none;border-top:1px solid #f1f5f9;margin:24px 0}
+    .placeholder{font-size:15px;color:#d1d5db;font-style:italic;line-height:1.75}
 
-    /* Divider */
-    .divider{height:1px;background:linear-gradient(90deg,transparent,#e2e8f0 30%,#e2e8f0 70%,transparent);margin:8px 0 24px}
-
-    /* Feature card */
-    .feature-card{background:linear-gradient(135deg,#f0f7ff 0%,#eff6ff 100%);border:1px solid #bfdbfe;border-radius:10px;padding:20px 22px;margin:20px 0}
-    .feat-eyebrow{font-size:9px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:#1d4ed8;margin-bottom:4px}
-    .feat-title{font-size:15px;font-weight:700;color:#1e293b;margin-bottom:14px;line-height:1.3}
-    .feat-row{display:flex;align-items:flex-start;gap:10px;margin-bottom:8px}
-    .feat-check{width:18px;height:18px;background:#1d4ed8;border-radius:5px;flex-shrink:0;display:flex;align-items:center;justify-content:center;margin-top:2px;font-size:10px;color:#fff;font-weight:700;line-height:18px;text-align:center}
-    .feat-text{font-size:13px;color:#1e40af;line-height:1.6}
+    /* Highlights section */
+    .highlights{margin:28px 0 0;border:1px solid #e2e8f0;border-radius:10px;overflow:hidden}
+    .hi-header{background:#f8fafc;padding:14px 20px;border-bottom:1px solid #e2e8f0;display:flex;align-items:center;gap:8px}
+    .hi-dot{width:8px;height:8px;border-radius:50%;background:#059669}
+    .hi-label{font-size:11px;font-weight:600;color:#059669;letter-spacing:0.08em;text-transform:uppercase}
+    .hi-item{display:flex;align-items:flex-start;gap:12px;padding:13px 20px;border-bottom:1px solid #f1f5f9}
+    .hi-item:last-child{border-bottom:none}
+    .hi-check{width:18px;height:18px;border-radius:5px;background:#059669;color:#fff;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:2px;line-height:1}
+    .hi-text{font-size:13px;color:#374151;line-height:1.6;font-weight:500}
 
     /* CTA */
-    .cta-section{padding:24px 32px 32px;background:#fff;text-align:center}
-    .cta-row{display:flex;justify-content:center;gap:12px;flex-wrap:wrap}
-    .btn-solid{display:inline-block;background:#0f172a;color:#fff;font-size:13px;font-weight:600;padding:12px 24px;border-radius:8px;text-decoration:none;letter-spacing:0.01em}
-    .btn-outline{display:inline-block;background:transparent;color:#0f172a;font-size:13px;font-weight:600;padding:11px 24px;border-radius:8px;text-decoration:none;border:2px solid #0f172a;letter-spacing:0.01em}
+    .cta{background:#fff;padding:28px 44px 40px;text-align:center}
+    .cta-btn{display:inline-flex;align-items:center;gap:8px;background:#059669;color:#fff;font-family:'Inter',system-ui,sans-serif;font-size:14px;font-weight:600;text-decoration:none;padding:14px 28px;border-radius:10px;letter-spacing:0.01em}
+    .cta-arrow{font-size:16px;line-height:1}
+    .cta-secondary{display:inline-block;color:#6b7280;font-size:12px;margin-top:12px;text-decoration:none}
+    .cta-secondary:hover{color:#374151}
 
     /* Footer */
-    .footer{background:#0f172a;border-radius:0 0 14px 14px;padding:26px 28px;text-align:center}
-    .footer-logo{display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:12px}
-    .footer-icon{width:26px;height:26px;border-radius:6px;background:linear-gradient(135deg,#1d4ed8,#3b82f6);display:flex;align-items:center;justify-content:center;font-size:13px;line-height:26px;text-align:center}
-    .footer-brand{font-size:13px;font-weight:700;color:#fff;letter-spacing:0.06em;text-transform:uppercase}
-    .footer-sep{height:1px;background:rgba(255,255,255,0.08);margin:12px 0}
-    .footer-reply{font-size:11px;color:#60a5fa;margin-bottom:6px;line-height:1.5}
-    .footer-copy{font-size:10px;color:#334155}
+    .footer{background:#0c1628;padding:32px 44px;text-align:center}
+    .footer-top{display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:16px}
+    .footer-logo-icon{width:24px;height:24px;border-radius:6px;background:#059669;display:flex;align-items:center;justify-content:center;font-size:12px}
+    .footer-name{font-size:13px;font-weight:700;color:#fff;letter-spacing:0.05em;text-transform:uppercase}
+    .footer-line{height:1px;background:rgba(255,255,255,0.06);margin:0 0 16px}
+    .footer-p{font-size:11px;color:#475569;line-height:1.6;margin-bottom:4px}
+    .footer-link{color:#34d399;text-decoration:none}
   </style></head><body>
-    <div class="wrap">
+  <div class="outer">
+    <div class="card">
+      <div class="stripe"></div>
 
-      <div class="preheader">
-        <div class="logo-row">
+      <div class="pre">
+        <div class="logo-wrap">
           <img src="${logoUrl}" alt="" />
           <div>
-            <div class="brand-name">Care Capacity</div>
-            <div class="brand-tag">Workforce Intelligence Platform</div>
+            <div class="brand">Care Capacity</div>
+            <div class="brandtag">Workforce Intelligence Platform</div>
           </div>
         </div>
-        <span class="badge">Platform Update</span>
+        <span class="pill">Platform Update</span>
       </div>
 
       <div class="hero">
-        <div class="hero-dots"></div>
-        <div class="hero-eyebrow">New from Care Capacity</div>
+        <div class="hero-date">${new Date().toLocaleDateString('en-GB',{month:'long',year:'numeric'}).toUpperCase()}</div>
         <h1>${headline || 'Your headline will appear here'}</h1>
-        <div class="hero-sub">What's new, what's changed, and what's coming.</div>
+        <div class="hero-sub">What's new, what's changed, and what's coming to Care Capacity.</div>
       </div>
 
       <div class="body">
         <div class="greeting">Hi there,</div>
         ${parseBodyPreview(body)}
         ${activeBullets.length > 0 ? `
-          <div class="divider"></div>
-          <div class="feature-card">
-            <div class="feat-eyebrow">Platform Updates</div>
-            <div class="feat-title">What's Changed</div>
+          <div class="highlights">
+            <div class="hi-header"><div class="hi-dot"></div><span class="hi-label">What's Changed</span></div>
             ${activeBullets.map((b: string) => `
-              <div class="feat-row">
-                <div class="feat-check">✓</div>
-                <span class="feat-text">${b}</span>
+              <div class="hi-item">
+                <div class="hi-check">✓</div>
+                <span class="hi-text">${b}</span>
               </div>`).join('')}
           </div>` : ''}
       </div>
 
-      <div class="cta-section">
-        <div class="cta-row">
-          ${ctaText ? `<a href="${ctaUrl || dashboardUrl}" class="btn-solid">${ctaText}</a>` : ''}
-          <a href="${dashboardUrl}" class="btn-outline">Go to Dashboard</a>
-        </div>
+      <div class="cta">
+        ${ctaText ? `<a href="${ctaUrl || dashboardUrl}" class="cta-btn">${ctaText} <span class="cta-arrow">→</span></a><br>` : `<a href="${dashboardUrl}" class="cta-btn">Open Dashboard <span class="cta-arrow">→</span></a>`}
+        ${ctaText ? `<a href="${dashboardUrl}" class="cta-secondary">Or go to Dashboard →</a>` : ''}
       </div>
 
       <div class="footer">
-        <div class="footer-logo">
-          <div class="footer-icon">⚡</div>
-          <div class="footer-brand">Care Capacity</div>
+        <div class="footer-top">
+          <div class="footer-logo-icon">⚡</div>
+          <div class="footer-name">Care Capacity</div>
         </div>
-        <div class="footer-sep"></div>
-        <div class="footer-reply">Questions? Reply to this email and we'll get back to you.</div>
-        <div class="footer-copy">© ${new Date().getFullYear()} Home Instead – Scottish Group · Workforce Intelligence Platform</div>
+        <div class="footer-line"></div>
+        <p class="footer-p">Questions? Reply to this email — we read every one.</p>
+        <p class="footer-p">© ${new Date().getFullYear()} Home Instead – Scottish Group</p>
       </div>
-
     </div>
+  </div>
   </body></html>`;
 
   return (

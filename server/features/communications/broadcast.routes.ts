@@ -29,39 +29,49 @@ export interface BroadcastPayload {
 }
 
 // ── Markdown-lite body parser ──────────────────────────────────────────────────
-// Supports: # H1  ## H2  ### H3  **bold**  - / * bullets  plain paragraphs
+// Supports: # H1  ## H2  ### eyebrow  **bold**  _italic_  - bullets  --- rule
 function parseBody(raw: string): string {
   if (!raw.trim()) return '';
+  const F = `Inter,system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif`;
   const inline = (s: string) =>
-    s.replace(/\*\*(.+?)\*\*/g, '<strong style="color:#0f172a;">$1</strong>');
-
-  const F = '-apple-system,BlinkMacSystemFont,\'Segoe UI\',Roboto,sans-serif';
+    s.replace(/\*\*(.+?)\*\*/g, `<strong style="color:#0c1628;font-weight:700;">$1</strong>`)
+     .replace(/_(.+?)_/g, `<em>$1</em>`);
 
   return raw.split(/\n{2,}/).map(block => {
     const t = block.trim();
     if (!t) return '';
 
+    if (t === '---')
+      return `<table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:20px 0;">
+        <tr><td style="height:1px;background:#f1f5f9;"></td></tr></table>`;
+
     if (t.startsWith('### '))
-      return `<p style="margin:16px 0 6px;font-family:${F};font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#64748b;">${inline(t.slice(4))}</p>`;
+      return `<p style="margin:20px 0 8px;font-family:${F};font-size:10px;font-weight:700;letter-spacing:0.10em;text-transform:uppercase;color:#059669;">${inline(t.slice(4))}</p>`;
 
     if (t.startsWith('## '))
-      return `<h2 style="margin:22px 0 8px;font-family:${F};font-size:16px;font-weight:700;color:#1e3a5f;line-height:1.3;padding-left:10px;border-left:3px solid #3b82f6;">${inline(t.slice(3))}</h2>`;
+      return `<table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:22px 0 10px;">
+        <tr>
+          <td width="3" style="background:#059669;border-radius:2px;">&nbsp;</td>
+          <td style="padding-left:12px;font-family:${F};font-size:16px;font-weight:700;color:#0c1628;line-height:1.35;">${inline(t.slice(3))}</td>
+        </tr></table>`;
 
     if (t.startsWith('# '))
-      return `<h1 style="margin:24px 0 10px;font-family:${F};font-size:21px;font-weight:800;color:#0f172a;line-height:1.2;letter-spacing:-0.02em;">${inline(t.slice(2))}</h1>`;
+      return `<h1 style="margin:28px 0 12px;font-family:${F};font-size:22px;font-weight:800;color:#0c1628;line-height:1.2;letter-spacing:-0.025em;">${inline(t.slice(2))}</h1>`;
 
     const lines = t.split('\n');
     if (lines.every(l => /^[-*]\s/.test(l.trim()))) {
       const items = lines.map(l =>
         `<tr>
-          <td width="18" valign="top" style="padding-top:2px;font-size:14px;color:#3b82f6;font-weight:700;">›</td>
-          <td style="font-family:${F};font-size:14px;color:#374151;line-height:1.7;padding-bottom:6px;">${inline(l.trim().replace(/^[-*]\s/, ''))}</td>
+          <td width="20" valign="top" style="padding-top:7px;">
+            <div style="width:6px;height:6px;background:#059669;border-radius:50%;"></div>
+          </td>
+          <td style="font-family:${F};font-size:14px;color:#4b5563;line-height:1.75;padding-bottom:8px;border-bottom:1px solid #f8fafc;">${inline(l.trim().replace(/^[-*]\s/, ''))}</td>
         </tr>`
       ).join('');
-      return `<table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:10px 0 14px;">${items}</table>`;
+      return `<table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:8px 0 18px;">${items}</table>`;
     }
 
-    return `<p style="margin:0 0 16px;font-family:${F};font-size:15px;color:#374151;line-height:1.8;">${inline(lines.join('<br>'))}</p>`;
+    return `<p style="margin:0 0 18px;font-family:${F};font-size:15px;color:#4b5563;line-height:1.8;">${inline(lines.join('<br>'))}</p>`;
   }).join('');
 }
 
@@ -116,93 +126,110 @@ function renderEmail(p: BroadcastPayload, recipientName: string): string {
     </tr>
   </table>`;
 
-  const F = `-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif`;
+  const F = `Inter,system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif`;
+  const month = new Date().toLocaleDateString('en-GB', { month: 'long', year: 'numeric' }).toUpperCase();
 
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<meta http-equiv="X-UA-Compatible" content="IE=edge">
 <title>${p.subject}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 </head>
-<body style="margin:0;padding:0;background-color:#e9eef5;font-family:${F};">
+<body style="margin:0;padding:0;background:#f0f2f5;-webkit-font-smoothing:antialiased;">
 
-<!-- Hidden preview text -->
-<div style="display:none;max-height:0;overflow:hidden;mso-hide:all;">${preview}&nbsp;‌&nbsp;‌&nbsp;‌&nbsp;‌&nbsp;‌&nbsp;‌&nbsp;‌&nbsp;‌&nbsp;‌&nbsp;‌&nbsp;‌&nbsp;‌&nbsp;</div>
+<div style="display:none;max-height:0;overflow:hidden;mso-hide:all;">${preview}&nbsp;‌&nbsp;‌&nbsp;‌&nbsp;‌&nbsp;‌&nbsp;‌&nbsp;‌&nbsp;‌&nbsp;‌&nbsp;</div>
 
-<table width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#e9eef5;">
-  <tr><td align="center" style="padding:40px 16px 52px;">
-    <table width="600" cellpadding="0" cellspacing="0" border="0" style="max-width:600px;width:100%;">
+<table width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#f0f2f5">
+<tr><td align="center" style="padding:40px 16px 56px;">
 
-      <!-- ── Logo row ── -->
-      <tr>
-        <td style="background:#ffffff;padding:20px 32px 18px;border-radius:14px 14px 0 0;border-bottom:1px solid #f0f4f8;">
-          <table width="100%" cellpadding="0" cellspacing="0" border="0">
-            <tr>
-              <td valign="middle">
-                <table cellpadding="0" cellspacing="0" border="0"><tr>
-                  <td valign="middle"><img src="${LOGO_URL}" width="34" height="35" alt="" style="display:block;border-radius:7px;border:0;" /></td>
-                  <td style="padding-left:10px;vertical-align:middle;">
-                    <span style="font-family:${F};font-size:15px;font-weight:700;color:#0f172a;letter-spacing:-0.02em;display:block;">Care Capacity</span>
-                    <span style="font-family:${F};font-size:10px;color:#94a3b8;display:block;margin-top:1px;">Workforce Intelligence Platform</span>
-                  </td>
-                </tr></table>
-              </td>
-              <td align="right" valign="middle">
-                <span style="font-family:${F};font-size:10px;font-weight:600;color:#1d4ed8;background:#eff6ff;padding:3px 10px;border-radius:20px;border:1px solid #bfdbfe;letter-spacing:0.04em;text-transform:uppercase;">Platform Update</span>
-              </td>
-            </tr>
-          </table>
-        </td>
-      </tr>
+  <table width="600" cellpadding="0" cellspacing="0" border="0" style="max-width:600px;width:100%;border-radius:16px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.06),0 20px 60px rgba(0,0,0,0.10);">
 
-      <!-- ── Hero ── -->
-      <tr>
-        <td style="background:linear-gradient(135deg,#0f172a 0%,#1e3a5f 55%,#1e3055 100%);padding:42px 36px 38px;">
-          <p style="margin:0 0 14px;font-family:${F};font-size:10px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:#60a5fa;">── New from Care Capacity</p>
-          <h1 style="margin:0 0 14px;font-family:${F};font-size:30px;font-weight:800;color:#ffffff;line-height:1.15;letter-spacing:-0.03em;">${p.headline}</h1>
-          <p style="margin:0;font-family:${F};font-size:14px;color:#93c5fd;line-height:1.65;">What's new, what's changed, and what's coming.</p>
-        </td>
-      </tr>
+    <!-- ── Accent stripe ── -->
+    <tr>
+      <td style="background:linear-gradient(90deg,#059669,#10b981,#34d399);height:3px;line-height:3px;font-size:3px;">&nbsp;</td>
+    </tr>
 
-      <!-- ── Body ── -->
-      <tr>
-        <td style="background:#ffffff;padding:32px 36px 28px;">
-          <p style="margin:0 0 20px;font-family:${F};font-size:13px;color:#64748b;padding-bottom:18px;border-bottom:1px solid #f1f5f9;">Hi ${recipientName},</p>
-          ${parseBody(p.body)}
-          ${bulletsHtml}
-        </td>
-      </tr>
-
-      <!-- ── CTA ── -->
-      <tr>
-        <td style="background:#ffffff;padding:8px 36px 36px;text-align:center;">
-          ${ctaHtml}
-        </td>
-      </tr>
-
-      <!-- ── Footer ── -->
-      <tr>
-        <td style="background:#0f172a;padding:28px 36px;border-radius:0 0 14px 14px;text-align:center;">
-          <table width="100%" cellpadding="0" cellspacing="0" border="0">
-            <tr><td align="center" style="padding-bottom:12px;">
+    <!-- ── Logo row ── -->
+    <tr>
+      <td style="background:#ffffff;padding:20px 36px 18px;border-bottom:1px solid #f4f6f8;">
+        <table width="100%" cellpadding="0" cellspacing="0" border="0">
+          <tr>
+            <td valign="middle">
               <table cellpadding="0" cellspacing="0" border="0"><tr>
-                <td style="background:linear-gradient(135deg,#1d4ed8,#3b82f6);width:26px;height:26px;border-radius:6px;text-align:center;line-height:26px;font-size:13px;vertical-align:middle;">⚡</td>
-                <td style="padding-left:8px;vertical-align:middle;"><span style="font-family:${F};font-size:13px;font-weight:700;color:#ffffff;letter-spacing:0.06em;text-transform:uppercase;">CARE CAPACITY</span></td>
+                <td valign="middle" style="line-height:0;">
+                  <img src="${LOGO_URL}" width="30" height="31" alt="" style="display:block;border:0;border-radius:7px;" />
+                </td>
+                <td style="padding-left:11px;vertical-align:middle;">
+                  <span style="font-family:${F};font-size:14px;font-weight:700;color:#0c1628;letter-spacing:-0.02em;display:block;line-height:1;">Care Capacity</span>
+                  <span style="font-family:${F};font-size:10px;color:#94a3b8;display:block;margin-top:3px;font-weight:400;">Workforce Intelligence Platform</span>
+                </td>
               </tr></table>
-            </td></tr>
-            <tr><td style="height:1px;background:rgba(255,255,255,0.08);"></td></tr>
-            <tr><td align="center" style="padding-top:12px;">
-              <p style="margin:0 0 6px;font-family:${F};font-size:11px;color:#60a5fa;line-height:1.5;">Questions? Reply to this email and we'll get back to you.</p>
-              <p style="margin:0;font-family:${F};font-size:10px;color:#334155;line-height:1.5;">© ${year} Home Instead – Scottish Group &nbsp;·&nbsp; Workforce Intelligence Platform</p>
-            </td></tr>
-          </table>
-        </td>
-      </tr>
+            </td>
+            <td align="right" valign="middle">
+              <span style="font-family:${F};font-size:10px;font-weight:600;color:#059669;background:#f0fdf4;padding:4px 10px;border-radius:20px;border:1px solid #bbf7d0;letter-spacing:0.05em;text-transform:uppercase;">Platform Update</span>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
 
-    </table>
-  </td></tr>
+    <!-- ── Hero ── -->
+    <tr>
+      <td bgcolor="#0c1628" style="background:#0c1628;padding:52px 44px 48px;">
+        <p style="margin:0 0 18px;font-family:${F};font-size:11px;font-weight:600;color:#34d399;letter-spacing:0.10em;text-transform:uppercase;">${month}</p>
+        <h1 style="margin:0 0 18px;font-family:${F};font-size:34px;font-weight:800;color:#ffffff;line-height:1.1;letter-spacing:-0.04em;">${p.headline}</h1>
+        <p style="margin:0;font-family:${F};font-size:14px;color:#64748b;line-height:1.65;">What's new, what's changed, and what's coming to Care Capacity.</p>
+      </td>
+    </tr>
+    <!-- hero bottom border -->
+    <tr><td style="background:linear-gradient(90deg,transparent,rgba(5,150,105,0.35),transparent);height:1px;line-height:1px;font-size:1px;">&nbsp;</td></tr>
+
+    <!-- ── Body ── -->
+    <tr>
+      <td style="background:#ffffff;padding:44px 44px 32px;">
+        <p style="margin:0 0 28px;font-family:${F};font-size:15px;color:#374151;line-height:1.6;">Hi ${recipientName},</p>
+        ${parseBody(p.body)}
+        ${bulletsHtml}
+      </td>
+    </tr>
+
+    <!-- ── CTA ── -->
+    <tr>
+      <td style="background:#ffffff;padding:4px 44px 44px;text-align:center;">
+        ${ctaHtml}
+      </td>
+    </tr>
+
+    <!-- ── Footer ── -->
+    <tr>
+      <td bgcolor="#0c1628" style="background:#0c1628;padding:32px 44px;text-align:center;">
+        <!-- Logo -->
+        <table cellpadding="0" cellspacing="0" border="0" align="center" style="margin:0 auto 16px;">
+          <tr>
+            <td style="background:#059669;width:24px;height:24px;border-radius:6px;text-align:center;line-height:24px;font-size:12px;vertical-align:middle;">⚡</td>
+            <td style="padding-left:8px;vertical-align:middle;">
+              <span style="font-family:${F};font-size:13px;font-weight:700;color:#ffffff;letter-spacing:0.05em;text-transform:uppercase;">CARE CAPACITY</span>
+            </td>
+          </tr>
+        </table>
+        <!-- Divider -->
+        <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:16px;">
+          <tr><td style="height:1px;background:rgba(255,255,255,0.06);"></td></tr>
+        </table>
+        <p style="margin:0 0 6px;font-family:${F};font-size:11px;color:#475569;line-height:1.6;">
+          Questions? Reply to this email — we read every one.
+        </p>
+        <p style="margin:0;font-family:${F};font-size:10px;color:#334155;line-height:1.5;">
+          © ${year} Home Instead – Scottish Group &nbsp;·&nbsp; Workforce Intelligence Platform
+        </p>
+      </td>
+    </tr>
+
+  </table>
+</td></tr>
 </table>
 </body>
 </html>`;
