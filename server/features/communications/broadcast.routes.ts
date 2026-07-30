@@ -277,9 +277,6 @@ function renderEmail(p: BroadcastPayload, recipientName: string): string {
     <!-- ── Coming Next ── -->
     ${comingNextHtml}
 
-    <!-- ── CTA ── -->
-    ${ctaHtml}
-
     <!-- ── Footer ── -->
     <tr>
       <td bgcolor="#0c1628" style="background:#0c1628;padding:36px 44px;text-align:center;">
@@ -291,12 +288,19 @@ function renderEmail(p: BroadcastPayload, recipientName: string): string {
             </td>
           </tr>
         </table>
-        <p style="margin:0 0 6px;font-family:${F};font-size:12px;color:#64748b;line-height:1.5;">Workforce Intelligence Platform</p>
-        <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:14px 0;">
+        <p style="margin:0 0 16px;font-family:${F};font-size:12px;color:#64748b;line-height:1.5;">Workforce Intelligence Platform</p>
+        <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 16px;">
           <tr><td style="height:1px;background:rgba(255,255,255,0.06);"></td></tr>
         </table>
-        <table cellpadding="0" cellspacing="0" border="0" align="center" style="margin:0 auto 12px;">
+        <!-- Buttons row -->
+        <table cellpadding="0" cellspacing="0" border="0" align="center" style="margin:0 auto 16px;">
           <tr>
+            <td style="padding-right:10px;">
+              <a href="${ctaTarget}"
+                 style="display:inline-block;font-family:${F};font-size:13px;font-weight:600;color:#34d399;text-decoration:none;border:1px solid rgba(52,211,153,0.35);border-radius:8px;padding:9px 20px;letter-spacing:0.01em;">
+                ${ctaLabel}
+              </a>
+            </td>
             <td>
               <a href="mailto:${REPLY_TO}"
                  style="display:inline-block;font-family:${F};font-size:13px;font-weight:600;color:#34d399;text-decoration:none;border:1px solid rgba(52,211,153,0.35);border-radius:8px;padding:9px 20px;letter-spacing:0.01em;">

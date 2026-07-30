@@ -1265,10 +1265,6 @@ function CommunicationsTab() {
       ${bulletsPreviewHtml}
       ${comingNextPreviewHtml}
 
-      <div class="cta-section">
-        <a href="${ctaUrl || dashboardUrl}" class="cta-btn" target="_blank" rel="noopener">${ctaText || 'Launch Care Capacity →'}</a>
-      </div>
-
       <div class="footer">
         <div class="footer-brand">
           <div class="footer-icon">⚡</div>
@@ -1276,7 +1272,10 @@ function CommunicationsTab() {
         </div>
         <div class="footer-tag">Workforce Intelligence Platform</div>
         <div class="footer-rule"></div>
-        <a href="mailto:mustansar.hussain@sg.homeinstead.co.uk" style="display:inline-block;font-size:13px;font-weight:600;color:#34d399;text-decoration:none;border:1px solid rgba(52,211,153,0.35);border-radius:8px;padding:9px 20px;letter-spacing:0.01em;margin-bottom:12px;">Contact Us</a>
+        <div style="display:flex;gap:10px;justify-content:center;margin-bottom:14px;">
+          <a href="${ctaUrl || dashboardUrl}" target="_blank" rel="noopener" style="display:inline-block;font-size:13px;font-weight:600;color:#34d399;text-decoration:none;border:1px solid rgba(52,211,153,0.35);border-radius:8px;padding:9px 20px;letter-spacing:0.01em;">${ctaText || 'Launch Care Capacity →'}</a>
+          <a href="mailto:mustansar.hussain@sg.homeinstead.co.uk" style="display:inline-block;font-size:13px;font-weight:600;color:#34d399;text-decoration:none;border:1px solid rgba(52,211,153,0.35);border-radius:8px;padding:9px 20px;letter-spacing:0.01em;">Contact Us</a>
+        </div>
         <p class="footer-p">Built by the Digital &amp; Technology Team</p>
         <p class="footer-small">© ${new Date().getFullYear()} Home Instead – Scottish Group</p>
       </div>
