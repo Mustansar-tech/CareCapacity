@@ -8,18 +8,36 @@ const TENANT_ID  = () => process.env.AZURE_TENANT_ID!;
 const CLIENT_ID  = () => process.env.AZURE_CLIENT_ID!;
 const CLIENT_SEC = () => process.env.AZURE_CLIENT_SECRET!;
 
-/** Public base URL of the frontend (no trailing slash). */
+/** Public base URL of the frontend — used for post-auth redirects (no trailing slash). */
 function frontendUrl(): string {
-  // Replit dev: use the stable public dev domain
   if (process.env.REPLIT_DEV_DOMAIN) {
     return `https://${process.env.REPLIT_DEV_DOMAIN}`;
   }
-  // Production: FRONTEND_URL env var, or canonical domain as final fallback
   return (process.env.FRONTEND_URL || 'https://carecapacity.sur-group.co.uk').replace(/\/$/, '');
 }
 
-function callbackUrl(): string {
-  return `${frontendUrl()}/api/auth/microsoft/callback`;
+/**
+ * OAuth callback URL — must point to THIS API server, not the frontend.
+ * On split-origin deployments (Vercel frontend + Hetzner API) set SERVER_BASE_URL
+ * to the API server's public domain, e.g. https://api.carecapacity.sur-group.co.uk
+ * Falls back to deriving the URL from the incoming request headers (works when
+ * nginx passes x-forwarded-host / x-forwarded-proto).
+ */
+function callbackUrl(req: Request): string {
+  // Replit dev: always use the stable public dev domain
+  if (process.env.REPLIT_DEV_DOMAIN) {
+    return `https://${process.env.REPLIT_DEV_DOMAIN}/api/auth/microsoft/callback`;
+  }
+  // Explicit API server URL — preferred for split-origin production
+  if (process.env.SERVER_BASE_URL) {
+    return `${process.env.SERVER_BASE_URL.replace(/\/$/, '')}/api/auth/microsoft/callback`;
+  }
+  // Derive from the request (works on same-origin or when nginx forwards headers)
+  const proto = (req.headers['x-forwarded-proto'] as string | undefined)?.split(',')[0].trim()
+    ?? req.protocol ?? 'https';
+  const host = (req.headers['x-forwarded-host'] as string | undefined)?.split(',')[0].trim()
+    ?? req.headers.host ?? '';
+  return `${proto}://${host}/api/auth/microsoft/callback`;
 }
 
 export function registerMicrosoftAuthRoutes(app: Express) {
@@ -28,11 +46,11 @@ export function registerMicrosoftAuthRoutes(app: Express) {
     return;
   }
 
-  const cb = callbackUrl();
-  logger.info(`Microsoft OAuth callback URL: ${cb}`);
-
   // ── Step 1: redirect to Microsoft login ────────────────────────────────────
   app.get('/api/auth/microsoft', (req: Request, res: Response) => {
+    const cb = callbackUrl(req);
+    logger.info(`Microsoft OAuth: using callback URL ${cb}`);
+
     const state = crypto.randomBytes(20).toString('hex');
     req.session.msOAuthState = state;
 
@@ -56,6 +74,7 @@ export function registerMicrosoftAuthRoutes(app: Express) {
 
   // ── Step 2: handle Microsoft callback ─────────────────────────────────────
   app.get('/api/auth/microsoft/callback', async (req: Request, res: Response) => {
+    const cb = callbackUrl(req);   // must match exactly what was sent in step 1
     const { code, state, error, error_description } = req.query as Record<string, string>;
 
     const fe = frontendUrl();
