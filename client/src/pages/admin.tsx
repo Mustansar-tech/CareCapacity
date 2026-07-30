@@ -8,7 +8,8 @@ import { useLocation } from "wouter";
 import {
   Users, Plus, Edit2, UserX, UserCheck, KeyRound, ClipboardList,
   Search, Shield, ChevronDown, X, Check, AlertCircle, RefreshCw, ArrowLeft,
-  Bug, MessageSquare, CalendarClock, Play, CheckCircle2, Mail, Trash2, MapPin
+  Bug, MessageSquare, CalendarClock, Play, CheckCircle2, Mail, Trash2, MapPin,
+  Megaphone, Send, Eye, EyeOff, Sparkles
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,6 +29,7 @@ import {
   Form, FormControl, FormField, FormItem, FormLabel, FormMessage
 } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
+import { Textarea } from "@/components/ui/textarea";
 import { apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/contexts/AuthContext";
 import { useBranch } from "@/contexts/BranchContext";
@@ -982,6 +984,320 @@ function FeedbackTab() {
   );
 }
 
+// ─── Communications Tab ───────────────────────────────────────────────────────
+
+function CommunicationsTab() {
+  const { toast } = useToast();
+  const [subject, setSubject] = useState('');
+  const [headline, setHeadline] = useState('');
+  const [body, setBody] = useState('');
+  const [bullets, setBullets] = useState<string[]>(['']);
+  const [ctaText, setCtaText] = useState('');
+  const [ctaUrl, setCtaUrl] = useState('');
+  const [showPreview, setShowPreview] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [lastResult, setLastResult] = useState<{ sent: number; failed: number; total: number } | null>(null);
+
+  const { data: recipientsData } = useQuery<{ count: number; emails: { email: string; name: string }[] }>({
+    queryKey: ['/api/admin/broadcast-email/recipients'],
+  });
+
+  const activeBullets = bullets.filter(b => b.trim());
+
+  const handleAddBullet = () => setBullets(prev => [...prev, '']);
+  const handleBulletChange = (i: number, val: string) => {
+    setBullets(prev => prev.map((b, idx) => idx === i ? val : b));
+  };
+  const handleRemoveBullet = (i: number) => setBullets(prev => prev.filter((_, idx) => idx !== i));
+
+  const canSend = subject.trim() && headline.trim() && body.trim();
+
+  const handleSend = async () => {
+    if (!canSend) return;
+    const confirmed = window.confirm(
+      `Send this email to ${recipientsData?.count ?? '?'} active users?\n\nSubject: ${subject}`
+    );
+    if (!confirmed) return;
+
+    setSending(true);
+    try {
+      const res = await apiRequest('POST', '/api/admin/broadcast-email', {
+        subject,
+        headline,
+        body,
+        bullets: activeBullets,
+        ctaText: ctaText.trim() || undefined,
+        ctaUrl: ctaUrl.trim() || undefined,
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message ?? 'Send failed');
+      setLastResult(data);
+      toast({
+        title: `✅ Sent to ${data.sent} of ${data.total} users`,
+        description: data.failed > 0 ? `${data.failed} failed — check logs` : 'All delivered successfully',
+      });
+    } catch (err: unknown) {
+      toast({ title: 'Failed to send', description: (err as Error).message, variant: 'destructive' });
+    } finally {
+      setSending(false);
+    }
+  };
+
+  // Minimal live preview rendered in an iframe srcDoc
+  const previewHtml = `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#f4f4f5;padding:24px}
+    .card{background:#fff;border-radius:12px;overflow:hidden;border:1px solid #e5e7eb;max-width:540px;margin:0 auto}
+    .bar{height:5px;background:linear-gradient(90deg,#059669,#10b981,#34d399)}
+    .header{padding:24px 32px 20px;border-bottom:1px solid #f3f4f6;display:flex;align-items:center;justify-content:space-between}
+    .logo{display:flex;align-items:center;gap:10px}
+    .icon{width:32px;height:32px;background:linear-gradient(135deg,#059669,#10b981);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px;line-height:32px;text-align:center}
+    .brand{font-size:15px;font-weight:700;color:#111827}
+    .sub{font-size:11px;color:#9ca3af}
+    .badge{font-size:11px;color:#9ca3af;background:#f9fafb;padding:3px 10px;border-radius:20px;border:1px solid #e5e7eb}
+    .body{padding:28px 32px 32px}
+    .greeting{font-size:13px;color:#6b7280;margin-bottom:18px}
+    h1{font-size:22px;font-weight:700;color:#111827;line-height:1.25;letter-spacing:-0.02em;margin-bottom:14px}
+    p{font-size:14px;color:#374151;line-height:1.7;margin-bottom:12px}
+    .bullet{display:flex;align-items:flex-start;gap:10px;margin-bottom:8px}
+    .check{width:18px;height:18px;background:#10b981;border-radius:50%;color:#fff;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:2px}
+    .cta{text-align:center;margin:24px 0}
+    .btn{display:inline-block;background:linear-gradient(135deg,#059669,#10b981);color:#fff;font-size:14px;font-weight:600;padding:12px 28px;border-radius:8px;text-decoration:none}
+    .footer{background:#f9fafb;padding:18px 32px;border-top:1px solid #e5e7eb}
+    .footer p{font-size:11px;color:#9ca3af;line-height:1.5;margin-bottom:4px}
+  </style></head><body>
+    <div class="card">
+      <div class="bar"></div>
+      <div class="header">
+        <div class="logo">
+          <div class="icon">⚡</div>
+          <div><div class="brand">Care Capacity</div><div class="sub">Workforce Intelligence Platform</div></div>
+        </div>
+        <span class="badge">Platform Update</span>
+      </div>
+      <div class="body">
+        <p class="greeting">Hi there,</p>
+        <h1>${headline || 'Your headline will appear here'}</h1>
+        ${body ? body.split(/\n{2,}/).filter(s=>s.trim()).map(p=>`<p>${p.replace(/\n/g,'<br>')}</p>`).join('') : '<p style="color:#9ca3af;font-style:italic">Your message body will appear here…</p>'}
+        ${activeBullets.length > 0 ? activeBullets.map(b=>`<div class="bullet"><div class="check">✓</div><span style="font-size:14px;color:#374151;line-height:1.6">${b}</span></div>`).join('') : ''}
+        ${ctaText ? `<div class="cta"><a href="${ctaUrl||'#'}" class="btn">${ctaText} →</a></div>` : ''}
+      </div>
+      <div class="footer">
+        <p>You're receiving this because you have an account on the Care Capacity Dashboard.</p>
+        <p>© ${new Date().getFullYear()} Home Instead – Scottish Group · Workforce Intelligence Platform</p>
+      </div>
+    </div>
+  </body></html>`;
+
+  return (
+    <TabsContent value="communications">
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+
+        {/* ── Compose panel ── */}
+        <Card className="border-0 shadow-sm">
+          <CardHeader className="pb-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center">
+                  <Megaphone className="h-4 w-4 text-white" />
+                </div>
+                <div>
+                  <CardTitle className="text-base">Compose Broadcast</CardTitle>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Sends to{' '}
+                    <span className="font-semibold text-emerald-600 dark:text-emerald-400">
+                      {recipientsData?.count ?? '…'} active users
+                    </span>
+                  </p>
+                </div>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowPreview(p => !p)}
+                className="gap-1.5 h-8 xl:hidden"
+              >
+                {showPreview ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                {showPreview ? 'Hide preview' : 'Preview'}
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+
+            {/* Subject */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                Email Subject
+              </label>
+              <Input
+                placeholder="e.g. Care Capacity — July 2026 Update"
+                value={subject}
+                onChange={e => setSubject(e.target.value)}
+                className="h-9"
+              />
+            </div>
+
+            {/* Headline */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                Headline
+              </label>
+              <Input
+                placeholder="e.g. We've made some improvements for you"
+                value={headline}
+                onChange={e => setHeadline(e.target.value)}
+                className="h-9"
+              />
+            </div>
+
+            {/* Body */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                Message Body
+              </label>
+              <Textarea
+                placeholder="Write your message here. Use blank lines to separate paragraphs."
+                value={body}
+                onChange={e => setBody(e.target.value)}
+                rows={5}
+                className="resize-none text-sm leading-relaxed"
+              />
+            </div>
+
+            {/* Bullet points */}
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                  Highlights <span className="normal-case font-normal">(optional)</span>
+                </label>
+                <button
+                  onClick={handleAddBullet}
+                  className="text-xs text-emerald-600 hover:text-emerald-700 font-medium flex items-center gap-1"
+                >
+                  <Plus className="h-3 w-3" /> Add point
+                </button>
+              </div>
+              <div className="space-y-2">
+                {bullets.map((b, i) => (
+                  <div key={i} className="flex gap-2 items-center">
+                    <div className="w-5 h-5 rounded-full bg-emerald-100 dark:bg-emerald-950 flex items-center justify-center shrink-0">
+                      <Check className="h-3 w-3 text-emerald-600 dark:text-emerald-400" />
+                    </div>
+                    <Input
+                      placeholder={`Highlight point ${i + 1}`}
+                      value={b}
+                      onChange={e => handleBulletChange(i, e.target.value)}
+                      className="h-8 text-sm flex-1"
+                    />
+                    {bullets.length > 1 && (
+                      <button onClick={() => handleRemoveBullet(i)} className="text-muted-foreground hover:text-destructive transition-colors">
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* CTA */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                Call-to-action Button <span className="normal-case font-normal">(optional)</span>
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                <Input
+                  placeholder="Button text, e.g. Open Dashboard"
+                  value={ctaText}
+                  onChange={e => setCtaText(e.target.value)}
+                  className="h-8 text-sm"
+                />
+                <Input
+                  placeholder="URL, e.g. https://…"
+                  value={ctaUrl}
+                  onChange={e => setCtaUrl(e.target.value)}
+                  className="h-8 text-sm"
+                />
+              </div>
+            </div>
+
+            {/* Send result */}
+            {lastResult && (
+              <div className="flex items-center gap-2 p-3 bg-emerald-50 dark:bg-emerald-950/30 rounded-lg border border-emerald-200 dark:border-emerald-800">
+                <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+                <p className="text-sm text-emerald-700 dark:text-emerald-400">
+                  Last send: <strong>{lastResult.sent}</strong> of <strong>{lastResult.total}</strong> delivered
+                  {lastResult.failed > 0 && ` · ${lastResult.failed} failed`}
+                </p>
+              </div>
+            )}
+
+            {/* Send button */}
+            <Button
+              onClick={handleSend}
+              disabled={!canSend || sending}
+              className="w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white gap-2 h-10"
+            >
+              {sending ? (
+                <>
+                  <RefreshCw className="h-4 w-4 animate-spin" />
+                  Sending to {recipientsData?.count ?? '?'} users…
+                </>
+              ) : (
+                <>
+                  <Send className="h-4 w-4" />
+                  Send to all {recipientsData?.count ?? '?'} active users
+                </>
+              )}
+            </Button>
+
+            {/* Recipients list */}
+            {recipientsData?.emails && recipientsData.emails.length > 0 && (
+              <details className="group">
+                <summary className="text-xs text-muted-foreground cursor-pointer hover:text-foreground transition-colors list-none flex items-center gap-1">
+                  <Sparkles className="h-3 w-3" />
+                  View {recipientsData.count} recipients
+                </summary>
+                <div className="mt-2 border border-border rounded-lg overflow-hidden">
+                  {recipientsData.emails.map(r => (
+                    <div key={r.email} className="flex items-center gap-2 px-3 py-1.5 text-xs border-b border-border last:border-0 hover:bg-muted/30">
+                      <div className="w-5 h-5 rounded-full bg-gradient-to-br from-blue-400 to-emerald-400 flex items-center justify-center text-white text-[10px] font-bold shrink-0">
+                        {r.name.charAt(0).toUpperCase()}
+                      </div>
+                      <span className="font-medium truncate">{r.name}</span>
+                      <span className="text-muted-foreground truncate">{r.email}</span>
+                    </div>
+                  ))}
+                </div>
+              </details>
+            )}
+
+          </CardContent>
+        </Card>
+
+        {/* ── Live preview panel ── */}
+        <Card className={`border-0 shadow-sm ${showPreview ? 'block' : 'hidden xl:block'}`}>
+          <CardHeader className="pb-3">
+            <div className="flex items-center gap-2">
+              <Eye className="h-4 w-4 text-muted-foreground" />
+              <CardTitle className="text-base">Live Email Preview</CardTitle>
+            </div>
+          </CardHeader>
+          <CardContent className="p-0">
+            <iframe
+              srcDoc={previewHtml}
+              title="Email preview"
+              className="w-full rounded-b-lg border-0"
+              style={{ height: '640px' }}
+              sandbox="allow-same-origin"
+            />
+          </CardContent>
+        </Card>
+
+      </div>
+    </TabsContent>
+  );
+}
+
 // ─── Admin Page ───────────────────────────────────────────────────────────────
 
 export default function AdminPage() {
@@ -1088,6 +1404,9 @@ export default function AdminPage() {
             </TabsTrigger>
             <TabsTrigger value="automation" className="rounded-lg gap-2 flex-1">
               <CalendarClock className="h-4 w-4" /> Automation
+            </TabsTrigger>
+            <TabsTrigger value="communications" className="rounded-lg gap-2 flex-1">
+              <Megaphone className="h-4 w-4" /> Communications
             </TabsTrigger>
           </TabsList>
 
@@ -1233,6 +1552,9 @@ export default function AdminPage() {
           <TabsContent value="automation">
             <AutomationTab />
           </TabsContent>
+
+          {/* ── Communications Tab ── */}
+          <CommunicationsTab />
         </Tabs>
       </div>
     </div>
