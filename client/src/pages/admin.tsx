@@ -33,6 +33,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/contexts/AuthContext";
 import { useBranch } from "@/contexts/BranchContext";
+import { exportDsarPdf } from "@/utils/export-dsar-pdf";
+import { FileDown, ShieldAlert } from "lucide-react";
 
 const ROLE_LABELS: Record<string, { label: string; color: string }> = {
   admin:      { label: 'Administrator', color: 'bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300' },
@@ -984,6 +986,245 @@ function FeedbackTab() {
   );
 }
 
+// ─── Data Requests (DSAR) Tab ─────────────────────────────────────────────────
+
+interface DataRequestRow {
+  id: string;
+  subjectName: string;
+  subjectEmail: string | null;
+  requestType: 'access' | 'rectification' | 'erasure' | 'restriction' | 'portability';
+  dateReceived: string;
+  dueDate: string;
+  status: 'open' | 'in_progress' | 'complete';
+  notes: string | null;
+  completedAt: string | null;
+  createdAt: string;
+}
+
+const DSAR_TYPE_LABELS: Record<string, string> = {
+  access: 'Access',
+  rectification: 'Rectification',
+  erasure: 'Erasure',
+  restriction: 'Restriction',
+  portability: 'Portability',
+};
+
+const DSAR_STATUS_LABELS: Record<string, { label: string; color: string }> = {
+  open: { label: 'Open', color: 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300' },
+  in_progress: { label: 'In Progress', color: 'bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300' },
+  complete: { label: 'Complete', color: 'bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-300' },
+};
+
+function daysUntil(dueDate: string): number {
+  const due = new Date(dueDate + 'T00:00:00Z').getTime();
+  const now = new Date();
+  const today = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
+  return Math.round((due - today) / 86400000);
+}
+
+function LogDataRequestDialog({ onCreated }: { onCreated: () => void }) {
+  const { toast } = useToast();
+  const [open, setOpen] = useState(false);
+  const [subjectName, setSubjectName] = useState('');
+  const [subjectEmail, setSubjectEmail] = useState('');
+  const [requestType, setRequestType] = useState<string>('access');
+  const [dateReceived, setDateReceived] = useState(() => new Date().toISOString().slice(0, 10));
+  const [notes, setNotes] = useState('');
+
+  const mutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest('POST', '/api/data-requests', {
+        subjectName, subjectEmail: subjectEmail || null, requestType, dateReceived, notes: notes || null,
+      });
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: 'Request logged', description: `Due date auto-calculated as one month from ${dateReceived}.` });
+      setOpen(false);
+      setSubjectName(''); setSubjectEmail(''); setRequestType('access'); setNotes('');
+      setDateReceived(new Date().toISOString().slice(0, 10));
+      onCreated();
+    },
+    onError: (err: Error) => toast({ title: 'Failed to log request', description: err.message, variant: 'destructive' }),
+  });
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button size="sm" className="gap-1.5 h-9">
+          <Plus className="h-4 w-4" /> Log Request
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Log a Data Subject Access Request</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3 py-2">
+          <div>
+            <label className="text-xs font-medium text-muted-foreground">Subject name</label>
+            <Input value={subjectName} onChange={e => setSubjectName(e.target.value)} placeholder="e.g. Jane Smith" className="mt-1" />
+          </div>
+          <div>
+            <label className="text-xs font-medium text-muted-foreground">Subject email (optional)</label>
+            <Input value={subjectEmail} onChange={e => setSubjectEmail(e.target.value)} placeholder="jane@example.com" className="mt-1" />
+          </div>
+          <div>
+            <label className="text-xs font-medium text-muted-foreground">Request type</label>
+            <Select value={requestType} onValueChange={setRequestType}>
+              <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {Object.entries(DSAR_TYPE_LABELS).map(([v, label]) => (
+                  <SelectItem key={v} value={v}>{label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <label className="text-xs font-medium text-muted-foreground">Date received</label>
+            <Input type="date" value={dateReceived} onChange={e => setDateReceived(e.target.value)} className="mt-1" />
+          </div>
+          <div>
+            <label className="text-xs font-medium text-muted-foreground">Notes (optional)</label>
+            <Textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="Any context — how the request arrived, scope, etc." className="mt-1" rows={3} />
+          </div>
+        </div>
+        <DialogFooter>
+          <DialogClose asChild><Button variant="outline">Cancel</Button></DialogClose>
+          <Button onClick={() => mutation.mutate()} disabled={!subjectName || mutation.isPending}>
+            {mutation.isPending ? 'Logging...' : 'Log Request'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function DataRequestsTab() {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [exportingId, setExportingId] = useState<string | null>(null);
+
+  const { data: requests = [], isLoading, refetch } = useQuery<DataRequestRow[]>({
+    queryKey: ['/api/data-requests'],
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: async ({ id, updates }: { id: string; updates: Record<string, unknown> }) => {
+      const res = await apiRequest('PUT', `/api/data-requests/${id}`, updates);
+      return res.json();
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['/api/data-requests'] }),
+    onError: (err: Error) => toast({ title: 'Update failed', description: err.message, variant: 'destructive' }),
+  });
+
+  const handleExport = async (req: DataRequestRow) => {
+    setExportingId(req.id);
+    try {
+      const res = await apiRequest('GET', `/api/data-requests/${req.id}/export-data`, undefined);
+      const payload = await res.json();
+      exportDsarPdf(payload);
+      toast({ title: 'Export generated', description: 'PDF downloaded. Internal security fields were excluded automatically.' });
+    } catch (err) {
+      toast({ title: 'Export failed', description: err instanceof Error ? err.message : 'Unknown error', variant: 'destructive' });
+    } finally {
+      setExportingId(null);
+    }
+  };
+
+  const openCount = requests.filter(r => r.status !== 'complete').length;
+  const overdueCount = requests.filter(r => r.status !== 'complete' && daysUntil(r.dueDate) < 0).length;
+
+  return (
+    <TabsContent value="data-requests">
+      <Card className="border-0 shadow-sm">
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <CardTitle className="text-base">Data Subject Access Requests</CardTitle>
+              <p className="text-xs text-muted-foreground mt-1">
+                {openCount} open{overdueCount > 0 ? `, ${overdueCount} overdue` : ''} — Article 12 requires a response within one calendar month of receipt.
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isLoading} className="gap-1.5 h-9">
+                <RefreshCw className={`h-3.5 w-3.5 ${isLoading ? 'animate-spin' : ''}`} />
+              </Button>
+              <LogDataRequestDialog onCreated={() => queryClient.invalidateQueries({ queryKey: ['/api/data-requests'] })} />
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="p-0">
+          {isLoading ? (
+            <div className="flex items-center justify-center py-16">
+              <div className="animate-spin h-8 w-8 border-2 border-blue-500 border-t-transparent rounded-full" />
+            </div>
+          ) : requests.length === 0 ? (
+            <div className="text-center py-16 text-muted-foreground">
+              <ShieldAlert className="h-10 w-10 mx-auto mb-3 opacity-30" />
+              <p className="font-medium">No data requests logged</p>
+              <p className="text-xs mt-1">Log any Subject Access Request here as soon as it arrives — the due date is calculated automatically.</p>
+            </div>
+          ) : (
+            <div className="divide-y divide-border">
+              {requests.map(req => {
+                const dLeft = daysUntil(req.dueDate);
+                const isOverdue = req.status !== 'complete' && dLeft < 0;
+                const isDueSoon = req.status !== 'complete' && dLeft >= 0 && dLeft <= 5;
+                return (
+                  <div key={req.id} className="flex items-start gap-3 px-5 py-3.5 hover:bg-muted/20 transition-colors">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="text-sm font-semibold text-foreground">{req.subjectName}</p>
+                        {req.subjectEmail && <span className="text-xs text-muted-foreground">{req.subjectEmail}</span>}
+                        <Badge variant="outline" className="text-xs">{DSAR_TYPE_LABELS[req.requestType]}</Badge>
+                      </div>
+                      {req.notes && <p className="text-xs text-muted-foreground mt-1 truncate">{req.notes}</p>}
+                      <p className={`text-xs mt-1 font-medium ${isOverdue ? 'text-red-600' : isDueSoon ? 'text-amber-600' : 'text-muted-foreground'}`}>
+                        {req.status === 'complete'
+                          ? `Completed ${req.completedAt ? new Date(req.completedAt).toLocaleDateString('en-GB') : ''}`
+                          : isOverdue
+                            ? `Overdue by ${Math.abs(dLeft)} day${Math.abs(dLeft) === 1 ? '' : 's'} — due ${req.dueDate}`
+                            : `Due ${req.dueDate} (${dLeft} day${dLeft === 1 ? '' : 's'} left)`}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      {(req.requestType === 'access' || req.requestType === 'portability') && (
+                        <Button
+                          variant="outline" size="sm" className="gap-1.5 h-8"
+                          onClick={() => handleExport(req)}
+                          disabled={exportingId === req.id}
+                        >
+                          <FileDown className="h-3.5 w-3.5" />
+                          {exportingId === req.id ? 'Exporting...' : 'Export PDF'}
+                        </Button>
+                      )}
+                      <Select
+                        value={req.status}
+                        onValueChange={(status) => updateMutation.mutate({ id: req.id, updates: { status } })}
+                      >
+                        <SelectTrigger className="h-8 w-[130px] text-xs">
+                          <Badge className={`text-xs font-medium border-0 ${DSAR_STATUS_LABELS[req.status]?.color}`}>
+                            {DSAR_STATUS_LABELS[req.status]?.label}
+                          </Badge>
+                        </SelectTrigger>
+                        <SelectContent>
+                          {Object.entries(DSAR_STATUS_LABELS).map(([v, meta]) => (
+                            <SelectItem key={v} value={v}>{meta.label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </TabsContent>
+  );
+}
+
 // ─── Communications Tab ───────────────────────────────────────────────────────
 
 interface FeatureCardDraft { emoji: string; title: string; desc: string; }
@@ -1689,6 +1930,9 @@ export default function AdminPage() {
             <TabsTrigger value="communications" className="rounded-lg gap-2 flex-1">
               <Megaphone className="h-4 w-4" /> Communications
             </TabsTrigger>
+            <TabsTrigger value="data-requests" className="rounded-lg gap-2 flex-1">
+              <ShieldAlert className="h-4 w-4" /> Data Requests
+            </TabsTrigger>
           </TabsList>
 
           {/* ── Users Tab ── */}
@@ -1836,6 +2080,9 @@ export default function AdminPage() {
 
           {/* ── Communications Tab ── */}
           <CommunicationsTab />
+
+          {/* ── Data Requests (DSAR) Tab ── */}
+          <DataRequestsTab />
         </Tabs>
       </div>
     </div>

@@ -1028,6 +1028,44 @@ export type AvailabilityChange = typeof availabilityChanges.$inferSelect;
 
 // ── Leaver Report Recipients ──────────────────────────────────────────────────
 
+// ── Data Subject Access Requests (DSAR) ──────────────────────────────────────
+
+export const dataRequestTypes = ['access', 'rectification', 'erasure', 'restriction', 'portability'] as const;
+export const dataRequestStatuses = ['open', 'in_progress', 'complete'] as const;
+
+export const dataRequests = pgTable("data_requests", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  subjectName: text("subject_name").notNull(),
+  subjectEmail: text("subject_email"),
+  requestType: text("request_type", { enum: dataRequestTypes }).notNull(),
+  dateReceived: text("date_received").notNull(), // YYYY-MM-DD
+  dueDate: text("due_date").notNull(), // YYYY-MM-DD, dateReceived + 1 calendar month
+  status: text("status", { enum: dataRequestStatuses }).notNull().default('open'),
+  notes: text("notes"),
+  assignedTo: varchar("assigned_to").references(() => users.id),
+  completedAt: timestamp("completed_at"),
+  createdBy: varchar("created_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertDataRequestSchema = createInsertSchema(dataRequests).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  requestType: z.enum(dataRequestTypes),
+  status: z.enum(dataRequestStatuses).default('open'),
+  subjectEmail: z.string().optional().nullable(),
+  notes: z.string().optional().nullable(),
+  assignedTo: z.string().optional().nullable(),
+  completedAt: z.coerce.date().optional().nullable(),
+  createdBy: z.string().optional().nullable(),
+});
+
+export type InsertDataRequest = z.infer<typeof insertDataRequestSchema>;
+export type DataRequest = typeof dataRequests.$inferSelect;
+
 export const leaverReportRecipients = pgTable("leaver_report_recipients", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   email: text("email").notNull().unique(),

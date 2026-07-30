@@ -250,7 +250,7 @@ Currently informal. Formal Article 28 DPAs should be in place with:
 
 | Risk | Likelihood | Severity | Overall | Notes |
 |---|---|---|---|---|
-| Unauthorised access to PVG / criminal-record data by an internal user with insufficient privilege | 2 | 3 | **6 — Medium** | Role-based controls exist; scheduler role can currently view joiner records |
+| Scheduler role can view the PVG onboarding milestone flag on joiner records | 1 | 2 | 3 — Low (revised) | On inspection, Care Capacity stores only a cleared/not-cleared milestone checkbox — no disclosure reference numbers or conviction detail. Schedulers manage onboarding (including checking off PVG completion) as their core job function, so admin-only restriction would break the feature's purpose. Reclassified from Medium; no code change made. If People Planner data ever expands to include reference numbers, re-assess immediately. |
 | Automated People Planner scraper credentials compromised — attacker gains access to all HR/care data in source system | 2 | 3 | **6 — Medium** | Playwright session uses real user credentials stored as env secrets |
 | Supabase misconfiguration exposes raw database to internet without row-level security | 1 | 3 | 3 — Low | Supabase accessed via server-side service role only; no direct client DB access observed |
 | Client (vulnerable adult) care-needs data processed without a valid Art 9 condition | 2 | 3 | **6 — Medium** | Art 9(2)(h) likely applies but has not been formally documented |
@@ -271,7 +271,7 @@ Currently informal. Formal Article 28 DPAs should be in place with:
 
 | Risk | Measure | Effect on Risk | Residual Risk | Approved |
 |---|---|---|---|---|
-| Unauthorised access to PVG data by scheduler | Restrict PVG status field to admin role only in API responses; add column-level check | Likelihood ↓ to 1 | Low | Pending |
+| Scheduler visibility of PVG milestone flag | No change made — reassessed as necessary for the scheduler's onboarding-tracking function; only a cleared/not-cleared flag is stored, not disclosure detail | N/A | Low | Reviewed 30 Jul 2026 |
 | Scraper credentials compromised | Move People Planner credentials to dedicated service account; rotate quarterly; alert on failed login | Likelihood ↓ to 1 | Low | Pending |
 | Art 9 condition not documented for client care data | Draft Art 9(2)(h) processing condition statement, reviewed by legal counsel | Severity ↓ | Medium → Low | Pending |
 | No Article 28 DPAs with processors | Obtain signed DPAs from Supabase, Resend, TravelTime, OpenRouteService, Microsoft, Vercel | Severity ↓ to 1 | Low | Pending |
@@ -303,14 +303,17 @@ Currently informal. Formal Article 28 DPAs should be in place with:
 |---|---|---|---|---|
 | 1 | Obtain Article 28 DPAs from Supabase, Resend, TravelTime, OpenRouteService, Microsoft (Azure AD), Vercel | Mustansar Hussain | 30 days | ⚠️ Open |
 | 2 | Update staff and client privacy notices to reference Care Capacity | HR + Digital & Technology | 30 days | ⚠️ Open |
-| 3 | Build in-app Privacy Notice page and link from login screen and footer | Digital & Technology | 30 days | ⚠️ Open |
-| 4 | Build DSAR log and data-export tool in admin panel | Digital & Technology | 30 days | ⚠️ Open |
-| 5 | Document Art 9(2)(h) processing condition for client care data | Legal + Digital & Technology | 45 days | ⚠️ Open |
+| 3 | Build in-app Privacy Notice page and link from login screen and footer | Digital & Technology | 30 days | ✅ Done — `client/src/pages/privacy-policy.tsx`, linked from login and app footer |
+| 4 | Build DSAR log and data-export tool in admin panel | Digital & Technology | 30 days | ✅ Done — Admin → Data Requests tab; see `docs/internal/dsar-procedure.md` |
+| 5 | Document Art 9(2)(h) processing condition for client care data | Legal + Digital & Technology | 45 days | ⚠️ Open — documented in ROPA Activity 3, still needs legal counsel sign-off |
 | 6 | Draft Legitimate Interest Assessment for home-postcode route analysis | Privacy Lead | 45 days | ⚠️ Open |
-| 7 | Restrict PVG field to admin role only in API | Digital & Technology | 14 days | ⚠️ Open |
-| 8 | Confirm Supabase EU region in dashboard; confirm Resend SCC coverage | Digital & Technology | 14 days | ⚠️ Open |
-| 9 | Implement automated retention purge for user accounts and audit logs | Digital & Technology | 60 days | ⚠️ Open |
-| 10 | Formally appoint a registered DPO (if required under Art 37 — large-scale special-category processing) | CEO | 30 days | ⚠️ Open |
+| 7 | ~~Restrict PVG field to admin role only in API~~ Reviewed and reclassified — see Step 5 revision, 30 Jul 2026 | Digital & Technology | — | ✅ Reviewed — no code change needed; only a milestone flag is stored, and schedulers need it for onboarding tracking |
+| 8 | Confirm Neon/Supabase region in dashboard; confirm Resend SCC coverage | Digital & Technology | 14 days | ⚠️ Open |
+| 9 | Implement automated retention purge for user accounts and audit logs | Digital & Technology | 60 days | ⚠️ Open — documented target in `docs/internal/retention-schedule.md`, purge job not yet built |
+| 10 | Formally appoint a registered DPO (if required under Art 37 — large-scale special-category processing) | CEO | 30 days | ⚠️ Open — requires human/CEO decision |
+| 11 | Obtain Article 28 DPAs from all sub-processors listed in the Privacy Policy and ROPA | Mustansar Hussain | 30 days | ⚠️ Open — requires human with contracting authority |
+| 12 | Complete ROPA (Article 30) | Digital & Technology | — | ✅ Done — `docs/ROPA-Care-Capacity.md` |
+| 13 | Write internal accountability procedures (retention schedule, security policy, breach response, DSAR procedure) | Digital & Technology | — | ✅ Done — `docs/internal/` |
 
 ---
 

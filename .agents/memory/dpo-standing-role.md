@@ -4,67 +4,37 @@ description: Ongoing GDPR/privacy lead responsibilities and known compliance sta
 ---
 
 ## Role
-Mustansar Hussain (Digital & Technology Team) is the designated Privacy Lead / acting DPO for Care Capacity. As agent, I hold this role on an ongoing basis — not a one-off audit. Every material system change must be assessed against the standing DPIA.
+Mustansar Hussain (Digital & Technology Team) is the designated Privacy Lead / acting DPO for Care Capacity. As agent, I hold this role on an ongoing basis — not a one-off audit. Every material system change must be assessed against the standing DPIA/ROPA.
 
 ## Controller
-Home Instead Scottish Group (SUR Group)
+SUR Group (trading as Home Instead Scottish Group)
 
 ## Product
 Care Capacity — Workforce Intelligence Platform
 
-## Full DPIA Location
-`docs/DPIA-Care-Capacity.md` — completed July 2026, next review July 2027 or on any material change.
+## Core Documents
+- DPIA: `docs/DPIA-Care-Capacity.md` — completed July 2026, revised 30 Jul 2026, next review July 2027 or on any material change.
+- ROPA (Art 30, mandatory here due to special-category processing): `docs/ROPA-Care-Capacity.md`
+- Internal one-pagers: `docs/internal/retention-schedule.md`, `information-security-policy.md`, `breach-response-procedure.md`, `dsar-procedure.md`
+- In-app Privacy Notice: `client/src/pages/privacy-policy.tsx` (linked from login + footer) — this is the canonical, most current sub-processor list; DPIA/ROPA should defer to it if they ever drift apart.
+- DSAR tool: Admin → Data Requests tab (`server/routes/data-requests.ts`, `client/src/pages/admin.tsx`) — admin-only log + due-date tracking + PDF export (strips password hashes/auth tokens). Erasure/rectification are deliberately manual, not automated by this tool.
 
 ## Special Category / Criminal-Offence Data Present
-- **PVG (Protecting Vulnerable Groups) status** — criminal-offence data (Art 10 UK GDPR / DPA 2018 Sch 1). Currently visible to scheduler role — **must be restricted to admin only (open action)**.
-- **Client care-type / service-need data** — health-adjacent (Art 9(2)(h)). Art 9 condition not yet formally documented.
+- **PVG status** — stored only as a cleared/not-cleared onboarding milestone flag (no disclosure reference numbers). Scheduler-role visibility was reviewed 30 Jul 2026 and judged appropriate for their onboarding job function — do not restrict to admin-only without re-checking what's actually stored first.
+- **Client care-type / service-need data** — health-adjacent (Art 9(2)(h)), documented in ROPA Activity 3; still needs legal counsel sign-off on the Art 9 condition wording.
 
-## Lawful Bases in Use
-- Art 6(1)(b) — employment/care contract
-- Art 6(1)(c) — legal obligation (safer recruitment / PVG)
-- Art 6(1)(f) — legitimate interests (route optimisation, audit logging) — **LIA not yet drafted for home-postcode use**
-- Art 9(2)(h) — health/social care (client data) — **not yet formally documented**
+## Open Compliance Actions (see DPIA Outstanding Actions table for full current list/status)
+Two items always require a human with authority the agent doesn't have — do not attempt to resolve these unilaterally:
+1. Formal DPO appointment under Art 37 (CEO decision).
+2. Article 28 DPA confirmation with every sub-processor (requires contracting authority).
 
-## Data Subject Types
-1. Care workers (employees) — name, address, postcode/geocoords, hours, PVG, references
-2. Service users / clients (vulnerable adults) — name, address, care schedule, service type
-3. Internal platform users — email, name, role, session, audit events
-
-## Third Parties (all need Article 28 DPAs — none confirmed yet)
-| Processor | Purpose | Location | DPA status |
-|---|---|---|---|
-| Supabase | DB + Auth | EU (Frankfurt — unconfirmed) | ❌ Not obtained |
-| Resend | Transactional email | US | ❌ Not obtained |
-| Microsoft Azure AD | SSO | EU/UK | ❌ Not reviewed |
-| TravelTime API | Route/travel time | UK | ❌ Not obtained |
-| OpenRouteService | Geocoding | EU (Germany) | ❌ Not obtained |
-| postcodes.io | Postcode lookup | UK | ❌ Not obtained |
-| Vercel | Frontend CDN + analytics | US | ❌ Not obtained |
-| Access Workspace (People Planner) | Source system / data origin | UK | ❌ Not obtained |
-
-## Retention Policy (established in DPIA — not yet enforced in code)
-- Capacity analyses: 15-week rolling window (enforced)
-- Platform user accounts: employment duration + 6 months (NOT enforced — GAP)
-- Audit logs: 12 months (NOT enforced — GAP)
-- Session tokens: 24h rolling (enforced)
-
-## Open Compliance Actions (priority order)
-1. ❌ Article 28 DPAs from all processors above
-2. ❌ Update staff/client privacy notices to reference Care Capacity
-3. ❌ Build in-app Privacy Notice page — link from login screen + footer
-4. ❌ Build DSAR log + data-export tool in admin panel
-5. ❌ Document Art 9(2)(h) condition for client care data
-6. ❌ Draft LIA for home-postcode route-optimisation processing
-7. ❌ Restrict PVG field to admin role only in API
-8. ❌ Confirm Supabase EU region; confirm Resend SCC coverage
-9. ❌ Implement automated retention purge (user accounts + audit logs)
-10. ❌ Formally appoint registered DPO under Art 37 (CEO decision)
+Other open items: Art 9(2)(h) legal sign-off, LIA for postcode-based route optimisation, confirming Neon/Supabase hosting region, automated retention purge job for user accounts/audit logs.
 
 ## Rules for Future Changes
-- Any new third-party integration → check if it receives personal data → obtain Art 28 DPA → update DPIA
-- Any new data field → ask: is it necessary? Does it touch special-category data?
-- Any public-facing feature → ensure Privacy Notice is updated
-- Any AI/automated-decision feature → mandatory DPIA update (Art 22)
-- Any international transfer outside UK/EU → SCC / adequacy assessment required
+- Any new third-party integration → check if it receives personal data → needs an Art 28 DPA → update ROPA + Privacy Policy sub-processor list together (keep them in sync).
+- Any new data field → ask: is it necessary? Does it touch special-category/criminal-offence data? → update ROPA.
+- Any public-facing feature → ensure Privacy Notice is updated.
+- Any AI/automated-decision feature → mandatory DPIA update (Art 22).
+- Never claim "certified GDPR compliant" — GDPR has no certification scheme; describe compliance posture honestly (what's built vs. open risk) instead.
 
-**Why:** Art 5(2) accountability — must be able to demonstrate compliance at any time. Art 33 imposes 72-hour breach notification. Art 12 imposes 1-month DSAR response. These deadlines require written procedures to meet consistently.
+**Why:** Art 5(2) accountability — must be able to demonstrate compliance at any time, not just assert it. Art 33 imposes 72-hour breach notification. Art 12 imposes a 1-month DSAR response deadline. These require working tools and written procedures, not just policy documents.
