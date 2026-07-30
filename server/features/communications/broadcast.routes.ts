@@ -18,14 +18,21 @@ const REPLY_TO      = 'mustansar.hussain@sg.homeinstead.co.uk';
 const DASHBOARD_URL = 'https://carecapacity.sur-group.co.uk/login';
 const LOGO_URL      = 'https://carecapacity.sur-group.co.uk/favicon.png';
 
+export interface FeatureCard { emoji: string; title: string; desc: string; }
+
 export interface BroadcastPayload {
-  subject: string;
-  headline: string;
-  body: string;
-  bullets?: string[];
-  ctaText?: string;
-  ctaUrl?: string;
-  previewText?: string;
+  subject:        string;
+  headline:       string;
+  subheadline?:   string;
+  releaseVersion?: string;
+  body:           string;
+  featureCards?:  FeatureCard[];
+  bullets?:       string[];      // "Included in this release" checklist
+  screenshotUrl?: string;
+  comingNext?:    string[];      // roadmap items
+  ctaText?:       string;
+  ctaUrl?:        string;
+  previewText?:   string;
 }
 
 // ── Markdown-lite body parser ──────────────────────────────────────────────────
@@ -77,57 +84,93 @@ function parseBody(raw: string): string {
 
 // ── HTML template ─────────────────────────────────────────────────────────────
 function renderEmail(p: BroadcastPayload, recipientName: string): string {
-  const preview = p.previewText || p.headline;
-  const year = new Date().getFullYear();
+  const F        = `Inter,system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif`;
+  const preview  = p.previewText || p.headline;
+  const year     = new Date().getFullYear();
+  const release  = p.releaseVersion || `${year}.${String(new Date().getMonth() + 1).padStart(2,'0')}`;
+  const updates  = (p.bullets?.filter(Boolean).length ?? 0) + (p.featureCards?.length ?? 0);
 
-  // Feature highlight cards (bullets)
-  const bulletsHtml = p.bullets && p.bullets.length > 0
-    ? `<table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:28px 0 0;">
-        <tr>
-          <td style="background:#f0f4ff;border-radius:10px;padding:22px 24px;">
-            <p style="margin:0 0 4px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#1d4ed8;">Platform Updates</p>
-            <p style="margin:0 0 16px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:17px;font-weight:700;color:#1e293b;line-height:1.3;">What's Changed</p>
-            ${p.bullets.map(b => `
-            <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:6px;">
-              <tr>
-                <td width="20" valign="top" style="padding-top:3px;">
-                  <span style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:14px;">✅</span>
-                </td>
-                <td style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:14px;color:#374151;line-height:1.6;padding-left:8px;">${b}</td>
-              </tr>
-            </table>`).join('')}
-          </td>
-        </tr>
-      </table>`
-    : '';
-
-  // CTA buttons — always includes "Go to Dashboard"; custom button is secondary
-  const ctaHtml = `<table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:32px 0 0;">
-    <tr>
-      <td align="center">
-        <table cellpadding="0" cellspacing="0" border="0">
+  // ── Feature cards HTML ──
+  const featureCardsHtml = p.featureCards && p.featureCards.length > 0
+    ? `<tr><td style="padding:0 0 0 0;">
+        <table width="100%" cellpadding="0" cellspacing="0" border="0"
+               style="margin:0;background:#f8fafc;border-top:1px solid #e2e8f0;border-bottom:1px solid #e2e8f0;">
           <tr>
-            ${p.ctaText ? `
-            <td style="padding-right:12px;">
-              <a href="${p.ctaUrl || DASHBOARD_URL}"
-                 style="display:inline-block;background:#1e293b;color:#ffffff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:14px;font-weight:600;text-decoration:none;padding:13px 26px;border-radius:8px;letter-spacing:0.01em;">
-                ${p.ctaText}
-              </a>
-            </td>` : ''}
-            <td>
-              <a href="${DASHBOARD_URL}"
-                 style="display:inline-block;background:#ffffff;color:#1e293b;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:14px;font-weight:600;text-decoration:none;padding:12px 26px;border-radius:8px;letter-spacing:0.01em;border:2px solid #1e293b;">
-                Go to Dashboard
-              </a>
+            <td style="padding:10px 44px 8px;">
+              <p style="margin:0;font-family:${F};font-size:10px;font-weight:700;color:#059669;letter-spacing:0.10em;text-transform:uppercase;">What's New</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:0 36px 28px;">
+              <table width="100%" cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  ${p.featureCards.slice(0,3).map((c,i,arr) => `
+                  <td width="${Math.floor(100/arr.length)}%" valign="top"
+                      style="padding:16px 12px;text-align:center;${i < arr.length-1 ? 'border-right:1px solid #e2e8f0;' : ''}">
+                    <div style="font-size:30px;line-height:1;margin-bottom:10px;">${c.emoji || '⚡'}</div>
+                    <p style="margin:0 0 6px;font-family:${F};font-size:13px;font-weight:700;color:#0c1628;">${c.title}</p>
+                    <p style="margin:0;font-family:${F};font-size:12px;color:#64748b;line-height:1.5;">${c.desc}</p>
+                  </td>`).join('')}
+                </tr>
+              </table>
             </td>
           </tr>
         </table>
-      </td>
-    </tr>
-  </table>`;
+      </td></tr>`
+    : '';
 
-  const F = `Inter,system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif`;
-  const month = new Date().toLocaleDateString('en-GB', { month: 'long', year: 'numeric' }).toUpperCase();
+  // ── Screenshot HTML ──
+  const screenshotHtml = p.screenshotUrl
+    ? `<tr><td style="background:#fff;padding:32px 44px;">
+        <p style="margin:0 0 12px;font-family:${F};font-size:10px;font-weight:700;color:#059669;letter-spacing:0.10em;text-transform:uppercase;">Platform Preview</p>
+        <img src="${p.screenshotUrl}" width="512" alt="Platform screenshot"
+             style="display:block;width:100%;max-width:512px;border-radius:8px;border:1px solid #e2e8f0;" />
+        <p style="margin:10px 0 0;font-family:${F};font-size:12px;color:#94a3b8;line-height:1.5;">
+          Enhanced dashboard visibility, cleaner navigation and a more secure experience.
+        </p>
+      </td></tr>`
+    : '';
+
+  // ── Release notes (highlights) ──
+  const bulletsHtml = p.bullets && p.bullets.filter(Boolean).length > 0
+    ? `<tr><td style="background:#fff;padding:0 44px 32px;">
+        <p style="margin:0 0 14px;font-family:${F};font-size:10px;font-weight:700;color:#059669;letter-spacing:0.10em;text-transform:uppercase;">Included in this Release</p>
+        ${p.bullets.filter(Boolean).map((b,i,arr) => `
+        <table width="100%" cellpadding="0" cellspacing="0" border="0"
+               style="${i < arr.length-1 ? 'border-bottom:1px solid #f1f5f9;' : ''}margin-bottom:0;">
+          <tr>
+            <td width="28" valign="middle" style="padding:9px 0;">
+              <div style="width:20px;height:20px;background:#059669;border-radius:5px;text-align:center;line-height:20px;font-size:11px;color:#fff;font-weight:700;">✓</div>
+            </td>
+            <td style="font-family:${F};font-size:14px;color:#374151;font-weight:500;padding:9px 0 9px 8px;line-height:1.4;">${b}</td>
+          </tr>
+        </table>`).join('')}
+      </td></tr>`
+    : '';
+
+  // ── Coming Next (roadmap) ──
+  const comingNextHtml = p.comingNext && p.comingNext.filter(Boolean).length > 0
+    ? `<tr><td style="background:#f8fafc;padding:28px 44px;border-top:1px solid #e2e8f0;border-bottom:1px solid #e2e8f0;">
+        <p style="margin:0 0 14px;font-family:${F};font-size:10px;font-weight:700;color:#64748b;letter-spacing:0.10em;text-transform:uppercase;">Coming Next</p>
+        ${p.comingNext.filter(Boolean).map(item => `
+        <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:8px;">
+          <tr>
+            <td width="20" valign="top" style="padding-top:3px;font-family:${F};font-size:14px;color:#94a3b8;">→</td>
+            <td style="font-family:${F};font-size:13px;color:#64748b;padding-left:6px;line-height:1.5;">${item}</td>
+          </tr>
+        </table>`).join('')}
+      </td></tr>`
+    : '';
+
+  // ── CTA ──
+  const ctaLabel = p.ctaText || 'Launch Care Capacity →';
+  const ctaTarget = p.ctaUrl || DASHBOARD_URL;
+  const ctaHtml = `<tr><td style="background:#fff;padding:36px 44px 40px;text-align:center;">
+    <a href="${ctaTarget}"
+       style="display:inline-block;background:linear-gradient(90deg,#059669,#10b981);color:#ffffff;font-family:${F};font-size:16px;font-weight:700;text-decoration:none;padding:18px 44px;border-radius:14px;letter-spacing:0.01em;box-shadow:0 12px 30px rgba(16,185,129,0.30);">
+      ${ctaLabel}
+    </a>
+  </td></tr>`;
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -178,52 +221,93 @@ function renderEmail(p: BroadcastPayload, recipientName: string): string {
 
     <!-- ── Hero ── -->
     <tr>
-      <td bgcolor="#0c1628" style="background:#0c1628;padding:52px 44px 48px;">
-        <p style="margin:0 0 18px;font-family:${F};font-size:11px;font-weight:600;color:#34d399;letter-spacing:0.10em;text-transform:uppercase;">${month}</p>
-        <h1 style="margin:0 0 18px;font-family:${F};font-size:34px;font-weight:800;color:#ffffff;line-height:1.1;letter-spacing:-0.04em;">${p.headline}</h1>
-        <p style="margin:0;font-family:${F};font-size:14px;color:#64748b;line-height:1.65;">What's new, what's changed, and what's coming to Care Capacity.</p>
-      </td>
-    </tr>
-    <!-- hero bottom border -->
-    <tr><td style="background:linear-gradient(90deg,transparent,rgba(5,150,105,0.35),transparent);height:1px;line-height:1px;font-size:1px;">&nbsp;</td></tr>
+      <td bgcolor="#0c1628" style="background:#0c1628;padding:52px 44px 44px;">
 
-    <!-- ── Body ── -->
-    <tr>
-      <td style="background:#ffffff;padding:44px 44px 32px;">
-        <p style="margin:0 0 28px;font-family:${F};font-size:15px;color:#374151;line-height:1.6;">Hi ${recipientName},</p>
-        ${parseBody(p.body)}
-        ${bulletsHtml}
-      </td>
-    </tr>
+        <!-- Release badge -->
+        <p style="margin:0 0 20px;display:inline-block;font-family:${F};font-size:10px;font-weight:700;color:#34d399;letter-spacing:0.15em;text-transform:uppercase;background:rgba(52,211,153,0.08);border:1px solid rgba(52,211,153,0.25);padding:5px 12px;border-radius:20px;">
+          RELEASE ${release}
+        </p>
 
-    <!-- ── CTA ── -->
-    <tr>
-      <td style="background:#ffffff;padding:4px 44px 44px;text-align:center;">
-        ${ctaHtml}
-      </td>
-    </tr>
+        <!-- Headline -->
+        <h1 style="margin:0 0 16px;font-family:${F};font-size:46px;font-weight:900;color:#ffffff;line-height:1.05;letter-spacing:-0.04em;">${p.headline}</h1>
 
-    <!-- ── Footer ── -->
-    <tr>
-      <td bgcolor="#0c1628" style="background:#0c1628;padding:32px 44px;text-align:center;">
-        <!-- Logo -->
-        <table cellpadding="0" cellspacing="0" border="0" align="center" style="margin:0 auto 16px;">
+        <!-- Subheadline -->
+        <p style="margin:0 0 36px;font-family:${F};font-size:18px;color:#94a3b8;line-height:1.55;max-width:480px;">
+          ${p.subheadline || 'Faster access, stronger security and a better platform experience.'}
+        </p>
+
+        <!-- Metrics strip -->
+        <table cellpadding="0" cellspacing="0" border="0">
           <tr>
-            <td style="background:#059669;width:24px;height:24px;border-radius:6px;text-align:center;line-height:24px;font-size:12px;vertical-align:middle;">⚡</td>
-            <td style="padding-left:8px;vertical-align:middle;">
-              <span style="font-family:${F};font-size:13px;font-weight:700;color:#ffffff;letter-spacing:0.05em;text-transform:uppercase;">CARE CAPACITY</span>
+            <td style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:10px 20px;text-align:center;">
+              <p style="margin:0;font-family:${F};font-size:22px;font-weight:800;color:#fff;line-height:1;">${updates > 0 ? updates : '—'}</p>
+              <p style="margin:4px 0 0;font-family:${F};font-size:10px;color:#64748b;text-transform:uppercase;letter-spacing:0.08em;">Updates</p>
+            </td>
+            <td style="width:12px;"></td>
+            <td style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:10px 20px;text-align:center;">
+              <p style="margin:0;font-family:${F};font-size:22px;font-weight:800;color:#34d399;line-height:1;">Live</p>
+              <p style="margin:4px 0 0;font-family:${F};font-size:10px;color:#64748b;text-transform:uppercase;letter-spacing:0.08em;">Status</p>
+            </td>
+            <td style="width:12px;"></td>
+            <td style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:10px 20px;text-align:center;">
+              <p style="margin:0;font-family:${F};font-size:22px;font-weight:800;color:#fff;line-height:1;">${release}</p>
+              <p style="margin:4px 0 0;font-family:${F};font-size:10px;color:#64748b;text-transform:uppercase;letter-spacing:0.08em;">Release</p>
             </td>
           </tr>
         </table>
-        <!-- Divider -->
-        <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:16px;">
+
+      </td>
+    </tr>
+    <!-- hero glow line -->
+    <tr><td style="background:linear-gradient(90deg,transparent,rgba(5,150,105,0.4),transparent);height:1px;line-height:1px;font-size:1px;">&nbsp;</td></tr>
+
+    <!-- ── Body / What's New ── -->
+    <tr>
+      <td style="background:#ffffff;padding:40px 44px 28px;">
+        <p style="margin:0 0 8px;font-family:${F};font-size:10px;font-weight:700;color:#059669;letter-spacing:0.10em;text-transform:uppercase;">What's New</p>
+        <p style="margin:0 0 28px;font-family:${F};font-size:15px;color:#374151;line-height:1.6;">Hi ${recipientName},</p>
+        ${parseBody(p.body)}
+      </td>
+    </tr>
+
+    <!-- ── Feature cards ── -->
+    ${featureCardsHtml}
+
+    <!-- ── Screenshot ── -->
+    ${screenshotHtml}
+
+    <!-- ── Release notes ── -->
+    ${bulletsHtml}
+
+    <!-- ── Coming Next ── -->
+    ${comingNextHtml}
+
+    <!-- ── CTA ── -->
+    ${ctaHtml}
+
+    <!-- ── Footer ── -->
+    <tr>
+      <td bgcolor="#0c1628" style="background:#0c1628;padding:36px 44px;text-align:center;">
+        <table cellpadding="0" cellspacing="0" border="0" align="center" style="margin:0 auto 14px;">
+          <tr>
+            <td style="background:#059669;width:26px;height:26px;border-radius:7px;text-align:center;line-height:26px;font-size:13px;vertical-align:middle;">⚡</td>
+            <td style="padding-left:9px;vertical-align:middle;">
+              <span style="font-family:${F};font-size:14px;font-weight:800;color:#ffffff;letter-spacing:0.06em;text-transform:uppercase;">CARE CAPACITY</span>
+            </td>
+          </tr>
+        </table>
+        <p style="margin:0 0 6px;font-family:${F};font-size:12px;color:#64748b;line-height:1.5;">Workforce Intelligence Platform</p>
+        <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:14px 0;">
           <tr><td style="height:1px;background:rgba(255,255,255,0.06);"></td></tr>
         </table>
-        <p style="margin:0 0 6px;font-family:${F};font-size:11px;color:#475569;line-height:1.6;">
-          Questions? Reply to this email — we read every one.
+        <p style="margin:0 0 4px;font-family:${F};font-size:11px;color:#475569;line-height:1.6;">
+          Questions? Simply reply to this email and our team will be happy to help.
         </p>
-        <p style="margin:0;font-family:${F};font-size:10px;color:#334155;line-height:1.5;">
-          © ${year} Home Instead – Scottish Group &nbsp;·&nbsp; Workforce Intelligence Platform
+        <p style="margin:0 0 4px;font-family:${F};font-size:11px;color:#334155;line-height:1.5;">
+          Built by the Digital &amp; Technology Team
+        </p>
+        <p style="margin:6px 0 0;font-family:${F};font-size:10px;color:#1e293b;line-height:1.5;">
+          © ${year} Home Instead – Scottish Group &nbsp;·&nbsp; Release ${release}
         </p>
       </td>
     </tr>
@@ -251,7 +335,7 @@ export function registerBroadcastRoutes(app: Express) {
 
   // POST — send the broadcast
   app.post('/api/admin/broadcast-email', requireAuth, requireRole('admin'), async (req: Request, res: Response) => {
-    const { subject, headline, body, bullets, ctaText, ctaUrl, previewText } = req.body as BroadcastPayload;
+    const { subject, headline, subheadline, releaseVersion, body, featureCards, bullets, screenshotUrl, comingNext, ctaText, ctaUrl, previewText } = req.body as BroadcastPayload;
 
     if (!subject?.trim() || !headline?.trim() || !body?.trim()) {
       return res.status(400).json({ message: 'subject, headline and body are required' });

@@ -986,29 +986,49 @@ function FeedbackTab() {
 
 // ─── Communications Tab ───────────────────────────────────────────────────────
 
+interface FeatureCardDraft { emoji: string; title: string; desc: string; }
+
 function CommunicationsTab() {
   const { toast } = useToast();
-  const [subject, setSubject] = useState('');
-  const [headline, setHeadline] = useState('');
-  const [body, setBody] = useState('');
-  const [bullets, setBullets] = useState<string[]>(['']);
-  const [ctaText, setCtaText] = useState('');
-  const [ctaUrl, setCtaUrl] = useState('');
-  const [showPreview, setShowPreview] = useState(false);
-  const [sending, setSending] = useState(false);
-  const [lastResult, setLastResult] = useState<{ sent: number; failed: number; total: number } | null>(null);
+  const [subject,        setSubject]        = useState('');
+  const [releaseVersion, setReleaseVersion] = useState('');
+  const [headline,       setHeadline]       = useState('');
+  const [subheadline,    setSubheadline]    = useState('');
+  const [body,           setBody]           = useState('');
+  const [featureCards,   setFeatureCards]   = useState<FeatureCardDraft[]>([
+    { emoji: '🔐', title: 'Microsoft Sign-In',    desc: 'Secure access using your existing Microsoft 365 account.' },
+    { emoji: '📊', title: 'Dashboard Improvements', desc: 'Improved KPI visibility, readability and user experience.'  },
+    { emoji: '⚡', title: 'Platform Performance', desc: 'Behind-the-scenes enhancements to reliability and responsiveness.' },
+  ]);
+  const [showFeatureCards, setShowFeatureCards] = useState(false);
+  const [bullets,        setBullets]        = useState<string[]>(['']);
+  const [comingNext,     setComingNext]     = useState<string[]>(['']);
+  const [showComingNext, setShowComingNext] = useState(false);
+  const [screenshotUrl,  setScreenshotUrl]  = useState('');
+  const [ctaText,        setCtaText]        = useState('');
+  const [ctaUrl,         setCtaUrl]         = useState('');
+  const [showPreview,    setShowPreview]    = useState(false);
+  const [sending,        setSending]        = useState(false);
+  const [lastResult,     setLastResult]     = useState<{ sent: number; failed: number; total: number } | null>(null);
 
   const { data: recipientsData } = useQuery<{ count: number; emails: { email: string; name: string }[] }>({
     queryKey: ['/api/admin/broadcast-email/recipients'],
   });
 
-  const activeBullets = bullets.filter(b => b.trim());
+  const activeBullets    = bullets.filter(b => b.trim());
+  const activeComingNext = comingNext.filter(c => c.trim());
+  const activeCards      = featureCards.filter(c => c.title.trim() || c.desc.trim());
 
-  const handleAddBullet = () => setBullets(prev => [...prev, '']);
-  const handleBulletChange = (i: number, val: string) => {
-    setBullets(prev => prev.map((b, idx) => idx === i ? val : b));
-  };
-  const handleRemoveBullet = (i: number) => setBullets(prev => prev.filter((_, idx) => idx !== i));
+  const handleAddBullet      = () => setBullets(prev => [...prev, '']);
+  const handleBulletChange   = (i: number, val: string) => setBullets(prev => prev.map((b, idx) => idx === i ? val : b));
+  const handleRemoveBullet   = (i: number) => setBullets(prev => prev.filter((_, idx) => idx !== i));
+
+  const handleAddComing      = () => setComingNext(prev => [...prev, '']);
+  const handleComingChange   = (i: number, val: string) => setComingNext(prev => prev.map((c, idx) => idx === i ? val : c));
+  const handleRemoveComing   = (i: number) => setComingNext(prev => prev.filter((_, idx) => idx !== i));
+
+  const handleCardChange = (i: number, field: keyof FeatureCardDraft, val: string) =>
+    setFeatureCards(prev => prev.map((c, idx) => idx === i ? { ...c, [field]: val } : c));
 
   const canSend = subject.trim() && headline.trim() && body.trim();
 
@@ -1024,10 +1044,15 @@ function CommunicationsTab() {
       const res = await apiRequest('POST', '/api/admin/broadcast-email', {
         subject,
         headline,
+        subheadline:    subheadline.trim()    || undefined,
+        releaseVersion: releaseVersion.trim() || undefined,
         body,
-        bullets: activeBullets,
-        ctaText: ctaText.trim() || undefined,
-        ctaUrl: ctaUrl.trim() || undefined,
+        featureCards:   showFeatureCards && activeCards.length > 0 ? activeCards : undefined,
+        bullets:        activeBullets.length > 0 ? activeBullets : undefined,
+        screenshotUrl:  screenshotUrl.trim() || undefined,
+        comingNext:     showComingNext && activeComingNext.length > 0 ? activeComingNext : undefined,
+        ctaText:        ctaText.trim() || undefined,
+        ctaUrl:         ctaUrl.trim()  || undefined,
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message ?? 'Send failed');
@@ -1046,9 +1071,13 @@ function CommunicationsTab() {
   const dashboardUrl = 'https://carecapacity.sur-group.co.uk/login';
   const logoUrl = 'https://carecapacity.sur-group.co.uk/favicon.png';
 
+  const releaseLabel = releaseVersion.trim() ||
+    `${new Date().getFullYear()}.${String(new Date().getMonth()+1).padStart(2,'0')}`;
+  const updatesCount = activeBullets.length + (showFeatureCards ? activeCards.length : 0);
+
   // ── Markdown-lite body parser ──────────────────────────────────────────────
   function parseBodyPreview(raw: string): string {
-    if (!raw.trim()) return '<p class="placeholder">Your message body will appear here…</p>';
+    if (!raw.trim()) return '<p class="placeholder">We\'re pleased to share the latest updates to the Care Capacity platform, including new features, security enhancements and experience improvements designed to help teams work more efficiently.</p>';
     const inline = (s: string) =>
       s.replace(/\*\*(.+?)\*\*/g, '<strong style="color:#0c1628;font-weight:700;">$1</strong>')
        .replace(/_(.+?)_/g, '<em>$1</em>');
@@ -1067,10 +1096,53 @@ function CommunicationsTab() {
     }).join('');
   }
 
+  // ── Feature cards preview HTML ─────────────────────────────────────────────
+  const featureCardsPreviewHtml = showFeatureCards && activeCards.length > 0
+    ? `<div class="fc-section">
+        <div class="fc-grid">
+          ${activeCards.slice(0,3).map(c => `
+            <div class="fc-card">
+              <div class="fc-emoji">${c.emoji || '⚡'}</div>
+              <div class="fc-title">${c.title || 'Feature'}</div>
+              <div class="fc-desc">${c.desc || ''}</div>
+            </div>`).join('')}
+        </div>
+      </div>` : '';
+
+  // ── Screenshot preview HTML ────────────────────────────────────────────────
+  const screenshotPreviewHtml = screenshotUrl.trim()
+    ? `<div class="screenshot-section">
+        <p class="eyebrow">Platform Preview</p>
+        <img src="${screenshotUrl}" style="width:100%;border-radius:8px;border:1px solid #e2e8f0;display:block;" />
+        <p style="font-size:12px;color:#94a3b8;margin:8px 0 0;line-height:1.5;">Enhanced dashboard visibility, cleaner navigation and a more secure experience.</p>
+      </div>` : '';
+
+  // ── Release notes preview HTML ─────────────────────────────────────────────
+  const bulletsPreviewHtml = activeBullets.length > 0
+    ? `<div class="rn-section">
+        <p class="eyebrow">Included in this Release</p>
+        ${activeBullets.map((b,i,arr) => `
+          <div class="rn-item" style="${i < arr.length-1 ? 'border-bottom:1px solid #f1f5f9;' : ''}">
+            <div class="rn-check">✓</div>
+            <span class="rn-text">${b}</span>
+          </div>`).join('')}
+      </div>` : '';
+
+  // ── Coming Next preview HTML ───────────────────────────────────────────────
+  const comingNextPreviewHtml = showComingNext && activeComingNext.length > 0
+    ? `<div class="cn-section">
+        <p class="eyebrow" style="color:#64748b;">Coming Next</p>
+        ${activeComingNext.map(item => `
+          <div class="cn-item">
+            <span class="cn-arrow">→</span>
+            <span class="cn-text">${item}</span>
+          </div>`).join('')}
+      </div>` : '';
+
   // Live preview rendered in an iframe srcDoc
   const previewHtml = `<!DOCTYPE html><html><head><meta charset="UTF-8">
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
   <style>
     *{box-sizing:border-box;margin:0;padding:0}
     body{font-family:'Inter',system-ui,sans-serif;background:#f0f2f5;padding:32px 16px 48px;-webkit-font-smoothing:antialiased}
@@ -1079,34 +1151,36 @@ function CommunicationsTab() {
     /* Card shell */
     .card{border-radius:16px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.06),0 20px 60px rgba(0,0,0,0.10),0 0 0 1px rgba(0,0,0,0.04)}
 
-    /* Top stripe */
+    /* Stripe */
     .stripe{height:3px;background:linear-gradient(90deg,#059669 0%,#10b981 50%,#34d399 100%)}
-
-    /* Preheader */
+    /* Logo row */
     .pre{background:#fff;padding:20px 36px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #f4f6f8}
     .logo-wrap{display:flex;align-items:center;gap:11px}
     .pre img{width:30px;height:31px;border-radius:7px;display:block}
     .brand{font-size:14px;font-weight:700;color:#0c1628;letter-spacing:-0.02em;line-height:1}
     .brandtag{font-size:10px;color:#94a3b8;margin-top:3px;font-weight:400}
     .pill{font-size:10px;font-weight:600;color:#059669;background:#f0fdf4;padding:4px 10px;border-radius:20px;border:1px solid #bbf7d0;letter-spacing:0.05em;text-transform:uppercase}
-
     /* Hero */
-    .hero{background:#0c1628;padding:52px 44px 48px;position:relative;overflow:hidden}
-    .hero::after{content:'';position:absolute;bottom:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(5,150,105,0.4),transparent)}
-    .hero-date{font-size:11px;font-weight:600;color:#34d399;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:18px}
-    .hero h1{font-size:34px;font-weight:800;color:#fff;line-height:1.1;letter-spacing:-0.04em;margin-bottom:18px;max-width:420px}
-    .hero-sub{font-size:14px;color:#64748b;line-height:1.65;max-width:380px}
-
+    .hero{background:#0c1628;padding:52px 44px 44px}
+    .hero-release{display:inline-block;font-size:10px;font-weight:700;color:#34d399;letter-spacing:0.15em;text-transform:uppercase;background:rgba(52,211,153,0.08);border:1px solid rgba(52,211,153,0.25);padding:5px 12px;border-radius:20px;margin-bottom:20px}
+    .hero h1{font-size:44px;font-weight:900;color:#fff;line-height:1.05;letter-spacing:-0.04em;margin:0 0 16px}
+    .hero-sub{font-size:17px;color:#94a3b8;line-height:1.55;margin:0 0 32px;max-width:460px}
+    .metrics{display:flex;gap:12px;flex-wrap:wrap}
+    .metric{background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:10px 18px;text-align:center}
+    .metric-val{font-size:20px;font-weight:800;color:#fff;line-height:1}
+    .metric-val.green{color:#34d399}
+    .metric-lbl{font-size:10px;color:#64748b;text-transform:uppercase;letter-spacing:0.08em;margin-top:4px}
+    .hero-glow{height:1px;background:linear-gradient(90deg,transparent,rgba(5,150,105,0.4),transparent)}
     /* Body */
-    .body{background:#fff;padding:44px 44px 36px}
-    .greeting{font-size:15px;color:#374151;line-height:1.6;margin-bottom:28px}
-
+    .body{background:#fff;padding:40px 44px 28px}
+    .body-eyebrow{font-size:10px;font-weight:700;color:#059669;letter-spacing:0.1em;text-transform:uppercase;margin:0 0 8px}
+    .greeting{font-size:15px;color:#374151;line-height:1.6;margin:0 0 24px}
     /* Typography */
     .bh1{font-size:20px;font-weight:800;color:#0c1628;letter-spacing:-0.025em;line-height:1.2;margin:28px 0 12px}
     .bh1:first-child{margin-top:0}
     .bh2{font-size:15px;font-weight:700;color:#0c1628;line-height:1.35;margin:24px 0 8px;display:flex;align-items:center;gap:8px}
     .bh2::before{content:'';display:inline-block;width:3px;height:14px;background:#059669;border-radius:2px;flex-shrink:0}
-    .eyebrow{font-size:10px;font-weight:700;color:#059669;letter-spacing:0.1em;text-transform:uppercase;margin:22px 0 8px}
+    .eyebrow{font-size:10px;font-weight:700;color:#059669;letter-spacing:0.1em;text-transform:uppercase;margin:0 0 8px;display:block}
     .bp{font-size:15px;color:#4b5563;line-height:1.8;margin-bottom:16px}
     .bp:last-child{margin-bottom:0}
     .bul{list-style:none;padding:0;margin:4px 0 18px}
@@ -1114,33 +1188,39 @@ function CommunicationsTab() {
     .bul li:last-child{border-bottom:none}
     .bul li::before{content:'';position:absolute;left:2px;top:14px;width:6px;height:6px;border-radius:50%;background:#059669}
     .hr{border:none;border-top:1px solid #f1f5f9;margin:24px 0}
-    .placeholder{font-size:15px;color:#d1d5db;font-style:italic;line-height:1.75}
-
-    /* Highlights section */
-    .highlights{margin:28px 0 0;border:1px solid #e2e8f0;border-radius:10px;overflow:hidden}
-    .hi-header{background:#f8fafc;padding:14px 20px;border-bottom:1px solid #e2e8f0;display:flex;align-items:center;gap:8px}
-    .hi-dot{width:8px;height:8px;border-radius:50%;background:#059669}
-    .hi-label{font-size:11px;font-weight:600;color:#059669;letter-spacing:0.08em;text-transform:uppercase}
-    .hi-item{display:flex;align-items:flex-start;gap:12px;padding:13px 20px;border-bottom:1px solid #f1f5f9}
-    .hi-item:last-child{border-bottom:none}
-    .hi-check{width:18px;height:18px;border-radius:5px;background:#059669;color:#fff;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:2px;line-height:1}
-    .hi-text{font-size:13px;color:#374151;line-height:1.6;font-weight:500}
-
+    .placeholder{font-size:15px;color:#cbd5e1;font-style:italic;line-height:1.75}
+    /* Feature cards */
+    .fc-section{background:#f8fafc;padding:28px 44px;border-top:1px solid #e2e8f0;border-bottom:1px solid #e2e8f0}
+    .fc-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:#e2e8f0;border-radius:8px;overflow:hidden}
+    .fc-card{background:#fff;padding:20px 16px;text-align:center}
+    .fc-emoji{font-size:28px;line-height:1;margin-bottom:10px}
+    .fc-title{font-size:13px;font-weight:700;color:#0c1628;margin-bottom:6px}
+    .fc-desc{font-size:12px;color:#64748b;line-height:1.5}
+    /* Screenshot */
+    .screenshot-section{background:#fff;padding:28px 44px}
+    /* Release notes */
+    .rn-section{background:#fff;padding:0 44px 28px}
+    .rn-item{display:flex;align-items:flex-start;gap:10px;padding:9px 0}
+    .rn-check{width:20px;height:20px;background:#059669;border-radius:5px;color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;line-height:1}
+    .rn-text{font-size:14px;color:#374151;font-weight:500;line-height:1.4}
+    /* Coming Next */
+    .cn-section{background:#f8fafc;padding:24px 44px;border-top:1px solid #e2e8f0;border-bottom:1px solid #e2e8f0}
+    .cn-item{display:flex;align-items:flex-start;gap:8px;margin-bottom:8px}
+    .cn-item:last-child{margin-bottom:0}
+    .cn-arrow{font-size:14px;color:#94a3b8;flex-shrink:0;margin-top:1px}
+    .cn-text{font-size:13px;color:#64748b;line-height:1.5}
     /* CTA */
-    .cta{background:#fff;padding:28px 44px 40px;text-align:center}
-    .cta-btn{display:inline-flex;align-items:center;gap:8px;background:#059669;color:#fff;font-family:'Inter',system-ui,sans-serif;font-size:14px;font-weight:600;text-decoration:none;padding:14px 28px;border-radius:10px;letter-spacing:0.01em}
-    .cta-arrow{font-size:16px;line-height:1}
-    .cta-secondary{display:inline-block;color:#6b7280;font-size:12px;margin-top:12px;text-decoration:none}
-    .cta-secondary:hover{color:#374151}
-
+    .cta-section{background:#fff;padding:36px 44px 40px;text-align:center}
+    .cta-btn{display:inline-block;background:linear-gradient(90deg,#059669,#10b981);color:#fff;font-family:'Inter',system-ui,sans-serif;font-size:16px;font-weight:700;text-decoration:none;padding:18px 44px;border-radius:14px;letter-spacing:0.01em;box-shadow:0 12px 30px rgba(16,185,129,.30)}
     /* Footer */
-    .footer{background:#0c1628;padding:32px 44px;text-align:center}
-    .footer-top{display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:16px}
-    .footer-logo-icon{width:24px;height:24px;border-radius:6px;background:#059669;display:flex;align-items:center;justify-content:center;font-size:12px}
-    .footer-name{font-size:13px;font-weight:700;color:#fff;letter-spacing:0.05em;text-transform:uppercase}
-    .footer-line{height:1px;background:rgba(255,255,255,0.06);margin:0 0 16px}
+    .footer{background:#0c1628;padding:36px 44px;text-align:center}
+    .footer-brand{display:flex;align-items:center;justify-content:center;gap:9px;margin-bottom:12px}
+    .footer-icon{width:26px;height:26px;background:#059669;border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:13px}
+    .footer-name{font-size:14px;font-weight:800;color:#fff;letter-spacing:0.06em;text-transform:uppercase}
+    .footer-tag{font-size:12px;color:#64748b;margin-bottom:14px}
+    .footer-rule{height:1px;background:rgba(255,255,255,0.06);margin:0 0 14px}
     .footer-p{font-size:11px;color:#475569;line-height:1.6;margin-bottom:4px}
-    .footer-link{color:#34d399;text-decoration:none}
+    .footer-small{font-size:10px;color:#1e293b;margin-top:6px}
   </style></head><body>
   <div class="outer">
     <div class="card">
@@ -1158,38 +1238,51 @@ function CommunicationsTab() {
       </div>
 
       <div class="hero">
-        <div class="hero-date">${new Date().toLocaleDateString('en-GB',{month:'long',year:'numeric'}).toUpperCase()}</div>
-        <h1>${headline || 'Your headline will appear here'}</h1>
-        <div class="hero-sub">What's new, what's changed, and what's coming to Care Capacity.</div>
+        <div class="hero-release">RELEASE ${releaseLabel}</div>
+        <h1>${headline || 'Microsoft Sign-In Is Now Live'}</h1>
+        <div class="hero-sub">${subheadline || 'Faster access, stronger security and a better platform experience.'}</div>
+        <div class="metrics">
+          <div class="metric">
+            <div class="metric-val">${updatesCount > 0 ? updatesCount : '—'}</div>
+            <div class="metric-lbl">Updates</div>
+          </div>
+          <div class="metric">
+            <div class="metric-val green">Live</div>
+            <div class="metric-lbl">Status</div>
+          </div>
+          <div class="metric">
+            <div class="metric-val">${releaseLabel}</div>
+            <div class="metric-lbl">Release</div>
+          </div>
+        </div>
       </div>
+      <div class="hero-glow"></div>
 
       <div class="body">
-        <div class="greeting">Hi there,</div>
+        <p class="body-eyebrow">What's New</p>
+        <p class="greeting">Hi there,</p>
         ${parseBodyPreview(body)}
-        ${activeBullets.length > 0 ? `
-          <div class="highlights">
-            <div class="hi-header"><div class="hi-dot"></div><span class="hi-label">What's Changed</span></div>
-            ${activeBullets.map((b: string) => `
-              <div class="hi-item">
-                <div class="hi-check">✓</div>
-                <span class="hi-text">${b}</span>
-              </div>`).join('')}
-          </div>` : ''}
       </div>
 
-      <div class="cta">
-        ${ctaText ? `<a href="${ctaUrl || dashboardUrl}" class="cta-btn">${ctaText} <span class="cta-arrow">→</span></a><br>` : `<a href="${dashboardUrl}" class="cta-btn">Open Dashboard <span class="cta-arrow">→</span></a>`}
-        ${ctaText ? `<a href="${dashboardUrl}" class="cta-secondary">Or go to Dashboard →</a>` : ''}
+      ${featureCardsPreviewHtml}
+      ${screenshotPreviewHtml}
+      ${bulletsPreviewHtml}
+      ${comingNextPreviewHtml}
+
+      <div class="cta-section">
+        <a href="${ctaUrl || dashboardUrl}" class="cta-btn">${ctaText || 'Launch Care Capacity →'}</a>
       </div>
 
       <div class="footer">
-        <div class="footer-top">
-          <div class="footer-logo-icon">⚡</div>
-          <div class="footer-name">Care Capacity</div>
+        <div class="footer-brand">
+          <div class="footer-icon">⚡</div>
+          <div class="footer-name">CARE CAPACITY</div>
         </div>
-        <div class="footer-line"></div>
-        <p class="footer-p">Questions? Reply to this email — we read every one.</p>
-        <p class="footer-p">© ${new Date().getFullYear()} Home Instead – Scottish Group</p>
+        <div class="footer-tag">Workforce Intelligence Platform</div>
+        <div class="footer-rule"></div>
+        <p class="footer-p">Questions? Simply reply to this email and our team will be happy to help.</p>
+        <p class="footer-p">Built by the Digital &amp; Technology Team</p>
+        <p class="footer-small">© ${new Date().getFullYear()} Home Instead – Scottish Group · Release ${releaseLabel}</p>
       </div>
     </div>
   </div>
@@ -1228,13 +1321,11 @@ function CommunicationsTab() {
               </Button>
             </div>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-5">
 
-            {/* Subject */}
+            {/* ── SEND ── */}
             <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                Email Subject
-              </label>
+              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Email Subject *</label>
               <Input
                 placeholder="e.g. Care Capacity — July 2026 Update"
                 value={subject}
@@ -1243,86 +1334,175 @@ function CommunicationsTab() {
               />
             </div>
 
-            {/* Headline */}
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                Headline
-              </label>
-              <Input
-                placeholder="e.g. We've made some improvements for you"
-                value={headline}
-                onChange={e => setHeadline(e.target.value)}
-                className="h-9"
-              />
+            {/* ── HERO ── */}
+            <div className="rounded-lg border border-border bg-muted/20 p-3 space-y-3">
+              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Hero Section</p>
+
+              <div className="grid grid-cols-3 gap-2">
+                <div className="col-span-2 space-y-1">
+                  <label className="text-xs font-medium text-muted-foreground">Headline *</label>
+                  <Input
+                    placeholder="Microsoft Sign-In Is Now Live"
+                    value={headline}
+                    onChange={e => setHeadline(e.target.value)}
+                    className="h-8 text-sm"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-muted-foreground">Release version</label>
+                  <Input
+                    placeholder="2026.07"
+                    value={releaseVersion}
+                    onChange={e => setReleaseVersion(e.target.value)}
+                    className="h-8 text-sm"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-muted-foreground">Subheadline</label>
+                <Input
+                  placeholder="Faster access, stronger security and a better platform experience."
+                  value={subheadline}
+                  onChange={e => setSubheadline(e.target.value)}
+                  className="h-8 text-sm"
+                />
+              </div>
             </div>
 
-            {/* Body */}
+            {/* ── CONTENT ── */}
             <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                Message Body
-              </label>
+              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Message Body *</label>
               <Textarea
-                placeholder="Write your message here. Use blank lines to separate paragraphs."
+                placeholder={"We're pleased to share the latest updates to the Care Capacity platform, including new features, security enhancements and experience improvements designed to help teams work more efficiently."}
                 value={body}
                 onChange={e => setBody(e.target.value)}
-                rows={5}
+                rows={4}
                 className="resize-none text-sm leading-relaxed"
               />
+              <p className="text-[11px] text-muted-foreground">Supports # headings, ## subheadings, **bold**, _italic_, - bullets, --- dividers</p>
             </div>
 
-            {/* Bullet points */}
+            {/* ── FEATURE CARDS ── */}
+            <div className="rounded-lg border border-border bg-muted/20 p-3 space-y-3">
+              <div className="flex items-center justify-between">
+                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Feature Cards</p>
+                <button
+                  onClick={() => setShowFeatureCards(p => !p)}
+                  className="text-xs text-emerald-600 hover:text-emerald-700 font-medium"
+                >
+                  {showFeatureCards ? '− Hide' : '+ Include in email'}
+                </button>
+              </div>
+              {showFeatureCards && (
+                <div className="space-y-3">
+                  {featureCards.map((card, i) => (
+                    <div key={i} className="grid grid-cols-[32px_1fr_2fr] gap-2 items-start">
+                      <Input
+                        placeholder="🔐"
+                        value={card.emoji}
+                        onChange={e => handleCardChange(i, 'emoji', e.target.value)}
+                        className="h-8 text-sm text-center px-1"
+                      />
+                      <Input
+                        placeholder="Feature name"
+                        value={card.title}
+                        onChange={e => handleCardChange(i, 'title', e.target.value)}
+                        className="h-8 text-sm"
+                      />
+                      <Input
+                        placeholder="Short description…"
+                        value={card.desc}
+                        onChange={e => handleCardChange(i, 'desc', e.target.value)}
+                        className="h-8 text-sm"
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* ── RELEASE NOTES ── */}
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
                 <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                  Highlights <span className="normal-case font-normal">(optional)</span>
+                  Included in this Release <span className="normal-case font-normal">(optional)</span>
                 </label>
-                <button
-                  onClick={handleAddBullet}
-                  className="text-xs text-emerald-600 hover:text-emerald-700 font-medium flex items-center gap-1"
-                >
-                  <Plus className="h-3 w-3" /> Add point
+                <button onClick={handleAddBullet} className="text-xs text-emerald-600 hover:text-emerald-700 font-medium flex items-center gap-1">
+                  <Plus className="h-3 w-3" /> Add
                 </button>
               </div>
               <div className="space-y-2">
                 {bullets.map((b, i) => (
                   <div key={i} className="flex gap-2 items-center">
-                    <div className="w-5 h-5 rounded-full bg-emerald-100 dark:bg-emerald-950 flex items-center justify-center shrink-0">
+                    <div className="w-5 h-5 rounded bg-emerald-100 dark:bg-emerald-950 flex items-center justify-center shrink-0">
                       <Check className="h-3 w-3 text-emerald-600 dark:text-emerald-400" />
                     </div>
-                    <Input
-                      placeholder={`Highlight point ${i + 1}`}
-                      value={b}
-                      onChange={e => handleBulletChange(i, e.target.value)}
-                      className="h-8 text-sm flex-1"
-                    />
+                    <Input placeholder={`e.g. Microsoft Sign-In`} value={b} onChange={e => handleBulletChange(i, e.target.value)} className="h-8 text-sm flex-1" />
                     {bullets.length > 1 && (
-                      <button onClick={() => handleRemoveBullet(i)} className="text-muted-foreground hover:text-destructive transition-colors">
-                        <X className="h-3.5 w-3.5" />
-                      </button>
+                      <button onClick={() => handleRemoveBullet(i)} className="text-muted-foreground hover:text-destructive transition-colors"><X className="h-3.5 w-3.5" /></button>
                     )}
                   </div>
                 ))}
               </div>
             </div>
 
-            {/* CTA */}
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                Call-to-action Button <span className="normal-case font-normal">(optional)</span>
-              </label>
-              <div className="grid grid-cols-2 gap-2">
+            {/* ── COMING NEXT ── */}
+            <div className="rounded-lg border border-border bg-muted/20 p-3 space-y-3">
+              <div className="flex items-center justify-between">
+                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Coming Next (roadmap)</p>
+                <button onClick={() => setShowComingNext(p => !p)} className="text-xs text-emerald-600 hover:text-emerald-700 font-medium">
+                  {showComingNext ? '− Hide' : '+ Include in email'}
+                </button>
+              </div>
+              {showComingNext && (
+                <div className="space-y-2">
+                  {comingNext.map((c, i) => (
+                    <div key={i} className="flex gap-2 items-center">
+                      <span className="text-muted-foreground text-sm shrink-0">→</span>
+                      <Input placeholder="e.g. AI Powered Insights" value={c} onChange={e => handleComingChange(i, e.target.value)} className="h-8 text-sm flex-1" />
+                      {comingNext.length > 1 && (
+                        <button onClick={() => handleRemoveComing(i)} className="text-muted-foreground hover:text-destructive transition-colors"><X className="h-3.5 w-3.5" /></button>
+                      )}
+                    </div>
+                  ))}
+                  <button onClick={handleAddComing} className="text-xs text-emerald-600 hover:text-emerald-700 font-medium flex items-center gap-1">
+                    <Plus className="h-3 w-3" /> Add item
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* ── SCREENSHOT + CTA ── */}
+            <div className="rounded-lg border border-border bg-muted/20 p-3 space-y-3">
+              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Optional Extras</p>
+
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-muted-foreground">Screenshot URL (platform preview image)</label>
                 <Input
-                  placeholder="Button text, e.g. Open Dashboard"
-                  value={ctaText}
-                  onChange={e => setCtaText(e.target.value)}
+                  placeholder="https://… (leave blank to skip)"
+                  value={screenshotUrl}
+                  onChange={e => setScreenshotUrl(e.target.value)}
                   className="h-8 text-sm"
                 />
-                <Input
-                  placeholder="URL, e.g. https://…"
-                  value={ctaUrl}
-                  onChange={e => setCtaUrl(e.target.value)}
-                  className="h-8 text-sm"
-                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-muted-foreground">CTA button label</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <Input
+                    placeholder="Launch Care Capacity →"
+                    value={ctaText}
+                    onChange={e => setCtaText(e.target.value)}
+                    className="h-8 text-sm"
+                  />
+                  <Input
+                    placeholder="URL (blank = dashboard)"
+                    value={ctaUrl}
+                    onChange={e => setCtaUrl(e.target.value)}
+                    className="h-8 text-sm"
+                  />
+                </div>
               </div>
             </div>
 
