@@ -302,9 +302,9 @@ function renderEmail(p: BroadcastPayload, recipientName: string): string {
               </a>
             </td>
             <td>
-              <a href="mailto:${REPLY_TO}"
+              <a href="mailto:${REPLY_TO}?subject=Care%20Capacity%20Enquiry"
                  style="display:inline-block;font-family:${F};font-size:13px;font-weight:600;color:#34d399;text-decoration:none;border:1px solid rgba(52,211,153,0.35);border-radius:8px;padding:9px 20px;letter-spacing:0.01em;">
-                Contact Us
+                Contact Mustansar
               </a>
             </td>
           </tr>

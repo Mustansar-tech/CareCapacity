@@ -1274,7 +1274,7 @@ function CommunicationsTab() {
         <div class="footer-rule"></div>
         <div style="display:flex;gap:10px;justify-content:center;margin-bottom:14px;">
           <a href="${ctaUrl || dashboardUrl}" target="_blank" rel="noopener" style="display:inline-block;font-size:13px;font-weight:600;color:#34d399;text-decoration:none;border:1px solid rgba(52,211,153,0.35);border-radius:8px;padding:9px 20px;letter-spacing:0.01em;">${ctaText || 'Launch Care Capacity →'}</a>
-          <a href="mailto:mustansar.hussain@sg.homeinstead.co.uk" style="display:inline-block;font-size:13px;font-weight:600;color:#34d399;text-decoration:none;border:1px solid rgba(52,211,153,0.35);border-radius:8px;padding:9px 20px;letter-spacing:0.01em;">Contact Us</a>
+          <a href="mailto:mustansar.hussain@sg.homeinstead.co.uk?subject=Care%20Capacity%20Enquiry" style="display:inline-block;font-size:13px;font-weight:600;color:#34d399;text-decoration:none;border:1px solid rgba(52,211,153,0.35);border-radius:8px;padding:9px 20px;letter-spacing:0.01em;">Contact Mustansar</a>
         </div>
         <p class="footer-p">Built by the Digital &amp; Technology Team</p>
         <p class="footer-small">© ${new Date().getFullYear()} Home Instead – Scottish Group</p>
@@ -1569,7 +1569,7 @@ function CommunicationsTab() {
               title="Email preview"
               className="w-full rounded-b-lg border-0"
               style={{ height: '640px' }}
-              sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox"
+              sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox allow-top-navigation-by-user-activation"
             />
           </CardContent>
         </Card>
