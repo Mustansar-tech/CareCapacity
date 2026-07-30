@@ -9,8 +9,15 @@ const CLIENT_ID  = () => process.env.AZURE_CLIENT_ID!;
 const CLIENT_SEC = () => process.env.AZURE_CLIENT_SECRET!;
 
 function callbackUrl(req: Request): string {
-  const base = process.env.FRONTEND_URL || 'https://carecapacity.sur-group.co.uk';
-  return `${base}/api/auth/microsoft/callback`;
+  // Derive from the actual request so the callback works in every environment
+  // (Replit dev preview, Hetzner, Vercel) without hardcoding a domain.
+  const proto = (req.headers['x-forwarded-proto'] as string | undefined)?.split(',')[0].trim()
+    ?? req.protocol
+    ?? 'https';
+  const host = (req.headers['x-forwarded-host'] as string | undefined)?.split(',')[0].trim()
+    ?? req.headers.host
+    ?? req.hostname;
+  return `${proto}://${host}/api/auth/microsoft/callback`;
 }
 
 export function registerMicrosoftAuthRoutes(app: Express) {
