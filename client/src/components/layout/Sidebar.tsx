@@ -46,7 +46,7 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { id: "daily-view", label: "Daily View",      path: "/app/dashboard", search: "view=daily", icon: CalendarDays },
       { id: "schedule",   label: "AI Schedule",     path: "/app/schedule",                         icon: Calendar    },
-      { id: "bd-matrix",  label: "Opportunity Map", path: "/app/bd-matrix",                        icon: Users       },
+      { id: "bd-matrix",  label: "Enquiry Dashboard", path: "/app/bd-matrix",                        icon: Users       },
     ],
   },
   {
