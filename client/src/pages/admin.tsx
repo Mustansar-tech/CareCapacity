@@ -1072,7 +1072,7 @@ function CommunicationsTab() {
   const logoUrl = 'https://carecapacity.sur-group.co.uk/favicon.png';
 
   const releaseLabel = releaseVersion.trim() ||
-    `${new Date().getFullYear()}.${String(new Date().getMonth()+1).padStart(2,'0')}`;
+    new Date().toLocaleDateString('en-GB', { month: 'long', year: 'numeric' }).toUpperCase();
   const updatesCount = activeBullets.length + (showFeatureCards ? activeCards.length : 0);
 
   // ── Markdown-lite body parser ──────────────────────────────────────────────
@@ -1243,15 +1243,11 @@ function CommunicationsTab() {
         <div class="hero-sub">${subheadline || 'Faster access, stronger security and a better platform experience.'}</div>
         <div class="metrics">
           <div class="metric">
-            <div class="metric-val">${updatesCount > 0 ? updatesCount : '—'}</div>
-            <div class="metric-lbl">Updates</div>
-          </div>
-          <div class="metric">
             <div class="metric-val green">Live</div>
             <div class="metric-lbl">Status</div>
           </div>
           <div class="metric">
-            <div class="metric-val">${releaseLabel}</div>
+            <div class="metric-val" style="font-size:15px;">${releaseLabel}</div>
             <div class="metric-lbl">Release</div>
           </div>
         </div>
@@ -1270,7 +1266,7 @@ function CommunicationsTab() {
       ${comingNextPreviewHtml}
 
       <div class="cta-section">
-        <a href="${ctaUrl || dashboardUrl}" class="cta-btn">${ctaText || 'Launch Care Capacity →'}</a>
+        <a href="${ctaUrl || dashboardUrl}" class="cta-btn" target="_blank" rel="noopener">${ctaText || 'Launch Care Capacity →'}</a>
       </div>
 
       <div class="footer">
@@ -1280,9 +1276,9 @@ function CommunicationsTab() {
         </div>
         <div class="footer-tag">Workforce Intelligence Platform</div>
         <div class="footer-rule"></div>
-        <p class="footer-p">Questions? Simply reply to this email and our team will be happy to help.</p>
+        <a href="mailto:mustansar.hussain@sg.homeinstead.co.uk" style="display:inline-block;font-size:13px;font-weight:600;color:#34d399;text-decoration:none;border:1px solid rgba(52,211,153,0.35);border-radius:8px;padding:9px 20px;letter-spacing:0.01em;margin-bottom:12px;">Contact Us</a>
         <p class="footer-p">Built by the Digital &amp; Technology Team</p>
-        <p class="footer-small">© ${new Date().getFullYear()} Home Instead – Scottish Group · Release ${releaseLabel}</p>
+        <p class="footer-small">© ${new Date().getFullYear()} Home Instead – Scottish Group</p>
       </div>
     </div>
   </div>
@@ -1574,7 +1570,7 @@ function CommunicationsTab() {
               title="Email preview"
               className="w-full rounded-b-lg border-0"
               style={{ height: '640px' }}
-              sandbox="allow-same-origin"
+              sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox"
             />
           </CardContent>
         </Card>

@@ -87,7 +87,7 @@ function renderEmail(p: BroadcastPayload, recipientName: string): string {
   const F        = `Inter,system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif`;
   const preview  = p.previewText || p.headline;
   const year     = new Date().getFullYear();
-  const release  = p.releaseVersion || `${year}.${String(new Date().getMonth() + 1).padStart(2,'0')}`;
+  const release  = p.releaseVersion || new Date().toLocaleDateString('en-GB', { month: 'long', year: 'numeric' }).toUpperCase();
   const updates  = (p.bullets?.filter(Boolean).length ?? 0) + (p.featureCards?.length ?? 0);
 
   // ── Feature cards HTML ──
@@ -240,17 +240,12 @@ function renderEmail(p: BroadcastPayload, recipientName: string): string {
         <table cellpadding="0" cellspacing="0" border="0">
           <tr>
             <td style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:10px 20px;text-align:center;">
-              <p style="margin:0;font-family:${F};font-size:22px;font-weight:800;color:#fff;line-height:1;">${updates > 0 ? updates : '—'}</p>
-              <p style="margin:4px 0 0;font-family:${F};font-size:10px;color:#64748b;text-transform:uppercase;letter-spacing:0.08em;">Updates</p>
-            </td>
-            <td style="width:12px;"></td>
-            <td style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:10px 20px;text-align:center;">
               <p style="margin:0;font-family:${F};font-size:22px;font-weight:800;color:#34d399;line-height:1;">Live</p>
               <p style="margin:4px 0 0;font-family:${F};font-size:10px;color:#64748b;text-transform:uppercase;letter-spacing:0.08em;">Status</p>
             </td>
             <td style="width:12px;"></td>
             <td style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:10px 20px;text-align:center;">
-              <p style="margin:0;font-family:${F};font-size:22px;font-weight:800;color:#fff;line-height:1;">${release}</p>
+              <p style="margin:0;font-family:${F};font-size:20px;font-weight:800;color:#fff;line-height:1;">${release}</p>
               <p style="margin:4px 0 0;font-family:${F};font-size:10px;color:#64748b;text-transform:uppercase;letter-spacing:0.08em;">Release</p>
             </td>
           </tr>
@@ -300,14 +295,21 @@ function renderEmail(p: BroadcastPayload, recipientName: string): string {
         <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:14px 0;">
           <tr><td style="height:1px;background:rgba(255,255,255,0.06);"></td></tr>
         </table>
-        <p style="margin:0 0 4px;font-family:${F};font-size:11px;color:#475569;line-height:1.6;">
-          Questions? Simply reply to this email and our team will be happy to help.
-        </p>
+        <table cellpadding="0" cellspacing="0" border="0" align="center" style="margin:0 auto 12px;">
+          <tr>
+            <td>
+              <a href="mailto:${REPLY_TO}"
+                 style="display:inline-block;font-family:${F};font-size:13px;font-weight:600;color:#34d399;text-decoration:none;border:1px solid rgba(52,211,153,0.35);border-radius:8px;padding:9px 20px;letter-spacing:0.01em;">
+                Contact Us
+              </a>
+            </td>
+          </tr>
+        </table>
         <p style="margin:0 0 4px;font-family:${F};font-size:11px;color:#334155;line-height:1.5;">
           Built by the Digital &amp; Technology Team
         </p>
         <p style="margin:6px 0 0;font-family:${F};font-size:10px;color:#1e293b;line-height:1.5;">
-          © ${year} Home Instead – Scottish Group &nbsp;·&nbsp; Release ${release}
+          © ${year} Home Instead – Scottish Group
         </p>
       </td>
     </tr>
