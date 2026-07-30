@@ -1,1 +1,2 @@
 - [Drizzle push vs Supabase](drizzle-push-supabase.md) — `npm run db:push` fails against the Supabase pooler; use SSL env overrides or create tables via direct SQL.
+- [DPO Standing Role](dpo-standing-role.md) — Ongoing privacy lead for Care Capacity; DPIA complete at docs/DPIA-Care-Capacity.md; 10 open compliance actions; PVG = criminal-offence data; no Art 28 DPAs obtained yet.
