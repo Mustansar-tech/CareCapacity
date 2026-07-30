@@ -1043,90 +1043,96 @@ function CommunicationsTab() {
     }
   };
 
+  const dashboardUrl = 'https://carecapacity.sur-group.co.uk/login';
+  const logoUrl = 'https://carecapacity.sur-group.co.uk/favicon.png';
+
   // Live preview rendered in an iframe srcDoc
   const previewHtml = `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>
     *{box-sizing:border-box;margin:0;padding:0}
-    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#e8eaf0;padding:28px 16px}
-    .wrap{max-width:540px;margin:0 auto}
+    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#f1f5f9;padding:28px 16px}
+    .wrap{max-width:560px;margin:0 auto}
 
-    /* Top nav bar */
-    .topbar{background:#1a1d23;border-radius:10px 10px 0 0;padding:14px 24px;display:flex;align-items:center;justify-content:space-between}
-    .logo-row{display:flex;align-items:center;gap:10px}
-    .logo-icon{width:30px;height:30px;background:linear-gradient(135deg,#059669,#10b981);border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:15px;line-height:30px;text-align:center;flex-shrink:0}
-    .logo-name{font-size:14px;font-weight:700;color:#ffffff;letter-spacing:-0.01em}
-    .logo-tagline{font-size:10px;color:#6b7280;margin-top:1px}
-    .topbar-badge{font-size:10px;font-weight:600;color:#10b981;background:rgba(16,185,129,0.12);padding:3px 10px;border-radius:20px;border:1px solid rgba(16,185,129,0.25);letter-spacing:0.02em;text-transform:uppercase}
+    /* Logo pre-header */
+    .preheader{background:#fff;border-radius:12px 12px 0 0;padding:20px 28px 18px;border-bottom:1px solid #f1f5f9;display:flex;align-items:center;gap:12px}
+    .preheader img{width:34px;height:35px;border-radius:6px;display:block}
+    .brand-name{font-size:15px;font-weight:700;color:#0f172a;letter-spacing:-0.02em}
+    .brand-tag{font-size:10px;color:#94a3b8;margin-top:1px}
 
     /* Hero */
-    .hero{background:linear-gradient(145deg,#0f172a 0%,#1e293b 60%,#0d3b2e 100%);padding:36px 32px 32px;position:relative;overflow:hidden}
-    .hero::before{content:'';position:absolute;top:-40px;right:-40px;width:180px;height:180px;background:radial-gradient(circle,rgba(16,185,129,0.18) 0%,transparent 70%);pointer-events:none}
-    .hero::after{content:'';position:absolute;bottom:-20px;left:-20px;width:120px;height:120px;background:radial-gradient(circle,rgba(5,150,105,0.12) 0%,transparent 70%);pointer-events:none}
-    .hero-eyebrow{font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#10b981;margin-bottom:12px}
-    .hero h1{font-size:22px;font-weight:800;color:#ffffff;line-height:1.2;letter-spacing:-0.03em;margin-bottom:14px}
-    .hero-greeting{font-size:13px;color:#94a3b8;line-height:1.5}
+    .hero{background:#1e3a5f;padding:40px 32px 36px}
+    .hero h1{font-size:26px;font-weight:800;color:#ffffff;line-height:1.15;letter-spacing:-0.03em;margin-bottom:12px}
+    .hero-sub{font-size:14px;color:#93c5fd;line-height:1.6}
 
-    /* Content area */
-    .content{background:#ffffff;padding:28px 32px}
-    .content p{font-size:14px;color:#374151;line-height:1.75;margin-bottom:14px}
-    .content p:last-child{margin-bottom:0}
-    .placeholder{font-size:14px;color:#c0c4cc;font-style:italic;line-height:1.75}
+    /* Body */
+    .body{background:#ffffff;padding:32px 32px 36px}
+    .greeting{font-size:14px;color:#64748b;margin-bottom:18px}
+    .body p{font-size:15px;color:#374151;line-height:1.75;margin-bottom:16px}
+    .placeholder{font-size:15px;color:#c0c4cc;font-style:italic;line-height:1.75}
 
-    /* Highlight cards */
-    .highlights{margin:22px 0 4px}
-    .highlight-card{display:flex;align-items:flex-start;gap:12px;padding:12px 14px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;margin-bottom:8px}
-    .hc-icon{width:22px;height:22px;background:linear-gradient(135deg,#059669,#10b981);border-radius:6px;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px}
-    .hc-icon svg{width:12px;height:12px;stroke:#fff;stroke-width:3;fill:none;stroke-linecap:round;stroke-linejoin:round}
-    .hc-text{font-size:13px;color:#1e293b;font-weight:500;line-height:1.5}
+    /* Feature card */
+    .feature-card{background:#f0f4ff;border-radius:10px;padding:20px 22px;margin-top:24px}
+    .feat-label{font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#1d4ed8;margin-bottom:4px}
+    .feat-title{font-size:16px;font-weight:700;color:#1e293b;margin-bottom:14px;line-height:1.3}
+    .feat-row{display:flex;align-items:flex-start;gap:10px;margin-bottom:8px}
+    .feat-row span{font-size:14px;color:#374151;line-height:1.6}
 
-    /* CTA */
-    .cta-wrap{text-align:center;padding:20px 0 8px}
-    .cta-btn{display:inline-block;background:linear-gradient(135deg,#059669 0%,#10b981 100%);color:#ffffff;font-size:14px;font-weight:700;letter-spacing:0.01em;padding:13px 30px;border-radius:9px;text-decoration:none;box-shadow:0 4px 14px rgba(5,150,105,0.35)}
-
-    /* Divider */
-    .divider{height:1px;background:linear-gradient(90deg,transparent,#e2e8f0,transparent);margin:4px 0}
+    /* CTA buttons */
+    .cta-row{display:flex;justify-content:center;gap:12px;margin-top:28px;flex-wrap:wrap}
+    .btn-solid{display:inline-block;background:#1e293b;color:#fff;font-size:13px;font-weight:600;padding:12px 22px;border-radius:8px;text-decoration:none}
+    .btn-outline{display:inline-block;background:#fff;color:#1e293b;font-size:13px;font-weight:600;padding:11px 22px;border-radius:8px;text-decoration:none;border:2px solid #1e293b}
 
     /* Footer */
-    .footer{background:#f8fafc;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 10px 10px;padding:16px 24px;display:flex;align-items:center;justify-content:space-between}
-    .footer-text{font-size:10px;color:#9ca3af;line-height:1.6}
-    .footer-icon{width:24px;height:24px;background:linear-gradient(135deg,#059669,#10b981);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0}
+    .footer{background:#1e3a5f;border-radius:0 0 12px 12px;padding:24px 28px;text-align:center}
+    .footer-brand{font-size:12px;font-weight:700;color:#fff;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:6px}
+    .footer-reply{font-size:11px;color:#93c5fd;margin-bottom:8px;line-height:1.5}
+    .footer-copy{font-size:10px;color:#475569}
   </style></head><body>
     <div class="wrap">
-      <div class="topbar">
-        <div class="logo-row">
-          <div class="logo-icon">⚡</div>
-          <div><div class="logo-name">Care Capacity</div><div class="logo-tagline">Workforce Intelligence Platform</div></div>
+
+      <div class="preheader">
+        <img src="${logoUrl}" alt="Care Capacity" />
+        <div>
+          <div class="brand-name">Care Capacity</div>
+          <div class="brand-tag">Workforce Intelligence Platform</div>
         </div>
-        <span class="topbar-badge">Platform Update</span>
       </div>
+
       <div class="hero">
-        <div class="hero-eyebrow">New from Care Capacity</div>
         <h1>${headline || 'Your headline will appear here'}</h1>
-        <div class="hero-greeting">Hi there — here's what's new for you.</div>
+        <div class="hero-sub">What's new, what's changed, and what's coming.</div>
       </div>
-      <div class="content">
+
+      <div class="body">
+        <div class="greeting">Hi there,</div>
+
         ${body
-          ? body.split(/\n{2,}/).filter((s: string) => s.trim()).map((p: string) => `<p>${p.replace(/\n/g,'<br>')}</p>`).join('')
+          ? body.split(/\n{2,}/).filter((s: string) => s.trim()).map((para: string) => `<p>${para.replace(/\n/g,'<br>')}</p>`).join('')
           : '<p class="placeholder">Your message body will appear here…</p>'
         }
+
         ${activeBullets.length > 0 ? `
-          <div class="highlights">
+          <div class="feature-card">
+            <div class="feat-label">Platform Updates</div>
+            <div class="feat-title">What's Changed</div>
             ${activeBullets.map((b: string) => `
-              <div class="highlight-card">
-                <div class="hc-icon">
-                  <svg viewBox="0 0 12 12"><polyline points="2,6 5,9 10,3"/></svg>
-                </div>
-                <div class="hc-text">${b}</div>
+              <div class="feat-row">
+                <span style="font-size:14px;flex-shrink:0">✅</span>
+                <span>${b}</span>
               </div>`).join('')}
           </div>` : ''}
-        ${ctaText ? `<div class="cta-wrap"><a href="${ctaUrl||'#'}" class="cta-btn">${ctaText} &rarr;</a></div>` : ''}
-      </div>
-      <div class="footer">
-        <div class="footer-text">
-          <div>You're receiving this as a Care Capacity platform member.</div>
-          <div>© ${new Date().getFullYear()} Home Instead – Scottish Group</div>
+
+        <div class="cta-row">
+          ${ctaText ? `<a href="${ctaUrl || dashboardUrl}" class="btn-solid">${ctaText}</a>` : ''}
+          <a href="${dashboardUrl}" class="btn-outline">Go to Dashboard</a>
         </div>
-        <div class="footer-icon">⚡</div>
       </div>
+
+      <div class="footer">
+        <div class="footer-brand">Care Capacity</div>
+        <div class="footer-reply">Questions? Reply to this email and we'll get back to you.</div>
+        <div class="footer-copy">© ${new Date().getFullYear()} Home Instead – Scottish Group · Workforce Intelligence Platform</div>
+      </div>
+
     </div>
   </body></html>`;
 

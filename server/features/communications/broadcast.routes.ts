@@ -13,7 +13,10 @@ import { requireRole } from '../auth/auth';
 import { storage } from '../../storage';
 import { logger } from '../../infrastructure/logger';
 
-const FROM_ADDRESS = 'Care Capacity <noreply@mail.sur-group.co.uk>';
+const FROM_ADDRESS  = 'Care Capacity <noreply@mail.sur-group.co.uk>';
+const REPLY_TO      = 'mustansar.hussain@sg.homeinstead.co.uk';
+const DASHBOARD_URL = 'https://carecapacity.sur-group.co.uk/login';
+const LOGO_URL      = 'https://carecapacity.sur-group.co.uk/favicon.png';
 
 export interface BroadcastPayload {
   subject: string;
@@ -30,45 +33,57 @@ function renderEmail(p: BroadcastPayload, recipientName: string): string {
   const preview = p.previewText || p.headline;
   const year = new Date().getFullYear();
 
+  // Feature highlight cards (bullets)
   const bulletsHtml = p.bullets && p.bullets.length > 0
-    ? `<table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:24px 0 8px;">
-        <tr><td>
-          ${p.bullets.map(b => `
-          <table width="100%" cellpadding="0" cellspacing="0" border="0"
-                 style="margin-bottom:10px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;">
-            <tr>
-              <td width="46" valign="middle" style="padding:12px 4px 12px 14px;">
-                <div style="width:22px;height:22px;background:linear-gradient(135deg,#059669,#10b981);border-radius:6px;text-align:center;line-height:22px;">
-                  <span style="color:#ffffff;font-size:12px;font-weight:700;">✓</span>
-                </div>
-              </td>
-              <td style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:14px;font-weight:500;color:#1e293b;line-height:1.5;padding:12px 14px 12px 4px;">
-                ${b}
-              </td>
-            </tr>
-          </table>`).join('')}
-        </td></tr>
-      </table>`
-    : '';
-
-  const ctaHtml = p.ctaText
-    ? `<table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:32px 0 8px;">
+    ? `<table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:28px 0 0;">
         <tr>
-          <td align="center">
-            <a href="${p.ctaUrl || '#'}"
-               style="display:inline-block;background:linear-gradient(135deg,#059669,#10b981);color:#ffffff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:15px;font-weight:700;text-decoration:none;padding:14px 34px;border-radius:9px;letter-spacing:0.01em;box-shadow:0 4px 14px rgba(5,150,105,0.3);">
-              ${p.ctaText} &rarr;
-            </a>
+          <td style="background:#f0f4ff;border-radius:10px;padding:22px 24px;">
+            <p style="margin:0 0 4px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#1d4ed8;">Platform Updates</p>
+            <p style="margin:0 0 16px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:17px;font-weight:700;color:#1e293b;line-height:1.3;">What's Changed</p>
+            ${p.bullets.map(b => `
+            <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:6px;">
+              <tr>
+                <td width="20" valign="top" style="padding-top:3px;">
+                  <span style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:14px;">✅</span>
+                </td>
+                <td style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:14px;color:#374151;line-height:1.6;padding-left:8px;">${b}</td>
+              </tr>
+            </table>`).join('')}
           </td>
         </tr>
       </table>`
     : '';
 
-  // Convert newlines in body to paragraphs
+  // CTA buttons — always includes "Go to Dashboard"; custom button is secondary
+  const ctaHtml = `<table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:32px 0 0;">
+    <tr>
+      <td align="center">
+        <table cellpadding="0" cellspacing="0" border="0">
+          <tr>
+            ${p.ctaText ? `
+            <td style="padding-right:12px;">
+              <a href="${p.ctaUrl || DASHBOARD_URL}"
+                 style="display:inline-block;background:#1e293b;color:#ffffff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:14px;font-weight:600;text-decoration:none;padding:13px 26px;border-radius:8px;letter-spacing:0.01em;">
+                ${p.ctaText}
+              </a>
+            </td>` : ''}
+            <td>
+              <a href="${DASHBOARD_URL}"
+                 style="display:inline-block;background:#ffffff;color:#1e293b;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:14px;font-weight:600;text-decoration:none;padding:12px 26px;border-radius:8px;letter-spacing:0.01em;border:2px solid #1e293b;">
+                Go to Dashboard
+              </a>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>`;
+
+  // Body paragraphs
   const bodyParagraphs = p.body
     .split(/\n{2,}/)
     .filter(s => s.trim())
-    .map(para => `<p style="margin:0 0 16px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:15px;color:#374151;line-height:1.75;">${para.replace(/\n/g, '<br>')}</p>`)
+    .map(para => `<p style="margin:0 0 18px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:16px;color:#374151;line-height:1.75;">${para.replace(/\n/g, '<br>')}</p>`)
     .join('');
 
   return `<!DOCTYPE html>
@@ -78,37 +93,29 @@ function renderEmail(p: BroadcastPayload, recipientName: string): string {
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
 <title>${p.subject}</title>
-<!--[if mso]><noscript><xml><o:OfficeDocumentSettings><o:PixelsPerInch>96</o:PixelsPerInch></o:OfficeDocumentSettings></xml></noscript><![endif]-->
 </head>
-<body style="margin:0;padding:0;background-color:#e8eaf0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+<body style="margin:0;padding:0;background-color:#f1f5f9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
 
-<!-- Preview text (hidden) -->
+<!-- Hidden preview text -->
 <div style="display:none;max-height:0;overflow:hidden;mso-hide:all;">${preview}&nbsp;‌&nbsp;‌&nbsp;‌&nbsp;‌&nbsp;‌&nbsp;‌&nbsp;‌&nbsp;‌&nbsp;‌&nbsp;‌&nbsp;‌&nbsp;‌&nbsp;</div>
 
-<table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#e8eaf0;min-height:100vh;">
+<table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f1f5f9;">
   <tr>
-    <td align="center" style="padding:40px 16px;">
+    <td align="center" style="padding:40px 16px 48px;">
 
       <table width="600" cellpadding="0" cellspacing="0" border="0" style="max-width:600px;width:100%;">
 
-        <!-- ── Top nav bar ── -->
+        <!-- ── Logo pre-header ── -->
         <tr>
-          <td style="background:#1a1d23;border-radius:10px 10px 0 0;padding:14px 28px;">
-            <table width="100%" cellpadding="0" cellspacing="0" border="0">
+          <td style="background:#ffffff;padding:24px 36px 20px;border-radius:12px 12px 0 0;border-bottom:1px solid #f1f5f9;">
+            <table cellpadding="0" cellspacing="0" border="0">
               <tr>
                 <td valign="middle">
-                  <table cellpadding="0" cellspacing="0" border="0">
-                    <tr>
-                      <td style="background:linear-gradient(135deg,#059669,#10b981);width:30px;height:30px;border-radius:7px;text-align:center;line-height:30px;font-size:15px;vertical-align:middle;">⚡</td>
-                      <td style="padding-left:10px;vertical-align:middle;">
-                        <span style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:14px;font-weight:700;color:#ffffff;letter-spacing:-0.01em;display:block;">Care Capacity</span>
-                        <span style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:10px;color:#6b7280;display:block;margin-top:1px;">Workforce Intelligence Platform</span>
-                      </td>
-                    </tr>
-                  </table>
+                  <img src="${LOGO_URL}" width="38" height="39" alt="Care Capacity" style="display:block;border:0;border-radius:6px;" />
                 </td>
-                <td align="right" valign="middle">
-                  <span style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:10px;font-weight:600;color:#10b981;background:rgba(16,185,129,0.12);padding:3px 10px;border-radius:20px;border:1px solid rgba(16,185,129,0.25);letter-spacing:0.05em;text-transform:uppercase;">Platform Update</span>
+                <td style="padding-left:12px;vertical-align:middle;">
+                  <span style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:16px;font-weight:700;color:#0f172a;letter-spacing:-0.02em;">Care Capacity</span>
+                  <span style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:11px;color:#94a3b8;display:block;margin-top:1px;">Workforce Intelligence Platform</span>
                 </td>
               </tr>
             </table>
@@ -117,22 +124,23 @@ function renderEmail(p: BroadcastPayload, recipientName: string): string {
 
         <!-- ── Hero ── -->
         <tr>
-          <td style="background:linear-gradient(145deg,#0f172a 0%,#1e293b 60%,#0d3b2e 100%);padding:36px 36px 32px;">
-            <p style="margin:0 0 12px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#10b981;">
-              New from Care Capacity
-            </p>
-            <h1 style="margin:0 0 14px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:26px;font-weight:800;color:#ffffff;line-height:1.2;letter-spacing:-0.03em;">
+          <td style="background:#1e3a5f;padding:44px 36px 40px;">
+            <h1 style="margin:0 0 16px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:32px;font-weight:800;color:#ffffff;line-height:1.15;letter-spacing:-0.03em;">
               ${p.headline}
             </h1>
-            <p style="margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:13px;color:#94a3b8;line-height:1.5;">
-              Hi ${recipientName} — here's what's new for you.
+            <p style="margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:15px;color:#93c5fd;line-height:1.6;">
+              What's new, what's changed, and what's coming.
             </p>
           </td>
         </tr>
 
         <!-- ── Body ── -->
         <tr>
-          <td style="background:#ffffff;padding:32px 36px 36px;">
+          <td style="background:#ffffff;padding:36px 36px 40px;">
+
+            <p style="margin:0 0 20px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:15px;color:#64748b;">
+              Hi ${recipientName},
+            </p>
 
             ${bodyParagraphs}
             ${bulletsHtml}
@@ -143,22 +151,16 @@ function renderEmail(p: BroadcastPayload, recipientName: string): string {
 
         <!-- ── Footer ── -->
         <tr>
-          <td style="background:#f8fafc;padding:18px 28px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 10px 10px;">
-            <table width="100%" cellpadding="0" cellspacing="0" border="0">
-              <tr>
-                <td>
-                  <p style="margin:0 0 3px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:11px;color:#9ca3af;line-height:1.5;">
-                    You're receiving this as a Care Capacity platform member.
-                  </p>
-                  <p style="margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:11px;color:#9ca3af;line-height:1.5;">
-                    © ${year} Home Instead – Scottish Group &nbsp;·&nbsp; Workforce Intelligence Platform
-                  </p>
-                </td>
-                <td align="right" valign="middle" style="padding-left:16px;">
-                  <div style="width:26px;height:26px;background:linear-gradient(135deg,#059669,#10b981);border-radius:7px;text-align:center;line-height:26px;font-size:13px;">⚡</div>
-                </td>
-              </tr>
-            </table>
+          <td style="background:#1e3a5f;padding:28px 36px;border-radius:0 0 12px 12px;text-align:center;">
+            <p style="margin:0 0 8px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:13px;font-weight:700;color:#ffffff;letter-spacing:0.06em;text-transform:uppercase;">
+              CARE CAPACITY
+            </p>
+            <p style="margin:0 0 10px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:12px;color:#93c5fd;line-height:1.6;">
+              Questions? Reply to this email and we'll get back to you.
+            </p>
+            <p style="margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:11px;color:#475569;line-height:1.5;">
+              © ${year} Home Instead – Scottish Group &nbsp;·&nbsp; Workforce Intelligence Platform
+            </p>
           </td>
         </tr>
 
@@ -217,6 +219,7 @@ export function registerBroadcastRoutes(app: Express) {
 
         const { error } = await resend.emails.send({
           from: FROM_ADDRESS,
+          replyTo: REPLY_TO,
           to: user.email,
           subject,
           html,
