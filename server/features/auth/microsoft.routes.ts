@@ -43,6 +43,7 @@ export function registerMicrosoftAuthRoutes(app: Express) {
       scope:         'openid profile email',
       state,
       response_mode: 'query',
+      prompt:        'select_account',   // always show the MS account picker
     });
 
     req.session.save((err) => {
