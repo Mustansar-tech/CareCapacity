@@ -8,13 +8,18 @@ const TENANT_ID  = () => process.env.AZURE_TENANT_ID!;
 const CLIENT_ID  = () => process.env.AZURE_CLIENT_ID!;
 const CLIENT_SEC = () => process.env.AZURE_CLIENT_SECRET!;
 
-function callbackUrl(): string {
-  // Replit dev: REPLIT_DEV_DOMAIN is always set in the Replit environment
+/** Public base URL of the frontend (no trailing slash). */
+function frontendUrl(): string {
+  // Replit dev: use the stable public dev domain
   if (process.env.REPLIT_DEV_DOMAIN) {
-    return `https://${process.env.REPLIT_DEV_DOMAIN}/api/auth/microsoft/callback`;
+    return `https://${process.env.REPLIT_DEV_DOMAIN}`;
   }
-  // Production (Hetzner / Vercel)
-  return `${process.env.FRONTEND_URL || 'https://carecapacity.sur-group.co.uk'}/api/auth/microsoft/callback`;
+  // Production: FRONTEND_URL env var, or canonical domain as final fallback
+  return (process.env.FRONTEND_URL || 'https://carecapacity.sur-group.co.uk').replace(/\/$/, '');
+}
+
+function callbackUrl(): string {
+  return `${frontendUrl()}/api/auth/microsoft/callback`;
 }
 
 export function registerMicrosoftAuthRoutes(app: Express) {
@@ -52,10 +57,12 @@ export function registerMicrosoftAuthRoutes(app: Express) {
   app.get('/api/auth/microsoft/callback', async (req: Request, res: Response) => {
     const { code, state, error, error_description } = req.query as Record<string, string>;
 
+    const fe = frontendUrl();
+
     // Microsoft returned an error
     if (error) {
       logger.warn('Microsoft OAuth: provider error', { error, error_description });
-      return res.redirect('/login?error=ms_auth_failed');
+      return res.redirect(`${fe}/login?error=ms_auth_failed`);
     }
 
     // CSRF / state check
@@ -67,7 +74,7 @@ export function registerMicrosoftAuthRoutes(app: Express) {
         sessionId: req.sessionID,
         hasCookie: !!req.headers.cookie,
       });
-      return res.redirect('/login?error=ms_auth_failed');
+      return res.redirect(`${fe}/login?error=ms_auth_failed`);
     }
     delete req.session.msOAuthState;
 
@@ -96,7 +103,7 @@ export function registerMicrosoftAuthRoutes(app: Express) {
           error: tokenData.error,
           description: tokenData.error_description,
         });
-        return res.redirect('/login?error=ms_auth_failed');
+        return res.redirect(`${fe}/login?error=ms_auth_failed`);
       }
 
       // Decode id_token payload
@@ -109,7 +116,7 @@ export function registerMicrosoftAuthRoutes(app: Express) {
 
       if (!email) {
         logger.warn('Microsoft OAuth: no email in token payload', { keys: Object.keys(payload) });
-        return res.redirect('/login?error=ms_no_email');
+        return res.redirect(`${fe}/login?error=ms_no_email`);
       }
 
       logger.info('Microsoft OAuth: token decoded', { email });
@@ -118,7 +125,7 @@ export function registerMicrosoftAuthRoutes(app: Express) {
       const user = await storage.getUserByEmail(email);
       if (!user || !user.isActive) {
         logger.warn('Microsoft OAuth: no active account', { email });
-        return res.redirect(`/login?error=ms_no_account&email=${encodeURIComponent(email)}`);
+        return res.redirect(`${fe}/login?error=ms_no_account&email=${encodeURIComponent(email)}`);
       }
 
       // Create session — identical to the email/password login flow
@@ -132,18 +139,18 @@ export function registerMicrosoftAuthRoutes(app: Express) {
         req.session.save(async (err) => {
           if (err) {
             logger.error('Microsoft OAuth: session save error', err);
-            res.redirect('/login?error=ms_auth_failed');
+            res.redirect(`${fe}/login?error=ms_auth_failed`);
           } else {
             await auditLog(user.id, user.email, null, 'LOGIN', `Microsoft SSO login from ${req.ip}`);
             logger.info('Microsoft OAuth: login success', { email, userId: user.id });
-            res.redirect('/app/dashboard');
+            res.redirect(`${fe}/app/dashboard`);
           }
           resolve();
         });
       });
     } catch (err) {
       logger.error('Microsoft OAuth: callback exception', err);
-      return res.redirect('/login?error=ms_auth_failed');
+      return res.redirect(`${fe}/login?error=ms_auth_failed`);
     }
   });
 }

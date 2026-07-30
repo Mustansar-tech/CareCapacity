@@ -430,7 +430,7 @@ export default function LoginPage() {
                     <div className="flex-1 h-px bg-border" />
                   </div>
                   <a
-                    href="/api/auth/microsoft"
+                    href={`${(import.meta.env.VITE_API_BASE_URL as string) || ''}/api/auth/microsoft`}
                     className="flex items-center justify-center gap-3 w-full h-11 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800 transition-all duration-200 shadow-sm group"
                   >
                     {/* Microsoft logo — official 4-square SVG */}
