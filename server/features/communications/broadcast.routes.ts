@@ -31,17 +31,18 @@ function renderEmail(p: BroadcastPayload, recipientName: string): string {
   const year = new Date().getFullYear();
 
   const bulletsHtml = p.bullets && p.bullets.length > 0
-    ? `<table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:24px 0;">
-        <tr><td style="padding:0 0 0 0;">
+    ? `<table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:24px 0 8px;">
+        <tr><td>
           ${p.bullets.map(b => `
-          <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:10px;">
+          <table width="100%" cellpadding="0" cellspacing="0" border="0"
+                 style="margin-bottom:10px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;">
             <tr>
-              <td width="28" valign="top" style="padding-top:2px;">
-                <div style="width:20px;height:20px;background:#10b981;border-radius:50%;text-align:center;line-height:20px;">
-                  <span style="color:#ffffff;font-size:11px;font-weight:700;">✓</span>
+              <td width="46" valign="middle" style="padding:12px 4px 12px 14px;">
+                <div style="width:22px;height:22px;background:linear-gradient(135deg,#059669,#10b981);border-radius:6px;text-align:center;line-height:22px;">
+                  <span style="color:#ffffff;font-size:12px;font-weight:700;">✓</span>
                 </div>
               </td>
-              <td style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:15px;color:#374151;line-height:1.6;padding-left:8px;">
+              <td style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:14px;font-weight:500;color:#1e293b;line-height:1.5;padding:12px 14px 12px 4px;">
                 ${b}
               </td>
             </tr>
@@ -51,11 +52,11 @@ function renderEmail(p: BroadcastPayload, recipientName: string): string {
     : '';
 
   const ctaHtml = p.ctaText
-    ? `<table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:32px 0;">
+    ? `<table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:32px 0 8px;">
         <tr>
           <td align="center">
             <a href="${p.ctaUrl || '#'}"
-               style="display:inline-block;background:linear-gradient(135deg,#059669,#10b981);color:#ffffff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:15px;font-weight:600;text-decoration:none;padding:14px 32px;border-radius:8px;letter-spacing:0.01em;">
+               style="display:inline-block;background:linear-gradient(135deg,#059669,#10b981);color:#ffffff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:15px;font-weight:700;text-decoration:none;padding:14px 34px;border-radius:9px;letter-spacing:0.01em;box-shadow:0 4px 14px rgba(5,150,105,0.3);">
               ${p.ctaText} &rarr;
             </a>
           </td>
@@ -67,7 +68,7 @@ function renderEmail(p: BroadcastPayload, recipientName: string): string {
   const bodyParagraphs = p.body
     .split(/\n{2,}/)
     .filter(s => s.trim())
-    .map(para => `<p style="margin:0 0 16px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:15px;color:#374151;line-height:1.7;">${para.replace(/\n/g, '<br>')}</p>`)
+    .map(para => `<p style="margin:0 0 16px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:15px;color:#374151;line-height:1.75;">${para.replace(/\n/g, '<br>')}</p>`)
     .join('');
 
   return `<!DOCTYPE html>
@@ -79,99 +80,82 @@ function renderEmail(p: BroadcastPayload, recipientName: string): string {
 <title>${p.subject}</title>
 <!--[if mso]><noscript><xml><o:OfficeDocumentSettings><o:PixelsPerInch>96</o:PixelsPerInch></o:OfficeDocumentSettings></xml></noscript><![endif]-->
 </head>
-<body style="margin:0;padding:0;background-color:#f4f4f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+<body style="margin:0;padding:0;background-color:#e8eaf0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
 
 <!-- Preview text (hidden) -->
-<div style="display:none;max-height:0;overflow:hidden;mso-hide:all;">${preview}&nbsp;‌&nbsp;‌&nbsp;‌&nbsp;‌&nbsp;‌&nbsp;‌&nbsp;‌&nbsp;‌&nbsp;‌&nbsp;‌&nbsp;‌&nbsp;‌&nbsp;‌&nbsp;‌&nbsp;‌&nbsp;‌&nbsp;‌&nbsp;‌&nbsp;</div>
+<div style="display:none;max-height:0;overflow:hidden;mso-hide:all;">${preview}&nbsp;‌&nbsp;‌&nbsp;‌&nbsp;‌&nbsp;‌&nbsp;‌&nbsp;‌&nbsp;‌&nbsp;‌&nbsp;‌&nbsp;‌&nbsp;‌&nbsp;</div>
 
-<table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f4f4f5;min-height:100vh;">
+<table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#e8eaf0;min-height:100vh;">
   <tr>
     <td align="center" style="padding:40px 16px;">
 
-      <!-- Card wrapper -->
       <table width="600" cellpadding="0" cellspacing="0" border="0" style="max-width:600px;width:100%;">
 
-        <!-- Top accent bar -->
+        <!-- ── Top nav bar ── -->
         <tr>
-          <td style="background:linear-gradient(90deg,#059669 0%,#10b981 50%,#34d399 100%);height:5px;border-radius:12px 12px 0 0;"></td>
-        </tr>
-
-        <!-- Header -->
-        <tr>
-          <td style="background:#ffffff;padding:32px 40px 24px;border-left:1px solid #e5e7eb;border-right:1px solid #e5e7eb;">
+          <td style="background:#1a1d23;border-radius:10px 10px 0 0;padding:14px 28px;">
             <table width="100%" cellpadding="0" cellspacing="0" border="0">
               <tr>
-                <td>
+                <td valign="middle">
                   <table cellpadding="0" cellspacing="0" border="0">
                     <tr>
-                      <td style="background:linear-gradient(135deg,#059669,#10b981);width:36px;height:36px;border-radius:9px;text-align:center;line-height:36px;font-size:18px;vertical-align:middle;">
-                        ⚡
-                      </td>
-                      <td style="padding-left:12px;vertical-align:middle;">
-                        <span style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:17px;font-weight:700;color:#111827;letter-spacing:-0.01em;">Care Capacity</span>
-                        <span style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:13px;color:#6b7280;display:block;margin-top:1px;">Workforce Intelligence Platform</span>
+                      <td style="background:linear-gradient(135deg,#059669,#10b981);width:30px;height:30px;border-radius:7px;text-align:center;line-height:30px;font-size:15px;vertical-align:middle;">⚡</td>
+                      <td style="padding-left:10px;vertical-align:middle;">
+                        <span style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:14px;font-weight:700;color:#ffffff;letter-spacing:-0.01em;display:block;">Care Capacity</span>
+                        <span style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:10px;color:#6b7280;display:block;margin-top:1px;">Workforce Intelligence Platform</span>
                       </td>
                     </tr>
                   </table>
                 </td>
                 <td align="right" valign="middle">
-                  <span style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:12px;color:#9ca3af;background:#f9fafb;padding:4px 10px;border-radius:20px;border:1px solid #e5e7eb;">Platform Update</span>
+                  <span style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:10px;font-weight:600;color:#10b981;background:rgba(16,185,129,0.12);padding:3px 10px;border-radius:20px;border:1px solid rgba(16,185,129,0.25);letter-spacing:0.05em;text-transform:uppercase;">Platform Update</span>
                 </td>
               </tr>
             </table>
           </td>
         </tr>
 
-        <!-- Divider -->
+        <!-- ── Hero ── -->
         <tr>
-          <td style="background:#ffffff;border-left:1px solid #e5e7eb;border-right:1px solid #e5e7eb;padding:0 40px;">
-            <div style="height:1px;background:#f3f4f6;"></div>
+          <td style="background:linear-gradient(145deg,#0f172a 0%,#1e293b 60%,#0d3b2e 100%);padding:36px 36px 32px;">
+            <p style="margin:0 0 12px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#10b981;">
+              New from Care Capacity
+            </p>
+            <h1 style="margin:0 0 14px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:26px;font-weight:800;color:#ffffff;line-height:1.2;letter-spacing:-0.03em;">
+              ${p.headline}
+            </h1>
+            <p style="margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:13px;color:#94a3b8;line-height:1.5;">
+              Hi ${recipientName} — here's what's new for you.
+            </p>
           </td>
         </tr>
 
-        <!-- Body -->
+        <!-- ── Body ── -->
         <tr>
-          <td style="background:#ffffff;padding:32px 40px 36px;border-left:1px solid #e5e7eb;border-right:1px solid #e5e7eb;">
+          <td style="background:#ffffff;padding:32px 36px 36px;">
 
-            <!-- Greeting -->
-            <p style="margin:0 0 24px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:14px;color:#6b7280;">
-              Hi ${recipientName},
-            </p>
-
-            <!-- Headline -->
-            <h1 style="margin:0 0 20px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:26px;font-weight:700;color:#111827;line-height:1.25;letter-spacing:-0.02em;">
-              ${p.headline}
-            </h1>
-
-            <!-- Body text -->
             ${bodyParagraphs}
-
-            <!-- Bullet points -->
             ${bulletsHtml}
-
-            <!-- CTA button -->
             ${ctaHtml}
 
           </td>
         </tr>
 
-        <!-- Footer -->
+        <!-- ── Footer ── -->
         <tr>
-          <td style="background:#f9fafb;padding:24px 40px;border:1px solid #e5e7eb;border-radius:0 0 12px 12px;">
+          <td style="background:#f8fafc;padding:18px 28px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 10px 10px;">
             <table width="100%" cellpadding="0" cellspacing="0" border="0">
               <tr>
                 <td>
-                  <p style="margin:0 0 6px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:12px;color:#9ca3af;line-height:1.5;">
-                    You're receiving this because you have an account on the Care Capacity Dashboard.
+                  <p style="margin:0 0 3px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:11px;color:#9ca3af;line-height:1.5;">
+                    You're receiving this as a Care Capacity platform member.
                   </p>
-                  <p style="margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:12px;color:#9ca3af;line-height:1.5;">
+                  <p style="margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:11px;color:#9ca3af;line-height:1.5;">
                     © ${year} Home Instead – Scottish Group &nbsp;·&nbsp; Workforce Intelligence Platform
                   </p>
                 </td>
-                <td align="right" valign="top">
-                  <div style="width:28px;height:28px;background:linear-gradient(135deg,#059669,#10b981);border-radius:7px;text-align:center;line-height:28px;font-size:14px;">
-                    ⚡
-                  </div>
+                <td align="right" valign="middle" style="padding-left:16px;">
+                  <div style="width:26px;height:26px;background:linear-gradient(135deg,#059669,#10b981);border-radius:7px;text-align:center;line-height:26px;font-size:13px;">⚡</div>
                 </td>
               </tr>
             </table>

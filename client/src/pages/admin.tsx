@@ -1043,48 +1043,89 @@ function CommunicationsTab() {
     }
   };
 
-  // Minimal live preview rendered in an iframe srcDoc
+  // Live preview rendered in an iframe srcDoc
   const previewHtml = `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>
     *{box-sizing:border-box;margin:0;padding:0}
-    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#f4f4f5;padding:24px}
-    .card{background:#fff;border-radius:12px;overflow:hidden;border:1px solid #e5e7eb;max-width:540px;margin:0 auto}
-    .bar{height:5px;background:linear-gradient(90deg,#059669,#10b981,#34d399)}
-    .header{padding:24px 32px 20px;border-bottom:1px solid #f3f4f6;display:flex;align-items:center;justify-content:space-between}
-    .logo{display:flex;align-items:center;gap:10px}
-    .icon{width:32px;height:32px;background:linear-gradient(135deg,#059669,#10b981);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px;line-height:32px;text-align:center}
-    .brand{font-size:15px;font-weight:700;color:#111827}
-    .sub{font-size:11px;color:#9ca3af}
-    .badge{font-size:11px;color:#9ca3af;background:#f9fafb;padding:3px 10px;border-radius:20px;border:1px solid #e5e7eb}
-    .body{padding:28px 32px 32px}
-    .greeting{font-size:13px;color:#6b7280;margin-bottom:18px}
-    h1{font-size:22px;font-weight:700;color:#111827;line-height:1.25;letter-spacing:-0.02em;margin-bottom:14px}
-    p{font-size:14px;color:#374151;line-height:1.7;margin-bottom:12px}
-    .bullet{display:flex;align-items:flex-start;gap:10px;margin-bottom:8px}
-    .check{width:18px;height:18px;background:#10b981;border-radius:50%;color:#fff;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:2px}
-    .cta{text-align:center;margin:24px 0}
-    .btn{display:inline-block;background:linear-gradient(135deg,#059669,#10b981);color:#fff;font-size:14px;font-weight:600;padding:12px 28px;border-radius:8px;text-decoration:none}
-    .footer{background:#f9fafb;padding:18px 32px;border-top:1px solid #e5e7eb}
-    .footer p{font-size:11px;color:#9ca3af;line-height:1.5;margin-bottom:4px}
+    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#e8eaf0;padding:28px 16px}
+    .wrap{max-width:540px;margin:0 auto}
+
+    /* Top nav bar */
+    .topbar{background:#1a1d23;border-radius:10px 10px 0 0;padding:14px 24px;display:flex;align-items:center;justify-content:space-between}
+    .logo-row{display:flex;align-items:center;gap:10px}
+    .logo-icon{width:30px;height:30px;background:linear-gradient(135deg,#059669,#10b981);border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:15px;line-height:30px;text-align:center;flex-shrink:0}
+    .logo-name{font-size:14px;font-weight:700;color:#ffffff;letter-spacing:-0.01em}
+    .logo-tagline{font-size:10px;color:#6b7280;margin-top:1px}
+    .topbar-badge{font-size:10px;font-weight:600;color:#10b981;background:rgba(16,185,129,0.12);padding:3px 10px;border-radius:20px;border:1px solid rgba(16,185,129,0.25);letter-spacing:0.02em;text-transform:uppercase}
+
+    /* Hero */
+    .hero{background:linear-gradient(145deg,#0f172a 0%,#1e293b 60%,#0d3b2e 100%);padding:36px 32px 32px;position:relative;overflow:hidden}
+    .hero::before{content:'';position:absolute;top:-40px;right:-40px;width:180px;height:180px;background:radial-gradient(circle,rgba(16,185,129,0.18) 0%,transparent 70%);pointer-events:none}
+    .hero::after{content:'';position:absolute;bottom:-20px;left:-20px;width:120px;height:120px;background:radial-gradient(circle,rgba(5,150,105,0.12) 0%,transparent 70%);pointer-events:none}
+    .hero-eyebrow{font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#10b981;margin-bottom:12px}
+    .hero h1{font-size:22px;font-weight:800;color:#ffffff;line-height:1.2;letter-spacing:-0.03em;margin-bottom:14px}
+    .hero-greeting{font-size:13px;color:#94a3b8;line-height:1.5}
+
+    /* Content area */
+    .content{background:#ffffff;padding:28px 32px}
+    .content p{font-size:14px;color:#374151;line-height:1.75;margin-bottom:14px}
+    .content p:last-child{margin-bottom:0}
+    .placeholder{font-size:14px;color:#c0c4cc;font-style:italic;line-height:1.75}
+
+    /* Highlight cards */
+    .highlights{margin:22px 0 4px}
+    .highlight-card{display:flex;align-items:flex-start;gap:12px;padding:12px 14px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;margin-bottom:8px}
+    .hc-icon{width:22px;height:22px;background:linear-gradient(135deg,#059669,#10b981);border-radius:6px;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px}
+    .hc-icon svg{width:12px;height:12px;stroke:#fff;stroke-width:3;fill:none;stroke-linecap:round;stroke-linejoin:round}
+    .hc-text{font-size:13px;color:#1e293b;font-weight:500;line-height:1.5}
+
+    /* CTA */
+    .cta-wrap{text-align:center;padding:20px 0 8px}
+    .cta-btn{display:inline-block;background:linear-gradient(135deg,#059669 0%,#10b981 100%);color:#ffffff;font-size:14px;font-weight:700;letter-spacing:0.01em;padding:13px 30px;border-radius:9px;text-decoration:none;box-shadow:0 4px 14px rgba(5,150,105,0.35)}
+
+    /* Divider */
+    .divider{height:1px;background:linear-gradient(90deg,transparent,#e2e8f0,transparent);margin:4px 0}
+
+    /* Footer */
+    .footer{background:#f8fafc;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 10px 10px;padding:16px 24px;display:flex;align-items:center;justify-content:space-between}
+    .footer-text{font-size:10px;color:#9ca3af;line-height:1.6}
+    .footer-icon{width:24px;height:24px;background:linear-gradient(135deg,#059669,#10b981);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0}
   </style></head><body>
-    <div class="card">
-      <div class="bar"></div>
-      <div class="header">
-        <div class="logo">
-          <div class="icon">⚡</div>
-          <div><div class="brand">Care Capacity</div><div class="sub">Workforce Intelligence Platform</div></div>
+    <div class="wrap">
+      <div class="topbar">
+        <div class="logo-row">
+          <div class="logo-icon">⚡</div>
+          <div><div class="logo-name">Care Capacity</div><div class="logo-tagline">Workforce Intelligence Platform</div></div>
         </div>
-        <span class="badge">Platform Update</span>
+        <span class="topbar-badge">Platform Update</span>
       </div>
-      <div class="body">
-        <p class="greeting">Hi there,</p>
+      <div class="hero">
+        <div class="hero-eyebrow">New from Care Capacity</div>
         <h1>${headline || 'Your headline will appear here'}</h1>
-        ${body ? body.split(/\n{2,}/).filter(s=>s.trim()).map(p=>`<p>${p.replace(/\n/g,'<br>')}</p>`).join('') : '<p style="color:#9ca3af;font-style:italic">Your message body will appear here…</p>'}
-        ${activeBullets.length > 0 ? activeBullets.map(b=>`<div class="bullet"><div class="check">✓</div><span style="font-size:14px;color:#374151;line-height:1.6">${b}</span></div>`).join('') : ''}
-        ${ctaText ? `<div class="cta"><a href="${ctaUrl||'#'}" class="btn">${ctaText} →</a></div>` : ''}
+        <div class="hero-greeting">Hi there — here's what's new for you.</div>
+      </div>
+      <div class="content">
+        ${body
+          ? body.split(/\n{2,}/).filter((s: string) => s.trim()).map((p: string) => `<p>${p.replace(/\n/g,'<br>')}</p>`).join('')
+          : '<p class="placeholder">Your message body will appear here…</p>'
+        }
+        ${activeBullets.length > 0 ? `
+          <div class="highlights">
+            ${activeBullets.map((b: string) => `
+              <div class="highlight-card">
+                <div class="hc-icon">
+                  <svg viewBox="0 0 12 12"><polyline points="2,6 5,9 10,3"/></svg>
+                </div>
+                <div class="hc-text">${b}</div>
+              </div>`).join('')}
+          </div>` : ''}
+        ${ctaText ? `<div class="cta-wrap"><a href="${ctaUrl||'#'}" class="cta-btn">${ctaText} &rarr;</a></div>` : ''}
       </div>
       <div class="footer">
-        <p>You're receiving this because you have an account on the Care Capacity Dashboard.</p>
-        <p>© ${new Date().getFullYear()} Home Instead – Scottish Group · Workforce Intelligence Platform</p>
+        <div class="footer-text">
+          <div>You're receiving this as a Care Capacity platform member.</div>
+          <div>© ${new Date().getFullYear()} Home Instead – Scottish Group</div>
+        </div>
+        <div class="footer-icon">⚡</div>
       </div>
     </div>
   </body></html>`;
