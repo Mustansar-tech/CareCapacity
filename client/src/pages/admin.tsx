@@ -1569,7 +1569,7 @@ function CommunicationsTab() {
               title="Email preview"
               className="w-full rounded-b-lg border-0"
               style={{ height: '640px' }}
-              sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox allow-top-navigation-by-user-activation"
+              sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox"
             />
           </CardContent>
         </Card>
