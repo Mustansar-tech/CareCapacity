@@ -4,7 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { motion, AnimatePresence } from "framer-motion";
 import { Eye, EyeOff, LogIn, Shield, AlertCircle, Mail, ArrowLeft, CheckCircle2 } from "lucide-react";
-import { useLocation, Link } from "wouter";
+import { useLocation, Link, useSearch } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
@@ -230,6 +230,12 @@ function ForgotPasswordPanel({ onBack }: { onBack: () => void }) {
 
 // ─── Main login page ───────────────────────────────────────────────────────────
 
+const MS_ERROR_MESSAGES: Record<string, string> = {
+  ms_auth_failed:  'Microsoft sign-in failed. Please try again.',
+  ms_no_email:     'Could not retrieve your email from Microsoft. Please try again.',
+  ms_no_account:   'No account found for your Microsoft email. Contact your administrator.',
+};
+
 export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -238,6 +244,17 @@ export default function LoginPage() {
   const { login } = useAuth();
   const { toast } = useToast();
   const [, navigate] = useLocation();
+  const search = useSearch();
+
+  // Pick up error params set by the Microsoft OAuth callback redirect
+  useEffect(() => {
+    const params = new URLSearchParams(search);
+    const err = params.get('error');
+    if (err && MS_ERROR_MESSAGES[err]) {
+      setLoginError(MS_ERROR_MESSAGES[err]);
+      window.history.replaceState({}, '', '/login');
+    }
+  }, [search]);
 
   const form = useForm<LoginForm>({
     resolver: zodResolver(loginSchema),
@@ -404,6 +421,30 @@ export default function LoginPage() {
                     </Button>
                   </form>
                 </Form>
+
+                {/* Microsoft SSO */}
+                <div className="mt-5">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="flex-1 h-px bg-border" />
+                    <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-widest">or</span>
+                    <div className="flex-1 h-px bg-border" />
+                  </div>
+                  <a
+                    href="/api/auth/microsoft"
+                    className="flex items-center justify-center gap-3 w-full h-11 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800 transition-all duration-200 shadow-sm group"
+                  >
+                    {/* Microsoft logo — official 4-square SVG */}
+                    <svg width="20" height="20" viewBox="0 0 21 21" xmlns="http://www.w3.org/2000/svg">
+                      <rect x="1"  y="1"  width="9" height="9" fill="#f25022"/>
+                      <rect x="11" y="1"  width="9" height="9" fill="#7fba00"/>
+                      <rect x="1"  y="11" width="9" height="9" fill="#00a4ef"/>
+                      <rect x="11" y="11" width="9" height="9" fill="#ffb900"/>
+                    </svg>
+                    <span className="text-sm font-semibold text-gray-700 dark:text-gray-200 group-hover:text-gray-900 dark:group-hover:text-white transition-colors">
+                      Sign in with Microsoft
+                    </span>
+                  </a>
+                </div>
 
                 {/* Footer */}
                 <div className="mt-8 pt-6 border-t border-border text-center space-y-3">

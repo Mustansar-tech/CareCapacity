@@ -25,6 +25,7 @@ declare module 'express-session' {
     userRole?: string;
     userEmail?: string;
     displayName?: string;
+    msOAuthState?: string;
   }
 }
 

@@ -4,6 +4,7 @@ import { storage } from './storage';
 import { logger } from './infrastructure/logger';
 import { requireAuth } from './features/auth/auth';
 import { registerAuthRoutes } from './features/auth/auth.routes';
+import { registerMicrosoftAuthRoutes } from './features/auth/microsoft.routes';
 import { registerPeoplePlannerRoutes } from './features/people-planner/automation-routes';
 import { registerProcessRoutes } from './routes/process';
 import { registerHistoryRoutes } from './routes/history';
@@ -19,7 +20,7 @@ import { registerCapacityOutlookRoutes } from './routes/capacity-outlook';
 import { registerLeaverReportRoutes } from './routes/leaver-report';
 import { registerHrRoutes } from './routes/hr.routes';
 
-const PUBLIC_API_PATHS = ['/auth/', '/branches', '/cron/sync'];
+const PUBLIC_API_PATHS = ['/auth/', '/branches', '/cron/sync', '/auth/microsoft'];
 
 function globalAuthGuard(req: Request, res: Response, next: NextFunction) {
   const path = req.path;
@@ -38,6 +39,7 @@ export async function configureApp(app: Express): Promise<Server> {
   app.use('/api', globalAuthGuard);
 
   registerAuthRoutes(app);
+  registerMicrosoftAuthRoutes(app);
 
   if (process.env.ACCESS_EMAIL) {
     registerPeoplePlannerRoutes(app);
