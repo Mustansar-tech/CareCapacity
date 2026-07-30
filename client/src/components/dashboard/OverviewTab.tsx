@@ -306,36 +306,36 @@ export function OverviewTab({
           </CardContent>
         </Card>
       )}
-      {/* ── Compact KPI strip ── */}
+      {/* ── KPI strip ── */}
       {isProcessing || processMutation.isPending ? (
-        <div className="px-6 pb-2">
-          <div className="grid grid-cols-5 xl:grid-cols-10 gap-2">
+        <div className="px-6 pb-3">
+          <div className="grid grid-cols-5 xl:grid-cols-10 gap-3">
             {Array.from({ length: 10 }).map((_, i) => (
               <MetricCardSkeleton key={i} />
             ))}
           </div>
         </div>
       ) : data ? (
-        <div className="px-6 pb-2">
-          <div className="grid grid-cols-5 xl:grid-cols-10 gap-2">
+        <div className="px-6 pb-3">
+          <div className="grid grid-cols-5 xl:grid-cols-10 gap-3">
 
             {/* 1. Desired Hours */}
             <button
               data-testid="card-desired-total"
               onDoubleClick={() => setDesiredHoursModalOpen(true)}
               title="Double-click to see details"
-              className="text-left bg-card border border-border rounded-lg px-3 py-3 hover:bg-muted/50 transition-colors cursor-pointer"
+              className="text-left bg-card border border-border rounded-xl px-3.5 py-3.5 hover:bg-muted/50 hover:border-green-200 transition-colors cursor-pointer"
             >
-              <div className="flex items-center gap-1.5 mb-1">
-                <div className="w-5 h-5 rounded-md bg-gradient-to-br from-green-400 to-green-500 flex items-center justify-center shrink-0">
-                  <Clock className="w-3 h-3 text-white" />
+              <div className="flex items-center gap-1.5 mb-2">
+                <div className="w-6 h-6 rounded-md bg-gradient-to-br from-green-400 to-green-500 flex items-center justify-center shrink-0">
+                  <Clock className="w-3.5 h-3.5 text-white" />
                 </div>
-                <span className="text-xs text-muted-foreground font-medium truncate">Desired</span>
+                <span className="text-xs font-semibold text-muted-foreground">Desired</span>
               </div>
-              <div className="text-base font-bold bg-gradient-to-r from-green-500 to-green-700 bg-clip-text text-transparent" data-testid="text-desired-sum">
+              <div className="text-lg font-bold bg-gradient-to-r from-green-500 to-green-700 bg-clip-text text-transparent leading-none" data-testid="text-desired-sum">
                 {data.kpis.totalDesiredHoursSum || 0}h
               </div>
-              <div className="text-[10px] text-muted-foreground mt-0.5">weekly target</div>
+              <div className="text-xs text-muted-foreground mt-1">weekly target</div>
             </button>
 
             {/* 2. Unavailability */}
@@ -343,18 +343,18 @@ export function OverviewTab({
               data-testid="card-unavailability"
               onDoubleClick={() => setUnavailModalOpen(true)}
               title="Double-click to see breakdown"
-              className="text-left bg-card border border-border rounded-lg px-3 py-2 hover:bg-muted/50 transition-colors cursor-pointer select-none"
+              className="text-left bg-card border border-border rounded-xl px-3.5 py-3.5 hover:bg-muted/50 hover:border-red-200 transition-colors cursor-pointer select-none"
             >
-              <div className="flex items-center gap-1.5 mb-1">
-                <div className="w-5 h-5 rounded-md bg-gradient-to-br from-red-400 to-red-600 flex items-center justify-center shrink-0">
-                  <AlertTriangle className="w-3 h-3 text-white" />
+              <div className="flex items-center gap-1.5 mb-2">
+                <div className="w-6 h-6 rounded-md bg-gradient-to-br from-red-400 to-red-600 flex items-center justify-center shrink-0">
+                  <AlertTriangle className="w-3.5 h-3.5 text-white" />
                 </div>
-                <span className="text-xs text-muted-foreground font-medium truncate">Unavailable</span>
+                <span className="text-xs font-semibold text-muted-foreground">Unavailable</span>
               </div>
-              <div className="text-base font-bold bg-gradient-to-r from-red-500 to-red-700 bg-clip-text text-transparent" data-testid="text-unavailability-sum">
+              <div className="text-lg font-bold bg-gradient-to-r from-red-500 to-red-700 bg-clip-text text-transparent leading-none" data-testid="text-unavailability-sum">
                 {data.kpis.unavailabilitySum}h
               </div>
-              <div className="text-[10px] text-muted-foreground mt-0.5">
+              <div className="text-xs text-muted-foreground mt-1">
                 {unavailBreakdown.items.length} CP{unavailBreakdown.items.length === 1 ? "" : "s"}
               </div>
             </button>
@@ -364,18 +364,18 @@ export function OverviewTab({
               data-testid="card-sickness"
               onDoubleClick={() => setSicknessModalOpen(true)}
               title="Double-click to see breakdown"
-              className="text-left bg-card border border-border rounded-lg px-3 py-2 hover:bg-muted/50 transition-colors cursor-pointer select-none"
+              className="text-left bg-card border border-border rounded-xl px-3.5 py-3.5 hover:bg-muted/50 hover:border-slate-300 transition-colors cursor-pointer select-none"
             >
-              <div className="flex items-center gap-1.5 mb-1">
-                <div className="w-5 h-5 rounded-md bg-gradient-to-br from-slate-400 to-slate-600 flex items-center justify-center shrink-0">
-                  <AlertTriangle className="w-3 h-3 text-white" />
+              <div className="flex items-center gap-1.5 mb-2">
+                <div className="w-6 h-6 rounded-md bg-gradient-to-br from-slate-400 to-slate-600 flex items-center justify-center shrink-0">
+                  <AlertTriangle className="w-3.5 h-3.5 text-white" />
                 </div>
-                <span className="text-xs text-muted-foreground font-medium truncate">Sickness</span>
+                <span className="text-xs font-semibold text-muted-foreground">Sickness</span>
               </div>
-              <div className="text-base font-bold bg-gradient-to-r from-slate-500 to-slate-700 bg-clip-text text-transparent" data-testid="text-sickness-sum">
+              <div className="text-lg font-bold bg-gradient-to-r from-slate-500 to-slate-700 bg-clip-text text-transparent leading-none" data-testid="text-sickness-sum">
                 {data.kpis.sicknessSum}h
               </div>
-              <div className="text-[10px] text-muted-foreground mt-0.5">
+              <div className="text-xs text-muted-foreground mt-1">
                 {sicknessBreakdown.items.length} CP{sicknessBreakdown.items.length === 1 ? "" : "s"} sick
               </div>
             </button>
@@ -385,18 +385,18 @@ export function OverviewTab({
               data-testid="card-holidays"
               onDoubleClick={() => setHolidayModalOpen(true)}
               title="Double-click to see breakdown"
-              className="text-left bg-card border border-border rounded-lg px-3 py-3 hover:bg-muted/50 transition-colors cursor-pointer"
+              className="text-left bg-card border border-border rounded-xl px-3.5 py-3.5 hover:bg-muted/50 hover:border-purple-200 transition-colors cursor-pointer"
             >
-              <div className="flex items-center gap-1.5 mb-1">
-                <div className="w-5 h-5 rounded-md bg-gradient-to-br from-purple-400 to-purple-600 flex items-center justify-center shrink-0">
-                  <Calendar className="w-3 h-3 text-white" />
+              <div className="flex items-center gap-1.5 mb-2">
+                <div className="w-6 h-6 rounded-md bg-gradient-to-br from-purple-400 to-purple-600 flex items-center justify-center shrink-0">
+                  <Calendar className="w-3.5 h-3.5 text-white" />
                 </div>
-                <span className="text-xs text-muted-foreground font-medium truncate">Holidays</span>
+                <span className="text-xs font-semibold text-muted-foreground">Holidays</span>
               </div>
-              <div className="text-base font-bold bg-gradient-to-r from-purple-500 to-purple-700 bg-clip-text text-transparent" data-testid="text-holidays-sum">
+              <div className="text-lg font-bold bg-gradient-to-r from-purple-500 to-purple-700 bg-clip-text text-transparent leading-none" data-testid="text-holidays-sum">
                 {data.kpis.holidaysSum || 0}h
               </div>
-              <div className="text-[10px] text-muted-foreground mt-0.5">
+              <div className="text-xs text-muted-foreground mt-1">
                 {holidayBreakdown.items.length} CP{holidayBreakdown.items.length === 1 ? "" : "s"} off
               </div>
             </button>
@@ -406,18 +406,18 @@ export function OverviewTab({
               data-testid="card-net-capacity"
               onDoubleClick={() => setNetCapacityModalOpen(true)}
               title="Double-click to see details"
-              className="text-left bg-card border border-border rounded-lg px-3 py-3 hover:bg-muted/50 transition-colors cursor-pointer"
+              className="text-left bg-card border border-border rounded-xl px-3.5 py-3.5 hover:bg-muted/50 hover:border-amber-200 transition-colors cursor-pointer"
             >
-              <div className="flex items-center gap-1.5 mb-1">
-                <div className="w-5 h-5 rounded-md bg-gradient-to-br from-amber-500 to-amber-600 flex items-center justify-center shrink-0">
-                  <Users className="w-3 h-3 text-white" />
+              <div className="flex items-center gap-1.5 mb-2">
+                <div className="w-6 h-6 rounded-md bg-gradient-to-br from-amber-500 to-amber-600 flex items-center justify-center shrink-0">
+                  <Users className="w-3.5 h-3.5 text-white" />
                 </div>
-                <span className="text-xs text-muted-foreground font-medium truncate">Net Capacity</span>
+                <span className="text-xs font-semibold text-muted-foreground">Net Capacity</span>
               </div>
-              <div className="text-base font-bold bg-gradient-to-r from-amber-600 to-amber-800 bg-clip-text text-transparent" data-testid="text-net-capacity-sum">
+              <div className="text-lg font-bold bg-gradient-to-r from-amber-600 to-amber-800 bg-clip-text text-transparent leading-none" data-testid="text-net-capacity-sum">
                 {data.kpis.netCapacitySum}h
               </div>
-              <div className="text-[10px] text-muted-foreground mt-0.5">available hours</div>
+              <div className="text-xs text-muted-foreground mt-1">available hours</div>
             </button>
 
             {/* 6. Domiciliary / Client Required */}
@@ -425,18 +425,18 @@ export function OverviewTab({
               data-testid="card-client-required"
               onDoubleClick={() => setDomiciliaryModalOpen(true)}
               title="Double-click to see details"
-              className="text-left bg-card border border-border rounded-lg px-3 py-3 hover:bg-muted/50 transition-colors cursor-pointer"
+              className="text-left bg-card border border-border rounded-xl px-3.5 py-3.5 hover:bg-muted/50 hover:border-emerald-200 transition-colors cursor-pointer"
             >
-              <div className="flex items-center gap-1.5 mb-1">
-                <div className="w-5 h-5 rounded-md bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center shrink-0">
-                  <Clock className="w-3 h-3 text-white" />
+              <div className="flex items-center gap-1.5 mb-2">
+                <div className="w-6 h-6 rounded-md bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center shrink-0">
+                  <Clock className="w-3.5 h-3.5 text-white" />
                 </div>
-                <span className="text-xs text-muted-foreground font-medium truncate">Dom. Hours</span>
+                <span className="text-xs font-semibold text-muted-foreground">Dom. Hours</span>
               </div>
-              <div className="text-base font-bold bg-gradient-to-r from-emerald-600 to-emerald-800 bg-clip-text text-transparent" data-testid="text-client-required-sum">
+              <div className="text-lg font-bold bg-gradient-to-r from-emerald-600 to-emerald-800 bg-clip-text text-transparent leading-none" data-testid="text-client-required-sum">
                 {data.kpis.clientRequiredSum}h
               </div>
-              <div className="text-[10px] text-muted-foreground mt-0.5">client care</div>
+              <div className="text-xs text-muted-foreground mt-1">client care</div>
             </button>
 
             {/* 7. Client Scheduled */}
@@ -444,18 +444,18 @@ export function OverviewTab({
               data-testid="card-client-scheduled"
               onDoubleClick={() => setClientScheduledModalOpen(true)}
               title="Double-click to see details"
-              className="text-left bg-card border border-border rounded-lg px-3 py-3 hover:bg-muted/50 transition-colors cursor-pointer"
+              className="text-left bg-card border border-border rounded-xl px-3.5 py-3.5 hover:bg-muted/50 hover:border-teal-200 transition-colors cursor-pointer"
             >
-              <div className="flex items-center gap-1.5 mb-1">
-                <div className="w-5 h-5 rounded-md bg-gradient-to-br from-teal-500 to-teal-600 flex items-center justify-center shrink-0">
-                  <Clock className="w-3 h-3 text-white" />
+              <div className="flex items-center gap-1.5 mb-2">
+                <div className="w-6 h-6 rounded-md bg-gradient-to-br from-teal-500 to-teal-600 flex items-center justify-center shrink-0">
+                  <Clock className="w-3.5 h-3.5 text-white" />
                 </div>
-                <span className="text-xs text-muted-foreground font-medium truncate">Scheduled</span>
+                <span className="text-xs font-semibold text-muted-foreground">Scheduled</span>
               </div>
-              <div className="text-base font-bold bg-gradient-to-r from-teal-600 to-teal-800 bg-clip-text text-transparent" data-testid="text-client-scheduled-sum">
+              <div className="text-lg font-bold bg-gradient-to-r from-teal-600 to-teal-800 bg-clip-text text-transparent leading-none" data-testid="text-client-scheduled-sum">
                 {data.kpis.clientScheduledHoursSum}h
               </div>
-              <div className="text-[10px] text-muted-foreground mt-0.5">client hours</div>
+              <div className="text-xs text-muted-foreground mt-1">client hours</div>
             </button>
 
             {/* 8. Other Scheduled */}
@@ -463,18 +463,18 @@ export function OverviewTab({
               data-testid="card-other-scheduled"
               onDoubleClick={() => setOtherScheduledModalOpen(true)}
               title="Double-click to see details"
-              className="text-left bg-card border border-border rounded-lg px-3 py-3 hover:bg-muted/50 transition-colors cursor-pointer"
+              className="text-left bg-card border border-border rounded-xl px-3.5 py-3.5 hover:bg-muted/50 hover:border-sky-200 transition-colors cursor-pointer"
             >
-              <div className="flex items-center gap-1.5 mb-1">
-                <div className="w-5 h-5 rounded-md bg-gradient-to-br from-sky-400 to-sky-600 flex items-center justify-center shrink-0">
-                  <Clock className="w-3 h-3 text-white" />
+              <div className="flex items-center gap-1.5 mb-2">
+                <div className="w-6 h-6 rounded-md bg-gradient-to-br from-sky-400 to-sky-600 flex items-center justify-center shrink-0">
+                  <Clock className="w-3.5 h-3.5 text-white" />
                 </div>
-                <span className="text-xs text-muted-foreground font-medium truncate">Other Sched.</span>
+                <span className="text-xs font-semibold text-muted-foreground">Other Sched.</span>
               </div>
-              <div className="text-base font-bold bg-gradient-to-r from-sky-500 to-sky-700 bg-clip-text text-transparent" data-testid="text-other-scheduled-sum">
+              <div className="text-lg font-bold bg-gradient-to-r from-sky-500 to-sky-700 bg-clip-text text-transparent leading-none" data-testid="text-other-scheduled-sum">
                 {data.kpis.otherScheduledHoursSum}h
               </div>
-              <div className="text-[10px] text-muted-foreground mt-0.5">non-client</div>
+              <div className="text-xs text-muted-foreground mt-1">non-client</div>
             </button>
 
             {/* 9. Capacity After Scheduling */}
@@ -482,15 +482,15 @@ export function OverviewTab({
               data-testid="card-capacity-after-scheduling"
               onDoubleClick={() => setCapacityAfterModalOpen(true)}
               title="Double-click to see details"
-              className="text-left bg-card border border-border rounded-lg px-3 py-3 hover:bg-muted/50 transition-colors cursor-pointer"
+              className="text-left bg-card border border-border rounded-xl px-3.5 py-3.5 hover:bg-muted/50 hover:border-green-200 transition-colors cursor-pointer"
             >
-              <div className="flex items-center gap-1.5 mb-1">
-                <div className="w-5 h-5 rounded-md bg-gradient-to-br from-green-500 to-green-600 flex items-center justify-center shrink-0">
-                  <TrendingUp className="w-3 h-3 text-white" />
+              <div className="flex items-center gap-1.5 mb-2">
+                <div className="w-6 h-6 rounded-md bg-gradient-to-br from-green-500 to-green-600 flex items-center justify-center shrink-0">
+                  <TrendingUp className="w-3.5 h-3.5 text-white" />
                 </div>
-                <span className="text-xs text-muted-foreground font-medium truncate">After Sched.</span>
+                <span className="text-xs font-semibold text-muted-foreground">After Sched.</span>
               </div>
-              <div className="text-base font-bold bg-gradient-to-r from-green-600 to-green-800 bg-clip-text text-transparent" data-testid="text-capacity-after-scheduling-sum">
+              <div className="text-lg font-bold bg-gradient-to-r from-green-600 to-green-800 bg-clip-text text-transparent leading-none" data-testid="text-capacity-after-scheduling-sum">
                 {(() => {
                   const sum = data.dailySummary.reduce((acc, day) => {
                     const employees = data.employeesByDate[day.date] || [];
@@ -503,7 +503,7 @@ export function OverviewTab({
                   return sum;
                 })()}h
               </div>
-              <div className="text-[10px] text-muted-foreground mt-0.5">remaining</div>
+              <div className="text-xs text-muted-foreground mt-1">remaining</div>
             </button>
 
             {/* 10. GH Loss */}
@@ -511,18 +511,18 @@ export function OverviewTab({
               data-testid="card-gh-loss"
               onDoubleClick={() => setGhLossModalOpen(true)}
               title="Double-click to see breakdown"
-              className="text-left bg-card border border-border rounded-lg px-3 py-2 hover:bg-muted/50 transition-colors cursor-pointer select-none"
+              className="text-left bg-card border border-border rounded-xl px-3.5 py-3.5 hover:bg-muted/50 hover:border-rose-200 transition-colors cursor-pointer select-none"
             >
-              <div className="flex items-center gap-1.5 mb-1">
-                <div className="w-5 h-5 rounded-md bg-gradient-to-br from-rose-500 to-rose-600 flex items-center justify-center shrink-0">
-                  <TrendingUp className="w-3 h-3 text-white rotate-180" />
+              <div className="flex items-center gap-1.5 mb-2">
+                <div className="w-6 h-6 rounded-md bg-gradient-to-br from-rose-500 to-rose-600 flex items-center justify-center shrink-0">
+                  <TrendingUp className="w-3.5 h-3.5 text-white rotate-180" />
                 </div>
-                <span className="text-xs text-muted-foreground font-medium truncate">GH Loss</span>
+                <span className="text-xs font-semibold text-muted-foreground">GH Loss</span>
               </div>
-              <div className="text-base font-bold bg-gradient-to-r from-rose-500 to-rose-700 bg-clip-text text-transparent" data-testid="text-gh-loss-total">
+              <div className="text-lg font-bold bg-gradient-to-r from-rose-500 to-rose-700 bg-clip-text text-transparent leading-none" data-testid="text-gh-loss-total">
                 {ghLossData.totalLoss}h
               </div>
-              <div className="text-[10px] text-muted-foreground mt-0.5">
+              <div className="text-xs text-muted-foreground mt-1">
                 {ghLossData.items.length} staff
               </div>
             </button>
