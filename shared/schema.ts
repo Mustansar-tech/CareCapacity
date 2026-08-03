@@ -1041,6 +1041,7 @@ export const dataRequests = pgTable("data_requests", {
   dateReceived: text("date_received").notNull(), // YYYY-MM-DD
   dueDate: text("due_date").notNull(), // YYYY-MM-DD, dateReceived + 1 calendar month
   status: text("status", { enum: dataRequestStatuses }).notNull().default('open'),
+  requestedVia: text("requested_via"), // e.g. email, in person, phone
   notes: text("notes"),
   assignedTo: varchar("assigned_to").references(() => users.id),
   completedAt: timestamp("completed_at"),
@@ -1057,6 +1058,7 @@ export const insertDataRequestSchema = createInsertSchema(dataRequests).omit({
   requestType: z.enum(dataRequestTypes),
   status: z.enum(dataRequestStatuses).default('open'),
   subjectEmail: z.string().optional().nullable(),
+  requestedVia: z.string().optional().nullable(),
   notes: z.string().optional().nullable(),
   assignedTo: z.string().optional().nullable(),
   completedAt: z.coerce.date().optional().nullable(),

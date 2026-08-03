@@ -40,6 +40,19 @@ function addOneMonth(dateStr: string): string {
 }
 
 export function registerDataRequestRoutes(app: Express): void {
+  // GET /api/data-requests/employees — distinct employee names across all branches,
+  // for the "Who is it about?" picker in the Log Request dialog.
+  app.get('/api/data-requests/employees', requireRole('admin'), async (_req: Request, res: Response) => {
+    try {
+      const rows = await db.selectDistinct({ name: employeeLocations.employeeName }).from(employeeLocations);
+      const names = Array.from(new Set(rows.map(r => r.name))).sort((a, b) => a.localeCompare(b));
+      res.json(names);
+    } catch (err) {
+      logger.error('Failed to fetch employee names', err instanceof Error ? err : undefined);
+      res.status(500).json({ message: 'Failed to fetch employees.' });
+    }
+  });
+
   // GET /api/data-requests — list all logged requests
   app.get('/api/data-requests', requireRole('admin'), async (_req: Request, res: Response) => {
     try {
