@@ -181,6 +181,21 @@ export async function clearAllVisits(branchId: string): Promise<any> {
   return db.delete(visits).where(eq(visits.branchId, branchId));
 }
 
+/**
+ * Delete existing visit rows for a branch on a specific set of dates.
+ * Used before re-inserting freshly-extracted visits for those dates so that
+ * repeated processing of the same upload doesn't accumulate duplicate rows
+ * indefinitely (this was previously unbounded and grew the `visits` table
+ * to hundreds of thousands of rows).
+ */
+export async function clearVisitsForDates(branchId: string, dates: string[]): Promise<number> {
+  if (dates.length === 0) return 0;
+  const result = await db
+    .delete(visits)
+    .where(and(eq(visits.branchId, branchId), inArray(visits.date, dates)));
+  return result.rowCount ?? 0;
+}
+
 export async function clearAllRoutePlans(branchId: string): Promise<number> {
   const result = await db.delete(routePlans).where(eq(routePlans.branchId, branchId));
   return result.rowCount ?? 0;

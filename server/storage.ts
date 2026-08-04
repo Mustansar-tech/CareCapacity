@@ -107,6 +107,7 @@ export interface IStorage {
   getVisitsByClientAndDate(clientId: string, date: string): Promise<Visit[]>;
   listVisitsBetween(branchId: string, startDate: string | null, endDate: string | null): Promise<Visit[]>;
   clearAllVisits(branchId: string): Promise<any>;
+  clearVisitsForDates(branchId: string, dates: string[]): Promise<number>;
 
   // CP Scheduled Visits (from GH Excel, persisted at upload time for BD Matcher)
   saveCpScheduledVisits(visits: InsertCpScheduledVisit[]): Promise<void>;
@@ -219,6 +220,7 @@ export class DatabaseStorage implements IStorage {
   getVisitsByClientAndDate(clientId: string, date: string) { return geoRepo.getVisitsByClientAndDate(clientId, date); }
   listVisitsBetween(branchId: string, startDate: string | null, endDate: string | null) { return geoRepo.listVisitsBetween(branchId, startDate, endDate); }
   clearAllVisits(branchId: string) { return geoRepo.clearAllVisits(branchId); }
+  clearVisitsForDates(branchId: string, dates: string[]) { return geoRepo.clearVisitsForDates(branchId, dates); }
   saveRoutePlan(plan: InsertRoutePlan) { return geoRepo.saveRoutePlan(plan); }
   getRoutePlansByDate(branchId: string, date: string) { return geoRepo.getRoutePlansByDate(branchId, date); }
   getRoutePlanByEmployeeAndDate(employeeId: string, date: string) { return geoRepo.getRoutePlanByEmployeeAndDate(employeeId, date); }
@@ -397,6 +399,13 @@ export class MemStorage implements IStorage {
   async getVisitsByClientAndDate(clientId: string, date: string): Promise<Visit[]> { return Array.from(this.visits.values()).filter(v => v.clientId === clientId && v.date === date); }
   async listVisitsBetween(branchId: string, startDate: string | null, endDate: string | null): Promise<Visit[]> { return Array.from(this.visits.values()).filter(v => v.branchId === branchId); }
   async clearAllVisits(branchId: string): Promise<any> { Array.from(this.visits.values()).forEach(v => { if (v.branchId === branchId) this.visits.delete(v.id); }); }
+  async clearVisitsForDates(branchId: string, dates: string[]): Promise<number> {
+    let count = 0;
+    Array.from(this.visits.values()).forEach(v => {
+      if (v.branchId === branchId && dates.includes(v.date)) { this.visits.delete(v.id); count++; }
+    });
+    return count;
+  }
 
   // CP Scheduled Visits - in-memory implementation
   private cpVisits: Map<string, CpScheduledVisit> = new Map();

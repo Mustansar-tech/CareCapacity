@@ -357,6 +357,16 @@ export async function extractAndStoreGeographicalData(
     const visitsMap = new Map<string, any>();
     const visitsByDate = new Map<string, any[]>();
 
+    // Batch-fetch all client locations for this branch once instead of a
+    // per-row DB round trip (this loop can process thousands of rows per
+    // upload, which previously meant thousands of individual SELECTs).
+    const allClientLocationsForBranch = storage.getAllClientLocations
+      ? await storage.getAllClientLocations(branchId)
+      : [];
+    const clientLocationByName = new Map<string, any>(
+      allClientLocationsForBranch.map((loc: any) => [loc.clientName, loc]),
+    );
+
     logger.debug(`DEBUG: Processing visit data from ${rawGHRows.length} raw GH rows`);
 
     for (const row of rawGHRows) {
@@ -400,7 +410,7 @@ export async function extractAndStoreGeographicalData(
             }
 
             const visitKey = `${clientName}-${visitDate}-${visitStart}`;
-            const clientLocation = await storage.getClientLocationByName(branchId, clientName);
+            const clientLocation = clientLocationByName.get(clientName);
 
             if (clientLocation && !visitsMap.has(visitKey)) {
               const startMinutes = startDate.getHours() * 60 + startDate.getMinutes();
@@ -455,6 +465,16 @@ export async function extractAndStoreGeographicalData(
         logger.debug(`  ${sType}: ${Math.round(hours * 100) / 100} hours`);
       });
     logger.debug(`====================================================\n`);
+
+    // Clear any previously-stored visits for the dates we're about to
+    // (re-)insert. Without this, re-processing the same upload (e.g. a
+    // re-run of the same week) accumulated duplicate rows indefinitely —
+    // this table had grown to 600k+ rows / ~250MB from repeated uploads.
+    const affectedDates = Array.from(visitsByDate.keys());
+    if (affectedDates.length > 0 && storage.clearVisitsForDates) {
+      const cleared = await storage.clearVisitsForDates(branchId, affectedDates);
+      logger.debug(`Cleared ${cleared} existing visit row(s) for ${affectedDates.length} date(s) before re-inserting`);
+    }
 
     for (const visitData of Array.from(visitsMap.values())) {
       await storage.saveVisit(visitData);
