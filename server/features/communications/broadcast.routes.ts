@@ -341,7 +341,7 @@ export function registerBroadcastRoutes(app: Express) {
 
   // POST — send the broadcast
   app.post('/api/admin/broadcast-email', requireAuth, requireRole('admin'), async (req: Request, res: Response) => {
-    const { subject, headline, subheadline, releaseVersion, body, featureCards, bullets, screenshotUrl, comingNext, ctaText, ctaUrl, previewText } = req.body as BroadcastPayload;
+    const { subject, headline, subheadline, releaseVersion, body, featureCards, bullets, screenshotUrl, comingNext, ctaText, ctaUrl, previewText, recipientEmails } = req.body as BroadcastPayload & { recipientEmails?: string[] };
 
     if (!subject?.trim() || !headline?.trim() || !body?.trim()) {
       return res.status(400).json({ message: 'subject, headline and body are required' });
@@ -354,7 +354,15 @@ export function registerBroadcastRoutes(app: Express) {
 
     try {
       const allUsers = await storage.getAllUsers();
-      const recipients = allUsers.filter(u => u.isActive);
+      let recipients = allUsers.filter(u => u.isActive);
+
+      // If the caller sent an explicit list of recipient emails (from the
+      // admin's checkbox selection), narrow to just those — still scoped to
+      // active users only, so a stale/deactivated email can't sneak through.
+      if (Array.isArray(recipientEmails)) {
+        const selected = new Set(recipientEmails.map(e => e.toLowerCase().trim()));
+        recipients = recipients.filter(u => selected.has(u.email.toLowerCase().trim()));
+      }
 
       if (recipients.length === 0) {
         return res.status(400).json({ message: 'No active users to send to' });

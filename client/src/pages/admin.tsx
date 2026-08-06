@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -1338,6 +1338,26 @@ function CommunicationsTab() {
     queryKey: ['/api/admin/broadcast-email/recipients'],
   });
 
+  // Which recipients are actually checked to receive this broadcast.
+  // Defaults to "everyone" once the list loads, admin can then uncheck.
+  const [selectedEmails, setSelectedEmails] = useState<Set<string> | null>(null);
+  useEffect(() => {
+    if (recipientsData?.emails && selectedEmails === null) {
+      setSelectedEmails(new Set(recipientsData.emails.map(r => r.email)));
+    }
+  }, [recipientsData, selectedEmails]);
+
+  const selectedCount = selectedEmails?.size ?? recipientsData?.count ?? 0;
+  const toggleRecipient = (email: string) => {
+    setSelectedEmails(prev => {
+      const next = new Set(prev ?? []);
+      if (next.has(email)) next.delete(email); else next.add(email);
+      return next;
+    });
+  };
+  const selectAllRecipients = () => setSelectedEmails(new Set(recipientsData?.emails.map(r => r.email) ?? []));
+  const selectNoRecipients  = () => setSelectedEmails(new Set());
+
   const activeBullets    = bullets.filter(b => b.trim());
   const activeComingNext = comingNext.filter(c => c.trim());
   const activeCards      = featureCards.filter(c => c.title.trim() || c.desc.trim());
@@ -1353,12 +1373,12 @@ function CommunicationsTab() {
   const handleCardChange = (i: number, field: keyof FeatureCardDraft, val: string) =>
     setFeatureCards(prev => prev.map((c, idx) => idx === i ? { ...c, [field]: val } : c));
 
-  const canSend = subject.trim() && headline.trim() && body.trim();
+  const canSend = Boolean(subject.trim() && headline.trim() && body.trim() && selectedCount > 0);
 
   const handleSend = async () => {
     if (!canSend) return;
     const confirmed = window.confirm(
-      `Send this email to ${recipientsData?.count ?? '?'} active users?\n\nSubject: ${subject}`
+      `Send this email to ${selectedCount} selected user${selectedCount === 1 ? '' : 's'}?\n\nSubject: ${subject}`
     );
     if (!confirmed) return;
 
@@ -1376,6 +1396,7 @@ function CommunicationsTab() {
         comingNext:     showComingNext && activeComingNext.length > 0 ? activeComingNext : undefined,
         ctaText:        ctaText.trim() || undefined,
         ctaUrl:         ctaUrl.trim()  || undefined,
+        recipientEmails: Array.from(selectedEmails ?? []),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message ?? 'Send failed');
@@ -1623,7 +1644,7 @@ function CommunicationsTab() {
                   <p className="text-xs text-muted-foreground mt-0.5">
                     Sends to{' '}
                     <span className="font-semibold text-emerald-600 dark:text-emerald-400">
-                      {recipientsData?.count ?? '…'} active users
+                      {selectedCount} of {recipientsData?.count ?? '…'} active users
                     </span>
                   </p>
                 </div>
@@ -1844,33 +1865,44 @@ function CommunicationsTab() {
               {sending ? (
                 <>
                   <RefreshCw className="h-4 w-4 animate-spin" />
-                  Sending to {recipientsData?.count ?? '?'} users…
+                  Sending to {selectedCount} user{selectedCount === 1 ? '' : 's'}…
                 </>
               ) : (
                 <>
                   <Send className="h-4 w-4" />
-                  Send to all {recipientsData?.count ?? '?'} active users
+                  Send to {selectedCount} selected user{selectedCount === 1 ? '' : 's'}
                 </>
               )}
             </Button>
 
-            {/* Recipients list */}
+            {/* Recipients list — checkboxes let the admin pick who gets this send */}
             {recipientsData?.emails && recipientsData.emails.length > 0 && (
-              <details className="group">
+              <details className="group" open>
                 <summary className="text-xs text-muted-foreground cursor-pointer hover:text-foreground transition-colors list-none flex items-center gap-1">
                   <Sparkles className="h-3 w-3" />
-                  View {recipientsData.count} recipients
+                  Choose recipients ({selectedCount}/{recipientsData.count} selected)
                 </summary>
-                <div className="mt-2 border border-border rounded-lg overflow-hidden">
-                  {recipientsData.emails.map(r => (
-                    <div key={r.email} className="flex items-center gap-2 px-3 py-1.5 text-xs border-b border-border last:border-0 hover:bg-muted/30">
-                      <div className="w-5 h-5 rounded-full bg-gradient-to-br from-blue-400 to-emerald-400 flex items-center justify-center text-white text-[10px] font-bold shrink-0">
-                        {r.name.charAt(0).toUpperCase()}
-                      </div>
-                      <span className="font-medium truncate">{r.name}</span>
-                      <span className="text-muted-foreground truncate">{r.email}</span>
-                    </div>
-                  ))}
+                <div className="mt-2 flex items-center gap-3 px-1">
+                  <button onClick={selectAllRecipients} className="text-xs text-emerald-600 hover:text-emerald-700 font-medium">Select all</button>
+                  <button onClick={selectNoRecipients} className="text-xs text-muted-foreground hover:text-foreground font-medium">Select none</button>
+                </div>
+                <div className="mt-2 border border-border rounded-lg overflow-hidden max-h-64 overflow-y-auto">
+                  {recipientsData.emails.map(r => {
+                    const checked = selectedEmails?.has(r.email) ?? true;
+                    return (
+                      <label
+                        key={r.email}
+                        className="flex items-center gap-2 px-3 py-1.5 text-xs border-b border-border last:border-0 hover:bg-muted/30 cursor-pointer"
+                      >
+                        <Checkbox checked={checked} onCheckedChange={() => toggleRecipient(r.email)} className="shrink-0" />
+                        <div className="w-5 h-5 rounded-full bg-gradient-to-br from-blue-400 to-emerald-400 flex items-center justify-center text-white text-[10px] font-bold shrink-0">
+                          {r.name.charAt(0).toUpperCase()}
+                        </div>
+                        <span className="font-medium truncate">{r.name}</span>
+                        <span className="text-muted-foreground truncate">{r.email}</span>
+                      </label>
+                    );
+                  })}
                 </div>
               </details>
             )}
