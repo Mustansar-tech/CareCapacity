@@ -41,6 +41,12 @@ function capitalize(s: string | null | undefined): string {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
+// LIC is an additional flag on top of Driver/Walker, not a mutually exclusive type
+function formatLeaverType(l: { employmentType: string | null; isLic?: boolean | null }): string {
+  const base = capitalize(l.employmentType);
+  return l.isLic ? `${base} (LIC)` : base;
+}
+
 export interface LeaverReportResult {
   month: string;
   branchesCovered: number;
@@ -136,7 +142,7 @@ async function buildExcel(sections: BranchSection[], monthLabel: string): Promis
         branch:  '',
         name:    l.employeeName,
         empNo:   l.employeeNo ?? '',
-        type:    capitalize(l.employmentType),
+        type:    formatLeaverType(l),
         wkHrs:   l.weeklyHours ?? '',
         ctHrs:   l.contractedHours ?? '',
         lastDay: formatDate(l.lastWorkingDay),
@@ -164,7 +170,7 @@ function buildHtml(sections: BranchSection[], monthLabel: string, totalLeavers: 
       <tr style="background:${i % 2 === 0 ? '#fff' : '#f9fafb'}">
         <td style="padding:9px 14px;border-bottom:1px solid #f3f4f6;font-weight:500;color:#111827">${l.employeeName}</td>
         <td style="padding:9px 14px;border-bottom:1px solid #f3f4f6;font-family:monospace;font-size:12px;color:#374151">${l.employeeNo ?? '—'}</td>
-        <td style="padding:9px 14px;border-bottom:1px solid #f3f4f6;color:#374151">${capitalize(l.employmentType)}</td>
+        <td style="padding:9px 14px;border-bottom:1px solid #f3f4f6;color:#374151">${formatLeaverType(l)}</td>
         <td style="padding:9px 14px;border-bottom:1px solid #f3f4f6;text-align:right;color:#374151;font-weight:500">${l.weeklyHours != null ? `${l.weeklyHours}h` : '—'}</td>
         <td style="padding:9px 14px;border-bottom:1px solid #f3f4f6;text-align:right;color:#374151">${l.contractedHours != null ? `${l.contractedHours}h` : '—'}</td>
         <td style="padding:9px 14px;border-bottom:1px solid #f3f4f6;color:#dc2626;font-weight:500">${formatDate(l.lastWorkingDay)}</td>

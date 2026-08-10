@@ -115,9 +115,10 @@ export async function getLeavers(branchId: string, includeProcessed = false): Pr
 
 // LIC leavers are tracked in the leaver list and the monthly leaver report,
 // but must never contribute to capacity KPI cards (outlook, current-month,
-// cumulative, or monthly snapshot totals).
-function excludeLic<T extends { employmentType: string | null }>(items: T[]): T[] {
-  return items.filter(l => l.employmentType !== 'lic');
+// cumulative, or monthly snapshot totals). LIC is an additional flag on top
+// of the Driver/Walker type, not a mutually exclusive type.
+function excludeLic<T extends { isLic: boolean | null }>(items: T[]): T[] {
+  return items.filter(l => !l.isLic);
 }
 
 export async function getJoiners(branchId: string, includeDropped = false, includeAll = false): Promise<Joiner[]> {

@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, timestamp, jsonb, unique, index, integer, serial, real } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, timestamp, jsonb, unique, index, integer, serial, real, boolean } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -783,7 +783,7 @@ export type Feedback = typeof feedback.$inferSelect;
 export const leaverStatuses = ['active', 'processed'] as const;
 export type LeaverStatus = typeof leaverStatuses[number];
 
-export const employmentTypes = ['driver', 'walker', 'lic'] as const;
+export const employmentTypes = ['driver', 'walker'] as const;
 export type EmploymentType = typeof employmentTypes[number];
 
 export const leaverReasons = ['Resigned', 'Dismissed', 'End of Contract', 'Other'] as const;
@@ -795,7 +795,10 @@ export const leavers = pgTable("leavers", {
   employeeName: text("employee_name").notNull(),
   employeeNo: text("employee_no"),
   gender: text("gender", { enum: ["male", "female", "other"] }),
-  employmentType: text("employment_type", { enum: ["driver", "walker", "lic"] }).notNull(),
+  employmentType: text("employment_type", { enum: ["driver", "walker"] }).notNull(),
+  // LIC is an additional flag on top of Driver/Walker, not a mutually exclusive type.
+  // LIC leavers still go into the leaver list & monthly report but are excluded from KPI cards.
+  isLic: boolean("is_lic").notNull().default(false),
   weeklyHours: real("weekly_hours").notNull(),
   contractedHours: real("contracted_hours"),
   postcode: text("postcode"),
@@ -816,7 +819,8 @@ export const insertLeaverSchema = createInsertSchema(leavers).omit({
   createdAt: true,
   updatedAt: true,
 }).extend({
-  employmentType: z.enum(["driver", "walker", "lic"]),
+  employmentType: z.enum(["driver", "walker"]),
+  isLic: z.boolean().optional().default(false),
   weeklyHours: z.number().nonnegative(),
   contractedHours: z.number().nonnegative().optional().nullable(),
   status: z.enum(["active", "processed"]).default("active"),
