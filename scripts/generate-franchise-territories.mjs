@@ -81,6 +81,12 @@ const SERVED_COUNCILS_PATH = path.join(__dirname, 'data', 'territory-served-coun
 const OUT_PATH = path.join(__dirname, '..', 'client', 'public', 'data', 'franchise-territories.geo.json');
 
 const RADIUS_KM = 2.5;
+// Circle smoothness: low step counts (e.g. 6) render each buffered postcode
+// as a hexagon, so the union of thousands of them looks spiky/faceted along
+// every edge instead of a smooth curve — this was the cause of the jagged,
+// "dirty" look reported after the first buffer+union pass. 32 gives visually
+// round circles; simplify() below then trims the resulting vertex count.
+const CIRCLE_STEPS = 32;
 
 // Real franchise/territory name -> internal branch slug (must match
 // client/src/data/franchise-real-names.ts).
@@ -159,7 +165,7 @@ for (const [territory, pts] of Object.entries(pointsByTerritory)) {
     console.warn(`No branch slug mapped for territory "${territory}" — skipping.`);
     continue;
   }
-  const circles = pts.map(p => turf.circle(p, RADIUS_KM, { steps: 6, units: 'kilometers' }));
+  const circles = pts.map(p => turf.circle(p, RADIUS_KM, { steps: CIRCLE_STEPS, units: 'kilometers' }));
   let merged = await reduceUnion(circles);
   try {
     const clipped = turf.intersect(turf.featureCollection([merged, coverageMask]));
@@ -172,6 +178,10 @@ for (const [territory, pts] of Object.entries(pointsByTerritory)) {
       c => turf.area(turf.polygon(c)) / 1e6 >= 1
     );
   }
+  // High circle-step count above already gives smooth curves; simplify just
+  // trims redundant vertices from the pairwise-union process (keeps file size
+  // sane without re-introducing the low-step-count jaggedness this replaces).
+  merged = turf.simplify(merged, { tolerance: 0.0008, highQuality: true, mutate: true });
   merged.properties = { branch, realName: territory };
   outFeatures.push(merged);
   console.log(`${territory}: ${pts.length} addresses -> territory polygon built`);
