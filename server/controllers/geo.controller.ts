@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { resolveBranch } from '../utils/helpers';
+import { resolveBranch, resolveBranches } from '../utils/helpers';
 import * as geoRepo from '../repositories/geo.repository';
 import { geocodeWithFallback } from '../pipeline';
 import { logger } from '../infrastructure/logger';
@@ -153,5 +153,33 @@ export async function getAllLocations(req: Request, res: Response): Promise<void
     fetchedAt: new Date().toISOString(),
     totalInUpload: employees.length,
     totalClientsInUpload: clients.length,
+  });
+}
+
+/**
+ * Cross-franchise locations for the Workforce & Client Map's "all franchises"
+ * view. Aggregates employee/client locations across every branch the caller
+ * is allowed to see (or a `branchIds` subset of those), tagging each record
+ * with its branchId so the map can filter markers by franchise client-side.
+ */
+export async function getMultiLocations(req: Request, res: Response): Promise<void> {
+  const branchIds = await resolveBranches(req);
+
+  const results = await Promise.all(branchIds.map(async (branchId) => {
+    const [employees, clients] = await Promise.all([
+      geoRepo.getAllEmployeeLocations(branchId),
+      geoRepo.getAllClientLocations(branchId),
+    ]);
+    return { branchId, employees, clients };
+  }));
+
+  const employees = results.flatMap(r => r.employees.filter(e => e.homeLat && e.homeLng));
+  const clients = results.flatMap(r => r.clients.filter(c => c.lat && c.lng));
+
+  res.json({
+    branchIds,
+    employees,
+    clients,
+    fetchedAt: new Date().toISOString(),
   });
 }

@@ -45,6 +45,38 @@ export async function resolveBranch(req: Request): Promise<string> {
   return resolvedBranchId;
 }
 
+/**
+ * Resolves a set of branch IDs for cross-franchise views (e.g. the multi-branch
+ * map). Accepts a comma-separated `branchIds` query param; when omitted, falls
+ * back to every branch the user is allowed to see. Filters out any branch the
+ * user does not have access to rather than erroring, since callers may pass a
+ * broad "all franchises" selection.
+ */
+export async function resolveBranches(req: Request): Promise<string[]> {
+  const raw = (req.query.branchIds as string || '').trim();
+  const requested = raw ? raw.split(',').map(s => s.trim()).filter(Boolean) : [];
+
+  const userId = req.session?.userId;
+  const userRole = req.session?.userRole;
+
+  let allowedIds: string[] | null = null; // null = no restriction (admin or no session)
+  if (userId && userRole !== 'admin') {
+    const assignedBranches = await getUserBranches(userId);
+    allowedIds = assignedBranches.map(b => b.id);
+  }
+
+  if (requested.length === 0) {
+    if (allowedIds) return allowedIds;
+    const allBranches = await storage.getAllBranches();
+    return allBranches.map(b => b.id);
+  }
+
+  if (!allowedIds) return requested;
+
+  const allowedSet = new Set(allowedIds);
+  return requested.filter(id => allowedSet.has(id));
+}
+
 function lastSundayOfMonth(year: number, month: number): Date {
   const lastDay = new Date(Date.UTC(year, month + 1, 0));
   const daysToSubtract = lastDay.getUTCDay();
