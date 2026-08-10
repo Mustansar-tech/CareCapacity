@@ -123,6 +123,13 @@ function ragBgClass(rag: string): string {
   return 'from-red-500 to-red-600';
 }
 
+// LIC is an acronym and must always render fully uppercase, never "Lic"
+function formatEmploymentType(type: string | null | undefined): string {
+  if (!type) return '—';
+  if (type.toLowerCase() === 'lic') return 'LIC';
+  return type.charAt(0).toUpperCase() + type.slice(1);
+}
+
 // ── Leaver form ───────────────────────────────────────────────────────────────
 
 const leaverFormSchema = z.object({
@@ -2114,7 +2121,7 @@ export default function CapacityOutlookPage() {
                             </TableCell>
                             <TableCell className="font-mono text-xs">{l.employeeNo || '—'}</TableCell>
                             <TableCell>
-                              <Badge variant="outline" className="capitalize text-xs">{l.employmentType}</Badge>
+                              <Badge variant="outline" className="text-xs">{formatEmploymentType(l.employmentType)}</Badge>
                             </TableCell>
                             <TableCell>{l.weeklyHours === 0 ? <Badge variant="outline" className="text-xs text-indigo-600 border-indigo-200 bg-indigo-50">Bank</Badge> : `${l.weeklyHours}h`}</TableCell>
                             <TableCell>{l.contractedHours != null ? `${l.contractedHours}h` : '—'}</TableCell>
@@ -2182,7 +2189,7 @@ export default function CapacityOutlookPage() {
                               </TableCell>
                               <TableCell className="font-mono text-xs">{l.employeeNo || '—'}</TableCell>
                               <TableCell>
-                                <Badge variant="outline" className="capitalize text-xs">{l.employmentType}</Badge>
+                                <Badge variant="outline" className="text-xs">{formatEmploymentType(l.employmentType)}</Badge>
                               </TableCell>
                               <TableCell>{l.weeklyHours === 0 ? <Badge variant="outline" className="text-xs text-indigo-600 border-indigo-200 bg-indigo-50">Bank</Badge> : `${l.weeklyHours}h`}</TableCell>
                               <TableCell>{l.contractedHours != null ? `${l.contractedHours}h` : '—'}</TableCell>
@@ -2266,7 +2273,7 @@ export default function CapacityOutlookPage() {
                                         <TableCell className="font-medium">{l.employeeName}</TableCell>
                                         <TableCell className="font-mono text-xs">{l.employeeNo || '—'}</TableCell>
                                         <TableCell>
-                                          <Badge variant="outline" className="capitalize text-xs">{l.employmentType}</Badge>
+                                          <Badge variant="outline" className="text-xs">{formatEmploymentType(l.employmentType)}</Badge>
                                         </TableCell>
                                         <TableCell>{l.weeklyHours === 0 ? <Badge variant="outline" className="text-xs text-indigo-600 border-indigo-200 bg-indigo-50">Bank</Badge> : `${l.weeklyHours}h`}</TableCell>
                                         <TableCell>{l.contractedHours != null ? `${l.contractedHours}h` : '—'}</TableCell>
