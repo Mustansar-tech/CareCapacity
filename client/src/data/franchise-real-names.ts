@@ -24,26 +24,25 @@ export function getRealFranchiseName(branchSlug: string, fallback: string): stri
 }
 
 /**
- * Fixed, hand-picked border color per franchise for the territory map —
- * one per known branch slug, chosen to be visually distinct (evenly spread
- * hues, no near-duplicates) and bright enough to read against the map
- * (no dark/near-black shades). Keyed explicitly (not hashed) so colors never
- * collide even as the branch list changes.
+ * Fixed border color per franchise for the territory map — one per known
+ * branch slug, taken from the app's dark brand palette (per user request).
+ * Keyed explicitly (not hashed) so colors never collide even as the branch
+ * list changes.
  */
 export const FRANCHISE_COLORS: Record<string, string> = {
-  'aberdeen': '#f43f5e',           // rose
-  'south-ayrshire': '#f97316',     // orange
-  'perthshire': '#eab308',         // amber/yellow
-  'north-lanarkshire': '#22c55e',  // green
-  'glasgow-south': '#10b981',      // emerald
-  'glasgow-north': '#06b6d4',      // cyan
-  'stirling-falkirk': '#3b82f6',   // blue
-  'east-lothian': '#8b5cf6',       // violet
-  'scottish-borders': '#d946ef',   // fuchsia
-  'west-fife-kinross': '#ec4899',  // pink
+  'aberdeen': '#0A0A0A',           // Midnight Black
+  'south-ayrshire': '#1A1D21',     // Rich Charcoal
+  'perthshire': '#2A2F36',         // Graphite
+  'north-lanarkshire': '#0B1F3A',  // Deep Navy
+  'glasgow-south': '#14213D',      // Oxford Blue
+  'glasgow-north': '#1E293B',      // Dark Slate
+  'stirling-falkirk': '#0F3D2E',   // Forest Green
+  'east-lothian': '#4A0E1A',       // Deep Burgundy
+  'scottish-borders': '#312244',   // Dark Plum
+  'west-fife-kinross': '#3B2414',  // Espresso Brown
 };
 
-const FALLBACK_COLORS = ['#f43f5e', '#f97316', '#eab308', '#22c55e', '#10b981', '#06b6d4', '#3b82f6', '#8b5cf6', '#d946ef', '#ec4899'];
+const FALLBACK_COLORS = Object.values(FRANCHISE_COLORS);
 
 export function getFranchiseColor(branchSlug: string): string {
   if (FRANCHISE_COLORS[branchSlug]) return FRANCHISE_COLORS[branchSlug];
