@@ -83,6 +83,7 @@ export function CareProMap({
   onRefresh,
   isRefreshing,
   branches,
+  defaultBranchId,
 }: {
   locations: EmployeeLocation[];
   clients: ClientLocation[];
@@ -92,19 +93,28 @@ export function CareProMap({
    *  each branch plus a filter to narrow which franchises' markers show.
    *  `locations`/`clients` are expected to carry `branchId` in this mode. */
   branches?: FranchiseBranch[];
+  /** The app's globally selected branch id — used as the initial franchise
+   *  filter selection so opening the map doesn't show every franchise's
+   *  markers at once. */
+  defaultBranchId?: string | null;
 }) {
   const [showPostcodes, setShowPostcodes] = useState(false);
   const [layer, setLayer] = useState<MapLayer>('both');
   const multiFranchise = !!branches && branches.length > 0;
 
-  // Franchise filter — defaults to "all" once branches are known.
+  // Franchise filter — defaults to just the app's globally selected
+  // franchise (not "all"), so opening the map doesn't dump every franchise's
+  // markers on screen at once. Territory borders for every franchise still
+  // render regardless. Falls back to "all" if there's no global selection
+  // or it isn't in the accessible branch list.
   const [selectedBranchIds, setSelectedBranchIds] = useState<Set<string> | null>(null);
   const [franchisePanelOpen, setFranchisePanelOpen] = useState(false);
   useEffect(() => {
     if (branches && selectedBranchIds === null) {
-      setSelectedBranchIds(new Set(branches.map(b => b.id)));
+      const defaultValid = defaultBranchId && branches.some(b => b.id === defaultBranchId);
+      setSelectedBranchIds(new Set(defaultValid ? [defaultBranchId!] : branches.map(b => b.id)));
     }
-  }, [branches, selectedBranchIds]);
+  }, [branches, selectedBranchIds, defaultBranchId]);
 
   const activeBranchIds = useMemo(() => {
     if (!multiFranchise) return null;
