@@ -9,29 +9,9 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { RefreshCw, ZoomIn, ZoomOut, Eye, EyeOff, Map as MapIcon, Search, X, Landmark } from "lucide-react";
 import type { EmployeeLocation, ClientLocation } from "@shared/schema";
 import { normalizeGender } from "@/utils/bd-matrix-utils";
-import { getRealFranchiseName } from "@/data/franchise-real-names";
+import { getRealFranchiseName, getFranchiseColor } from "@/data/franchise-real-names";
 
 export type FranchiseBranch = { id: string; name: string; displayName: string };
-
-// Distinct, high-contrast border colors so every franchise territory is
-// visually distinguishable at once. Assigned deterministically by branch
-// slug so a given franchise always gets the same color across renders.
-const TERRITORY_COLOR_PALETTE = [
-  '#5d51d5', '#e11d48', '#0d9488', '#f59e0b', '#2563eb',
-  '#a855f7', '#16a34a', '#db2777', '#ea580c', '#0891b2',
-];
-
-function hashString(str: string): number {
-  let hash = 0;
-  for (let i = 0; i < str.length; i++) {
-    hash = (hash * 31 + str.charCodeAt(i)) >>> 0;
-  }
-  return hash;
-}
-
-function getFranchiseColor(slug: string): string {
-  return TERRITORY_COLOR_PALETTE[hashString(slug) % TERRITORY_COLOR_PALETTE.length];
-}
 
 function makeIcon(gender: string) {
   const g = normalizeGender(gender);
