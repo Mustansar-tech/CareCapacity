@@ -783,7 +783,7 @@ export type Feedback = typeof feedback.$inferSelect;
 export const leaverStatuses = ['active', 'processed'] as const;
 export type LeaverStatus = typeof leaverStatuses[number];
 
-export const employmentTypes = ['driver', 'walker'] as const;
+export const employmentTypes = ['driver', 'walker', 'lic'] as const;
 export type EmploymentType = typeof employmentTypes[number];
 
 export const leaverReasons = ['Resigned', 'Dismissed', 'End of Contract', 'Other'] as const;
@@ -795,7 +795,7 @@ export const leavers = pgTable("leavers", {
   employeeName: text("employee_name").notNull(),
   employeeNo: text("employee_no"),
   gender: text("gender", { enum: ["male", "female", "other"] }),
-  employmentType: text("employment_type", { enum: ["driver", "walker"] }).notNull(),
+  employmentType: text("employment_type", { enum: ["driver", "walker", "lic"] }).notNull(),
   weeklyHours: real("weekly_hours").notNull(),
   contractedHours: real("contracted_hours"),
   postcode: text("postcode"),
@@ -816,7 +816,7 @@ export const insertLeaverSchema = createInsertSchema(leavers).omit({
   createdAt: true,
   updatedAt: true,
 }).extend({
-  employmentType: z.enum(["driver", "walker"]),
+  employmentType: z.enum(["driver", "walker", "lic"]),
   weeklyHours: z.number().nonnegative(),
   contractedHours: z.number().nonnegative().optional().nullable(),
   status: z.enum(["active", "processed"]).default("active"),

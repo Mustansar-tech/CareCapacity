@@ -129,7 +129,7 @@ const leaverFormSchema = z.object({
   employeeName: z.string().min(1, "Name is required"),
   employeeNo: z.string().min(1, "Employee number is required"),
   gender: z.enum(["male", "female", "other"], { required_error: "Gender is required" }),
-  employmentType: z.enum(["driver", "walker"], { required_error: "Type is required" }),
+  employmentType: z.enum(["driver", "walker", "lic"], { required_error: "Type is required" }),
   weeklyHours: z.coerce.number({ invalid_type_error: "Enter hours or select Bank" }).nonnegative("Enter hours or select Bank"),
   contractedHours: z.coerce.number({ invalid_type_error: "Enter contracted hours" }).nonnegative("Must be 0 or more"),
   postcode: z.string().min(1, "Postcode is required"),
@@ -195,7 +195,7 @@ function LeaverModal({
           employeeName: editing.employeeName,
           employeeNo: editing.employeeNo ?? "",
           gender: (editing.gender as "male" | "female" | "other") ?? undefined,
-          employmentType: editing.employmentType as "driver" | "walker",
+          employmentType: editing.employmentType as "driver" | "walker" | "lic",
           weeklyHours: editing.weeklyHours ?? (undefined as any),
           contractedHours: editing.contractedHours ?? undefined,
           postcode: editing.postcode ?? "",
@@ -303,6 +303,7 @@ function LeaverModal({
                     <SelectContent>
                       <SelectItem value="driver">Driver</SelectItem>
                       <SelectItem value="walker">Walker</SelectItem>
+                      <SelectItem value="lic">LIC</SelectItem>
                     </SelectContent>
                   </Select>
                   <FormMessage />
@@ -1326,8 +1327,14 @@ export default function CapacityOutlookPage() {
   const hoursAlreadyGone = Math.round(alreadyGone.reduce((s, l) => s + (l.weeklyHours ?? 0), 0) * 10) / 10;
   const hoursOnNotice    = Math.round(onNotice.reduce((s, l) => s + (l.weeklyHours ?? 0), 0) * 10) / 10;
 
+  // LIC leavers are tracked in the leaver list/report but never counted in KPI cards
+  const kpiAlreadyGone = alreadyGone.filter(l => l.employmentType !== 'lic');
+  const kpiOnNotice = onNotice.filter(l => l.employmentType !== 'lic');
+  const kpiHoursAlreadyGone = Math.round(kpiAlreadyGone.reduce((s, l) => s + (l.weeklyHours ?? 0), 0) * 10) / 10;
+  const kpiHoursOnNotice = Math.round(kpiOnNotice.reduce((s, l) => s + (l.weeklyHours ?? 0), 0) * 10) / 10;
+
   // For the Staff Leaving / In Pipeline KPI cards (current period)
-  const weeklyLossRate = hoursAlreadyGone;
+  const weeklyLossRate = kpiHoursAlreadyGone;
   const weeklyGainRate = Math.round(activeJoiners.reduce((s, j) => s + (j.desiredWeeklyHours ?? 0) * (j.confidenceWeight ?? 0), 0) * 10) / 10;
   const rawWeeklyHours = Math.round(activeJoiners.reduce((s, j) => s + (j.desiredWeeklyHours ?? 0), 0) * 10) / 10;
   const weeklyNet = Math.round((weeklyGainRate - weeklyLossRate) * 10) / 10;
@@ -1578,20 +1585,20 @@ export default function CapacityOutlookPage() {
               ) : (
                 <>
                   <div className="mt-1 space-y-1">
-                    {alreadyGone.length === 0 && onNotice.length === 0 ? (
+                    {kpiAlreadyGone.length === 0 && kpiOnNotice.length === 0 ? (
                       <div className="text-sm text-muted-foreground">no active leavers</div>
                     ) : (
                       <>
-                        {alreadyGone.length > 0 && (
+                        {kpiAlreadyGone.length > 0 && (
                           <div className="flex items-baseline gap-1.5 text-red-600 dark:text-red-400">
-                            <span className="text-2xl font-bold leading-none">{alreadyGone.length}</span>
-                            <span className="text-xs font-medium">{hoursAlreadyGone}h/wk already gone</span>
+                            <span className="text-2xl font-bold leading-none">{kpiAlreadyGone.length}</span>
+                            <span className="text-xs font-medium">{kpiHoursAlreadyGone}h/wk already gone</span>
                           </div>
                         )}
-                        {onNotice.length > 0 && (
+                        {kpiOnNotice.length > 0 && (
                           <div className="flex items-baseline gap-1.5 text-amber-600 dark:text-amber-400">
-                            <span className="text-2xl font-bold leading-none">{onNotice.length}</span>
-                            <span className="text-xs">{hoursOnNotice}h/wk still on notice</span>
+                            <span className="text-2xl font-bold leading-none">{kpiOnNotice.length}</span>
+                            <span className="text-xs">{kpiHoursOnNotice}h/wk still on notice</span>
                           </div>
                         )}
                       </>
@@ -2811,8 +2818,9 @@ function MonthlyViewSheet({
                   const net = Math.round((displayHoursIn - displayHoursOut) * 10) / 10;
 
                   // Gender split — live row: compute from individual records; closed row: use stored snapshot fields
+                  // LIC leavers are excluded from all KPI tables (report-only)
                   const currentMonthLeavers = allLeavers.filter(l => {
-                    if (!l.lastWorkingDay) return false;
+                    if (!l.lastWorkingDay || l.employmentType === 'lic') return false;
                     const d = new Date(l.lastWorkingDay + 'T00:00:00Z');
                     return d.getUTCFullYear() === row.year && d.getUTCMonth() + 1 === row.month;
                   });

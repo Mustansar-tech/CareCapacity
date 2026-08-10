@@ -37,6 +37,7 @@ function formatDate(d: string | null | undefined): string {
 
 function capitalize(s: string | null | undefined): string {
   if (!s) return '—';
+  if (s.toLowerCase() === 'lic') return 'LIC';
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
