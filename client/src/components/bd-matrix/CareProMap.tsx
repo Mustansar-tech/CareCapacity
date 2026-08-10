@@ -13,7 +13,25 @@ import { getRealFranchiseName } from "@/data/franchise-real-names";
 
 export type FranchiseBranch = { id: string; name: string; displayName: string };
 
-const TERRITORY_BORDER_COLOR = '#5d51d5';
+// Distinct, high-contrast border colors so every franchise territory is
+// visually distinguishable at once. Assigned deterministically by branch
+// slug so a given franchise always gets the same color across renders.
+const TERRITORY_COLOR_PALETTE = [
+  '#5d51d5', '#e11d48', '#0d9488', '#f59e0b', '#2563eb',
+  '#a855f7', '#16a34a', '#db2777', '#ea580c', '#0891b2',
+];
+
+function hashString(str: string): number {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = (hash * 31 + str.charCodeAt(i)) >>> 0;
+  }
+  return hash;
+}
+
+function getFranchiseColor(slug: string): string {
+  return TERRITORY_COLOR_PALETTE[hashString(slug) % TERRITORY_COLOR_PALETTE.length];
+}
 
 function makeIcon(gender: string) {
   const g = normalizeGender(gender);
@@ -279,6 +297,7 @@ export function CareProMap({
                 return (
                   <label key={b.id} className="flex items-center gap-2 px-1.5 py-1 text-xs rounded-lg hover:bg-gray-50 cursor-pointer">
                     <Checkbox checked={checked} onCheckedChange={() => toggleFranchise(b.id)} className="shrink-0" />
+                    <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: getFranchiseColor(b.name) }} />
                     <span className="font-semibold text-gray-700 truncate">{getRealFranchiseName(b.name, b.displayName)}</span>
                   </label>
                 );
@@ -321,18 +340,24 @@ export function CareProMap({
               const slug = feature?.properties?.branch;
               const branchId = [...branchSlugById.entries()].find(([, s]) => s === slug)?.[0];
               const isSelected = !branchId || !activeBranchIds || activeBranchIds.has(branchId);
+              const color = getFranchiseColor(slug);
               return {
-                color: TERRITORY_BORDER_COLOR,
+                color,
                 weight: isSelected ? 2.5 : 1.5,
                 opacity: isSelected ? 0.9 : 0.35,
-                fillColor: TERRITORY_BORDER_COLOR,
-                fillOpacity: isSelected ? 0.06 : 0.02,
+                fillColor: color,
+                fillOpacity: isSelected ? 0.08 : 0.02,
                 dashArray: isSelected ? undefined : '4 4',
               };
             }}
             onEachFeature={(feature: any, layer: any) => {
-              const realName = feature?.properties?.realName ?? feature?.properties?.branch;
-              layer.bindTooltip(realName, { sticky: true, className: 'font-bold text-xs' });
+              const slug = feature?.properties?.branch;
+              const realName = feature?.properties?.realName ?? slug;
+              const color = getFranchiseColor(slug);
+              layer.bindTooltip(
+                `<span style="display:inline-flex;align-items:center;gap:6px;"><span style="width:8px;height:8px;border-radius:9999px;background:${color};display:inline-block;"></span>${realName}</span>`,
+                { sticky: true, className: 'font-bold text-xs' },
+              );
             }}
           />
         )}
