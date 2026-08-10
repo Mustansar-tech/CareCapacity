@@ -333,10 +333,12 @@ export function CareProMap({
               const color = getFranchiseColor(slug);
               return {
                 color,
-                weight: isSelected ? 2.5 : 1.5,
-                opacity: isSelected ? 0.9 : 0.5,
+                weight: isSelected ? 5 : 3.5,
+                opacity: isSelected ? 1 : 0.7,
                 fillColor: color,
-                fillOpacity: isSelected ? 0.08 : 0.02,
+                fillOpacity: isSelected ? 0.1 : 0.03,
+                lineCap: 'round' as const,
+                lineJoin: 'round' as const,
               };
             }}
             onEachFeature={(feature: any, layer: any) => {
