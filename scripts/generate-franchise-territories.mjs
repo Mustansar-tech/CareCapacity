@@ -13,14 +13,20 @@
  * via Nominatim instead — see git history for the one-off geocoding scripts).
  *
  * Method: every sector centroid becomes a point in a Voronoi tessellation
- * (turf.voronoi), so every location in Scotland is assigned to the territory
- * of its nearest known postcode sector. Cells are clipped to a Scotland land
- * outline (union of ONS council-area polygons, scripts/data/scotland-councils.geojson)
- * and then unioned (dissolved) per franchise. This reproduces the spreadsheet's
- * actual assignments almost exactly (359/360 sectors validated) — far more
- * accurately than the earlier whole-council-area approximation, and it
- * automatically covers areas like Aberdeenshire that a pure council-area
- * approach missed.
+ * (turf.voronoi), so every location is assigned to the territory of its
+ * nearest known postcode sector. Cells are clipped to the union of only the
+ * council areas actually touched by at least one franchise's postcodes
+ * (scripts/data/territory-served-councils.json, derived from the postcode
+ * data — see the "touched councils" check in git history) — NOT all of
+ * Scotland. Clipping to all of Scotland was tried first and was wrong: with
+ * only 10 points to partition the whole country, Voronoi cells ballooned
+ * into Highland, Argyll & Bute, Dumfries & Galloway and the islands, none of
+ * which any franchise serves. Cells are then unioned (dissolved) per
+ * franchise. This reproduces the spreadsheet's actual assignments almost
+ * exactly (359/360 sectors validated) — far more accurately than the
+ * earlier whole-council-area approximation, and it automatically covers
+ * areas like Aberdeenshire that a pure per-franchise-council approach
+ * missed (Aberdeen franchise's postcodes reach into Aberdeenshire towns).
  *
  * If Sur Group supplies an updated postcode spreadsheet in future, re-extract
  * it into territory-postcodes.json (see the parsing logic used originally —
@@ -39,6 +45,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const COUNCILS_PATH = path.join(__dirname, 'data', 'scotland-councils.geojson');
 const POSTCODES_PATH = path.join(__dirname, 'data', 'territory-postcodes.json');
 const CENTROIDS_PATH = path.join(__dirname, 'data', 'territory-sector-centroids.json');
+const SERVED_COUNCILS_PATH = path.join(__dirname, 'data', 'territory-served-councils.json');
 const OUT_PATH = path.join(__dirname, '..', 'client', 'public', 'data', 'franchise-territories.geo.json');
 
 // Real franchise/territory name -> internal branch slug (must match
@@ -59,6 +66,7 @@ const BRANCH_BY_REAL_NAME = {
 const territoryMap = JSON.parse(fs.readFileSync(POSTCODES_PATH, 'utf8'));
 const centroids = JSON.parse(fs.readFileSync(CENTROIDS_PATH, 'utf8'));
 const councils = JSON.parse(fs.readFileSync(COUNCILS_PATH, 'utf8'));
+const servedCouncilNames = new Set(JSON.parse(fs.readFileSync(SERVED_COUNCILS_PATH, 'utf8')));
 
 const sectors = Object.keys(territoryMap);
 const missing = sectors.filter(s => !centroids[s]);
@@ -71,15 +79,17 @@ const points = turf.featureCollection(sectors.map(s =>
 ));
 console.log('territory postcode sectors:', points.features.length);
 
-// Scotland outline = union of all ONS council-area polygons, used to clip
-// Voronoi cells to the coastline/border instead of leaving raw cell edges.
-let scotland = null;
+// Coverage mask = union of ONLY the council areas actually touched by a
+// franchise postcode (not all of Scotland — see file header comment).
+let coverageMask = null;
 for (const f of councils.features) {
+  if (!servedCouncilNames.has(f.properties.LAD23NM)) continue;
   const feat = turf.feature(f.geometry);
-  scotland = scotland ? turf.union(turf.featureCollection([scotland, feat])) : feat;
+  coverageMask = coverageMask ? turf.union(turf.featureCollection([coverageMask, feat])) : feat;
 }
+if (!coverageMask) throw new Error('No served councils matched scotland-councils.geojson — check territory-served-councils.json names.');
 
-const bbox = turf.bbox(scotland);
+const bbox = turf.bbox(coverageMask);
 const pad = 0.5;
 const voronoiBbox = [bbox[0] - pad, bbox[1] - pad, bbox[2] + pad, bbox[3] + pad];
 
@@ -93,7 +103,7 @@ for (let i = 0; i < voronoiPolys.features.length; i++) {
   const territory = points.features[i].properties.territory;
   let clipped;
   try {
-    clipped = turf.intersect(turf.featureCollection([cell, scotland]));
+    clipped = turf.intersect(turf.featureCollection([cell, coverageMask]));
   } catch (e) {
     console.warn(`intersect failed for sector ${points.features[i].properties.sector}: ${e.message}`);
     continue;
