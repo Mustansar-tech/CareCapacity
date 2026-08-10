@@ -30,16 +30,16 @@ export function getRealFranchiseName(branchSlug: string, fallback: string): stri
  * list changes.
  */
 export const FRANCHISE_COLORS: Record<string, string> = {
-  'aberdeen': '#0A0A0A',           // Midnight Black
-  'south-ayrshire': '#1A1D21',     // Rich Charcoal
-  'perthshire': '#2A2F36',         // Graphite
-  'north-lanarkshire': '#0B1F3A',  // Deep Navy
-  'glasgow-south': '#14213D',      // Oxford Blue
-  'glasgow-north': '#1E293B',      // Dark Slate
-  'stirling-falkirk': '#0F3D2E',   // Forest Green
-  'east-lothian': '#4A0E1A',       // Deep Burgundy
-  'scottish-borders': '#312244',   // Dark Plum
-  'west-fife-kinross': '#3B2414',  // Espresso Brown
+  'aberdeen': '#B71C1C',           // Dark Red
+  'south-ayrshire': '#0D47A1',     // Dark Blue
+  'perthshire': '#1B5E20',         // Dark Green
+  'north-lanarkshire': '#6A1B9A',  // Dark Purple
+  'glasgow-south': '#E65100',      // Dark Orange
+  'glasgow-north': '#004D40',      // Dark Teal
+  'stirling-falkirk': '#AD1457',   // Dark Pink
+  'east-lothian': '#5D4037',       // Dark Brown
+  'scottish-borders': '#006064',   // Dark Cyan
+  'west-fife-kinross': '#827717',  // Dark Olive
 };
 
 const FALLBACK_COLORS = Object.values(FRANCHISE_COLORS);
