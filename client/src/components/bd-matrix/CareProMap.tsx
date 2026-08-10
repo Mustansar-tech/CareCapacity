@@ -334,10 +334,9 @@ export function CareProMap({
               return {
                 color,
                 weight: isSelected ? 2.5 : 1.5,
-                opacity: isSelected ? 0.9 : 0.35,
+                opacity: isSelected ? 0.9 : 0.5,
                 fillColor: color,
                 fillOpacity: isSelected ? 0.08 : 0.02,
-                dashArray: isSelected ? undefined : '4 4',
               };
             }}
             onEachFeature={(feature: any, layer: any) => {
