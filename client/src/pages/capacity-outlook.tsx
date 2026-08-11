@@ -339,34 +339,36 @@ function LeaverModal({
                             <span style={{ fontSize: 10, fontWeight: 400, color: isLic ? '#5EEAD4' : '#818CF8' }}>click to enter hours</span>
                           </button>
                         ) : (
-                          <div style={{ display: 'flex', gap: 6 }}>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                             <Input
                               type="number" step="0.5" placeholder="e.g. 37.5"
                               value={field.value ?? ""}
                               onChange={e => field.onChange(e.target.value === "" ? undefined : Number(e.target.value))}
                             />
-                            <button
-                              type="button"
-                              onClick={() => { form.setValue('isLic', false); field.onChange(0); }}
-                              style={{
-                                padding: '0 12px', height: 36, borderRadius: 6, flexShrink: 0,
-                                border: '1px solid #E2E8F0', background: 'white',
-                                color: '#64748B', fontSize: 12, fontWeight: 600, cursor: 'pointer',
-                              }}
-                            >
-                              Bank
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => { form.setValue('isLic', true); field.onChange(0); }}
-                              style={{
-                                padding: '0 12px', height: 36, borderRadius: 6, flexShrink: 0,
-                                border: '1px solid #E2E8F0', background: 'white',
-                                color: '#0F766E', fontSize: 12, fontWeight: 600, cursor: 'pointer',
-                              }}
-                            >
-                              LIC
-                            </button>
+                            <div style={{ display: 'flex', gap: 6 }}>
+                              <button
+                                type="button"
+                                onClick={() => { form.setValue('isLic', false); field.onChange(0); }}
+                                style={{
+                                  flex: 1, height: 30, borderRadius: 6,
+                                  border: '1px solid #E2E8F0', background: 'white',
+                                  color: '#64748B', fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                                }}
+                              >
+                                Bank
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => { form.setValue('isLic', true); field.onChange(0); }}
+                                style={{
+                                  flex: 1, height: 30, borderRadius: 6,
+                                  border: '1px solid #E2E8F0', background: 'white',
+                                  color: '#0F766E', fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                                }}
+                              >
+                                LIC
+                              </button>
+                            </div>
                           </div>
                         )}
                       </div>
