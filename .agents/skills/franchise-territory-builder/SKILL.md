@@ -117,5 +117,5 @@ postcode sectors, or the Smappen Excel is replaced):
    south-lanarkshire-lanark (Independent).
 
 Map rendering rules (user-confirmed): ALL territory borders always visible, thick (weight 4)
-solid lines — violet for SUR, red for Independent; markers on the map follow the franchise
+lines — violet solid for SUR, red dashed for Independent; markers on the map follow the franchise
 picker selection, borders do not.
