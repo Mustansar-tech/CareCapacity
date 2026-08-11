@@ -48,6 +48,10 @@ Working scripts live in `reference/` next to this file. Steps:
    - assigns each cell to its point's sector = `outward code + " " + first digit of inward code`
    - unions the cells of the target sectors with a **divide-and-conquer** union (recursive halves) —
      a naive sequential turf.union loop times out on ~8k cells — then reprojects BNG→WGS84 via `reference/bng.mjs`
+   - sector parsing MUST accept NRS "split postcode" records with an A/B suffix (e.g. "FK1 3DZA" →
+     sector "FK1 3"); rejecting them silently drops real cells and punches false multi-km² holes
+   - compute hole/sliver areas AFTER reprojecting to WGS84 (or convert first) — turf.area on raw BNG
+     metre coordinates returns garbage and the <1 km² noise filter silently keeps everything
    - **post-union cleanup** (needed for Glasgow South): stray misassigned unit postcodes create tiny
      interior holes and detached slivers. Keep only the largest polygon part and drop interior rings
      < 1 km²; anything that small is point noise, not real geography. Real parts/holes would be sector-sized.

@@ -22,7 +22,9 @@ const targetSectors = new Set(JSON.parse(readFileSync(SECTORS_FILE, "utf8")));
 
 // sector = outward code + " " + first digit of inward code, e.g. "G1 1AA" -> "G1 1"
 function sectorOf(postcode) {
-  const m = postcode.trim().match(/^([A-Z]{1,2}\d[A-Z\d]?)\s*(\d)[A-Z]{2}$/i);
+  // Trailing optional letter: NRS "split postcode" records carry an A/B suffix (e.g. "FK1 3DZA").
+  // Dropping them creates false holes in the territory — they must parse to their real sector.
+  const m = postcode.trim().match(/^([A-Z]{1,2}\d[A-Z\d]?)\s*(\d)[A-Z]{2}[A-Z]?$/i);
   return m ? `${m[1].toUpperCase()} ${m[2]}` : null;
 }
 
