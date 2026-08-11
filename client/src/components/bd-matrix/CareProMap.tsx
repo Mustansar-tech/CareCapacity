@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useRef } from "react";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
-import { MapContainer, TileLayer, Marker, Popup, Tooltip, useMap, GeoJSON } from "react-leaflet";
+import { MapContainer, TileLayer, Marker, Popup, Tooltip, useMap, useMapEvents, GeoJSON } from "react-leaflet";
 import type { FeatureCollection } from "geojson";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -68,6 +68,67 @@ function ZoomControls() {
         <ZoomOut className="w-5 h-5 text-purple-600" />
       </Button>
     </div>
+  );
+}
+
+// Area-weighted centroid of a polygon ring ([lng, lat][]) — good enough for label placement
+function ringCentroid(ring: number[][]): [number, number] {
+  let a = 0, cx = 0, cy = 0;
+  for (let i = 0; i < ring.length - 1; i++) {
+    const [x1, y1] = ring[i], [x2, y2] = ring[i + 1];
+    const f = x1 * y2 - x2 * y1;
+    a += f; cx += (x1 + x2) * f; cy += (y1 + y2) * f;
+  }
+  if (Math.abs(a) < 1e-12) return [ring[0][0], ring[0][1]];
+  return [cx / (3 * a), cy / (3 * a)];
+}
+
+function ringArea(ring: number[][]): number {
+  let a = 0;
+  for (let i = 0; i < ring.length - 1; i++) a += ring[i][0] * ring[i + 1][1] - ring[i + 1][0] * ring[i][1];
+  return Math.abs(a / 2);
+}
+
+/** Always-on territory name labels at each territory's centre.
+ *  Solid black text; auto-hidden when zoomed far out to stay clean. */
+function TerritoryLabels({ territories }: { territories: FeatureCollection | null }) {
+  const map = useMap();
+  const [zoom, setZoom] = useState(map.getZoom());
+  useMapEvents({ zoomend: () => setZoom(map.getZoom()) });
+
+  const labels = useMemo(() => {
+    if (!territories) return [];
+    return territories.features
+      .map((f) => {
+        const name = f.properties?.realName as string | undefined;
+        if (!name || !f.geometry) return null;
+        // Use the largest outer ring (island territories are MultiPolygons)
+        const polys = f.geometry.type === 'Polygon' ? [f.geometry.coordinates]
+          : f.geometry.type === 'MultiPolygon' ? f.geometry.coordinates : [];
+        if (!polys.length) return null;
+        const largest = polys.reduce((best, p) => (ringArea(p[0]) > ringArea(best[0]) ? p : best));
+        const [lng, lat] = ringCentroid(largest[0]);
+        return { key: f.properties?.branch as string, name, lat, lng };
+      })
+      .filter((x): x is { key: string; name: string; lat: number; lng: number } => !!x);
+  }, [territories]);
+
+  if (zoom < 8) return null; // auto-hide at far zoom
+  return (
+    <>
+      {labels.map((l) => (
+        <Marker
+          key={`tlabel-${l.key}`}
+          position={[l.lat, l.lng]}
+          interactive={false}
+          icon={L.divIcon({
+            className: '',
+            html: `<div style="transform:translate(-50%,-50%);white-space:nowrap;font-weight:800;font-size:${zoom >= 10 ? 13 : 11}px;color:#000;text-shadow:0 0 3px #fff,0 0 3px #fff,0 0 3px #fff,0 0 3px #fff;pointer-events:none;">${l.name}</div>`,
+            iconSize: [0, 0],
+          })}
+        />
+      ))}
+    </>
   );
 }
 
@@ -271,6 +332,8 @@ export function CareProMap({
             }}
           />
         )}
+
+        <TerritoryLabels territories={visibleTerritories} />
 
         {showCPs && jitteredEmployees.map((loc) => (
           <Marker key={`cp-${loc.id}`} position={[loc._jLat, loc._jLng]} icon={makeIcon(loc.gender || '')}>

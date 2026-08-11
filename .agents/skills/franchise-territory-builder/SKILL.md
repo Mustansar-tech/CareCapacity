@@ -118,4 +118,4 @@ postcode sectors, or the Smappen Excel is replaced):
 
 Map rendering rules (user-confirmed): ALL territory borders always visible, thick (weight 3)
 lines — violet solid for SUR, red dashed for Independent; markers on the map follow the franchise
-picker selection, borders do not.
+picker selection, borders do not. Always-on black territory-name labels sit at each territory centre (hidden below zoom 8).
