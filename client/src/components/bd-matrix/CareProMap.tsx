@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useRef } from "react";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
-import { MapContainer, TileLayer, Marker, Popup, Tooltip, GeoJSON, useMap } from "react-leaflet";
+import { MapContainer, TileLayer, Marker, Popup, Tooltip, GeoJSON, CircleMarker, useMap } from "react-leaflet";
 import type { FeatureCollection } from "geojson";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -386,15 +386,35 @@ export function CareProMap({
               lineCap: 'round' as const,
               lineJoin: 'round' as const,
             })}
-            onEachFeature={(feature: any, layer: any) => {
-              const realName = feature?.properties?.realName ?? 'Other franchise';
-              layer.bindTooltip(
-                `<span style="display:inline-flex;align-items:center;gap:6px;color:#991b1b;"><span style="width:8px;height:8px;border-radius:9999px;background:#dc2626;display:inline-block;"></span>${realName}</span>`,
-                { permanent: true, direction: 'center', className: 'font-bold text-[10px] !bg-white/80 !border-red-200' },
-              );
-            }}
           />
         )}
+
+        {/* Permanent name labels for the non-SUR layer, anchored at each
+            polygon's pre-computed centroid (guaranteed to fall inside the
+            shape — see scripts/generate-franchise-territories.mjs) rather
+            than Leaflet's bounding-box center, which can land outside an
+            odd-shaped or multi-part (e.g. island-containing) territory. */}
+        {otherTerritories?.features.map((feature: any, idx: number) => {
+          const centroid = feature?.properties?.centroid;
+          if (!Array.isArray(centroid)) return null;
+          const realName = feature?.properties?.realName ?? 'Other franchise';
+          return (
+            <CircleMarker
+              key={`other-label-${idx}`}
+              center={[centroid[1], centroid[0]]}
+              radius={0}
+              pathOptions={{ opacity: 0, fillOpacity: 0 }}
+              ref={(marker) => {
+                if (marker && !marker.getTooltip()) {
+                  marker.bindTooltip(
+                    `<span style="display:inline-flex;align-items:center;gap:6px;color:#991b1b;"><span style="width:8px;height:8px;border-radius:9999px;background:#dc2626;display:inline-block;"></span>${realName}</span>`,
+                    { permanent: true, direction: 'center', className: 'font-bold text-[10px] !bg-white/80 !border-red-200' },
+                  );
+                }
+              }}
+            />
+          );
+        })}
 
         {showCPs && jitteredEmployees.map((loc) => (
           <Marker key={`cp-${loc.id}`} position={[loc._jLat, loc._jLng]} icon={makeIcon(loc.gender || '')}>

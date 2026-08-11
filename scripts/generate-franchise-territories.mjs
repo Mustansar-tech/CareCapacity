@@ -251,6 +251,172 @@ if (remaining.length > 0) {
   process.exit(0);
 }
 
+// --- OVERLAP RESOLUTION -----------------------------------------------
+// Every territory above is built independently (buffer its own addresses,
+// clip to the shared coverage mask), so nothing stops two adjacent
+// franchises' buffered shapes from overlapping at a shared border — real
+// examples include independent West Dunbartonshire's G15 sectors sitting
+// right against SUR's Glasgow North around Drumchapel. Left unresolved,
+// that renders as visibly double-claimed ground where two territories'
+// fills stack on the map. Resolve it here across ALL 19 territories
+// (SUR-vs-SUR, SUR-vs-independent, independent-vs-independent) — not just
+// within one group.
+//
+// A first attempt gave the entire contested overlap to whichever territory
+// had the higher TOTAL address count. That's wrong: total count is a
+// global stat, not a local one, and it silently deleted real ground from
+// smaller-total franchises even in dense Glasgow sectors where their own
+// addresses sit inside the shared border zone — the validation pass below
+// caught this immediately as a large regression (541/668 sector centroids,
+// down from 663/668). Don't reintroduce a single-polygon
+// turf.difference(loser, winner) "winner takes the whole overlap" trim.
+//
+// Instead, split each contested overlap zone using a local Voronoi
+// tessellation of the real addresses from BOTH territories near that
+// border (not just their totals) — ground closer to territory A's own
+// addresses stays with A, ground closer to B's stays with B, exactly the
+// same "follow real address density" principle the rest of this script
+// already uses. This only touches the small overlap polygon itself; each
+// territory's exclusive (non-overlapping) area is untouched.
+// Resolved pairs are checkpointed separately (this phase isn't cheap across
+// all C(19,2)=171 pairs — dense Glasgow-area pairs can have thousands of
+// nearby addresses to Voronoi-split) so a re-run after a timeout resumes
+// instead of redoing already-settled pairs.
+const RESOLVED_PAIRS_PATH = path.join(__dirname, 'data', '.territory-resolved-pairs.json');
+const resolvedPairs = new Set(
+  fs.existsSync(RESOLVED_PAIRS_PATH) ? JSON.parse(fs.readFileSync(RESOLVED_PAIRS_PATH, 'utf8')) : []
+);
+const MIN_OVERLAP_KM2 = 0.05; // slivers below this are visually meaningless — skip the expensive split
+const MAX_CANDIDATES_PER_SIDE = 1500; // caps Voronoi/union cost in dense urban clusters
+
+let overlapsResolved = 0;
+for (let i = 0; i < territoryNames.length; i++) {
+  for (let j = i + 1; j < territoryNames.length; j++) {
+    const nameA = territoryNames[i];
+    const nameB = territoryNames[j];
+    const pairKey = [nameA, nameB].sort().join('|');
+    if (resolvedPairs.has(pairKey)) continue;
+
+    const a = progress[nameA];
+    const b = progress[nameB];
+    // Cheap bbox-overlap pre-check before the more expensive exact boolean
+    // check — most of the 171 pairs are territories nowhere near each other.
+    const [aMinX, aMinY, aMaxX, aMaxY] = turf.bbox(a);
+    const [bMinX, bMinY, bMaxX, bMaxY] = turf.bbox(b);
+    const bboxOverlaps = aMinX <= bMaxX && bMinX <= aMaxX && aMinY <= bMaxY && bMinY <= aMaxY;
+    if (!bboxOverlaps) { resolvedPairs.add(pairKey); continue; }
+
+    let overlapPoly = null;
+    try {
+      if (turf.booleanOverlap(a, b)) overlapPoly = turf.intersect(turf.featureCollection([a, b]));
+    } catch (e) {
+      console.warn(`overlap check failed for ${nameA} vs ${nameB}:`, e.message);
+    }
+    if (!overlapPoly || turf.area(overlapPoly) / 1e6 < MIN_OVERLAP_KM2) {
+      resolvedPairs.add(pairKey);
+      continue;
+    }
+
+    const t0 = Date.now();
+    const [minX, minY, maxX, maxY] = turf.bbox(overlapPoly);
+    const padDeg = 0.03; // ~3km — pulls in nearby addresses on both sides of the border, not just inside the sliver
+    const paddedBbox = [minX - padDeg, minY - padDeg, maxX + padDeg, maxY + padDeg];
+    const inBbox = (p) => p[0] >= paddedBbox[0] && p[0] <= paddedBbox[2] && p[1] >= paddedBbox[1] && p[1] <= paddedBbox[3];
+    // Even sampling (stride) keeps spatial spread when a side has more
+    // candidates than the cap, rather than biasing toward one area.
+    const sample = (arr) => {
+      const filtered = arr.filter(inBbox);
+      if (filtered.length <= MAX_CANDIDATES_PER_SIDE) return filtered;
+      const stride = filtered.length / MAX_CANDIDATES_PER_SIDE;
+      const out = [];
+      for (let k = 0; k < MAX_CANDIDATES_PER_SIDE; k++) out.push(filtered[Math.floor(k * stride)]);
+      return out;
+    };
+    const candidatePoints = [
+      ...sample(pointsByTerritory[nameA]).map(p => turf.point(p, { owner: 'A' })),
+      ...sample(pointsByTerritory[nameB]).map(p => turf.point(p, { owner: 'B' })),
+    ];
+    if (candidatePoints.length < 2) { resolvedPairs.add(pairKey); continue; } // not enough local evidence to split — leave both as-is
+
+    let ownerAPoly = null, ownerBPoly = null;
+    try {
+      const cells = turf.voronoi(turf.featureCollection(candidatePoints), { bbox: paddedBbox });
+      const aCells = [], bCells = [];
+      cells.features.forEach((cell, idx) => {
+        if (!cell) return;
+        (candidatePoints[idx].properties.owner === 'A' ? aCells : bCells).push(cell);
+      });
+      if (aCells.length) ownerAPoly = await reduceUnion(aCells);
+      if (bCells.length) ownerBPoly = await reduceUnion(bCells);
+    } catch (e) {
+      console.warn(`voronoi split failed for ${nameA} vs ${nameB}, leaving both as-is:`, e.message);
+      resolvedPairs.add(pairKey);
+      fs.writeFileSync(RESOLVED_PAIRS_PATH, JSON.stringify([...resolvedPairs]));
+      continue;
+    }
+    if (!ownerAPoly || !ownerBPoly) { resolvedPairs.add(pairKey); continue; }
+
+    try {
+      const aShare = turf.intersect(turf.featureCollection([ownerAPoly, overlapPoly]));
+      const bShare = turf.intersect(turf.featureCollection([ownerBPoly, overlapPoly]));
+      const aExclusive = turf.difference(turf.featureCollection([a, b])) ?? a;
+      const bExclusive = turf.difference(turf.featureCollection([b, a])) ?? b;
+      const newA = aShare ? (turf.union(turf.featureCollection([aExclusive, aShare])) ?? aExclusive) : aExclusive;
+      const newB = bShare ? (turf.union(turf.featureCollection([bExclusive, bShare])) ?? bExclusive) : bExclusive;
+      newA.properties = a.properties;
+      newB.properties = b.properties;
+      progress[nameA] = newA;
+      progress[nameB] = newB;
+      overlapsResolved++;
+      console.log(`overlap resolved: ${nameA} vs ${nameB} split by local address density (${candidatePoints.length} nearby addresses, ${Date.now() - t0}ms)`);
+    } catch (e) {
+      console.warn(`overlap split-apply failed for ${nameA} vs ${nameB}, leaving both as-is:`, e.message);
+    }
+    resolvedPairs.add(pairKey);
+    fs.writeFileSync(PROGRESS_PATH, JSON.stringify(progress));
+    fs.writeFileSync(RESOLVED_PAIRS_PATH, JSON.stringify([...resolvedPairs]));
+  }
+}
+console.log(`overlap resolution: ${overlapsResolved} contested pair(s) split by local address density`);
+
+// Drop any sliver fragments the trimming above may have introduced, then
+// recompute each feature's centroid (used by the map to place a permanent
+// name label — see below — inside the actual shape rather than at a
+// bounding-box center that can land outside an odd-shaped or multi-part
+// polygon).
+for (const territory of territoryNames) {
+  let f = progress[territory];
+  if (f.geometry.type === 'MultiPolygon') {
+    f.geometry.coordinates = f.geometry.coordinates.filter(
+      c => turf.area(turf.polygon(c)) / 1e6 >= 1
+    );
+  }
+  const centroid = turf.pointOnFeature(f).geometry.coordinates;
+  f.properties = { ...f.properties, centroid };
+  progress[territory] = f;
+}
+
+// --- VALIDATION ----------------------------------------------------------
+// Sector-centroid-in-polygon spot check, run automatically on every
+// regeneration (not just as a one-off manual script) so a bad
+// coverage-mask edit or an over-aggressive overlap trim shows up
+// immediately instead of silently shipping. Do not drop this pass either.
+let checked = 0, mismatches = 0;
+for (const [sector, pts] of Object.entries(sectorPoints)) {
+  const info = territoryMap[sector];
+  if (!info) continue;
+  const lon = pts.reduce((s, p) => s + p[0], 0) / pts.length;
+  const lat = pts.reduce((s, p) => s + p[1], 0) / pts.length;
+  const pt = turf.point([lon, lat]);
+  const territoryFeature = progress[info.territory];
+  checked++;
+  if (!territoryFeature || !turf.booleanPointInPolygon(pt, territoryFeature.geometry)) {
+    mismatches++;
+    console.log(`MISMATCH: sector ${sector} centroid does not fall inside its assigned territory "${info.territory}"`);
+  }
+}
+console.log(`validation: ${checked - mismatches}/${checked} sector centroids fall inside their assigned territory`);
+
 const surFeatures = [];
 const otherFeatures = [];
 for (const territory of territoryNames) {
@@ -265,3 +431,4 @@ fs.writeFileSync(OTHER_OUT_PATH, JSON.stringify(turf.featureCollection(otherFeat
 console.log(`Wrote ${otherFeatures.length} independent-franchise territory features to ${path.relative(process.cwd(), OTHER_OUT_PATH)}`);
 
 fs.rmSync(PROGRESS_PATH, { force: true });
+fs.rmSync(RESOLVED_PAIRS_PATH, { force: true });
