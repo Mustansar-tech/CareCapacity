@@ -12,7 +12,6 @@ router.get('/routing/plans', asyncHandler(geoController.getRoutingPlans));
 router.get('/geographical/employees', asyncHandler(geoController.getEmployeeLocations));
 router.get('/geographical/clients', asyncHandler(geoController.getClientLocations));
 router.get('/locations', asyncHandler(geoController.getAllLocations));
-router.get('/locations/multi', asyncHandler(geoController.getMultiLocations));
 
 export function registerGeoRoutes(app: { use: Function }): void {
   app.use('/api', router);

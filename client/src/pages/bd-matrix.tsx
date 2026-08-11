@@ -22,25 +22,12 @@ import {
 import { CareProMap } from "@/components/bd-matrix/CareProMap";
 import { ClientEnquiryMatcher } from "@/components/bd-matrix/ClientEnquiryMatcher";
 import { BDMatrixTable } from "@/components/bd-matrix/BDMatrixTable";
-import { useBranch } from "@/contexts/BranchContext";
-import { toAbsoluteUrl } from "@/lib/queryClient";
 
 export default function BDMatrix({ data, weekStartDate }: BDMatrixProps) {
   const [selectedTimeBlocks, setSelectedTimeBlocks] = useState<Set<string>>(new Set());
-  const { branches, isLoadingBranches } = useBranch();
 
-  // Workforce & Client Map spans every franchise the user can see, not just
-  // the currently selected branch, so the Sur Group team can compare
-  // territories without switching branches.
-  const branchIds = useMemo(() => branches.map(b => b.id).join(','), [branches]);
   const { data: locationsData, refetch: refetchLocations, isFetching: isFetchingLocations } = useQuery<{ employees: EmployeeLocation[]; clients: ClientLocation[] }>({
-    queryKey: ['/api/locations/multi', branchIds],
-    queryFn: async () => {
-      const res = await fetch(toAbsoluteUrl(`/api/locations/multi?branchIds=${encodeURIComponent(branchIds)}`), { credentials: 'include' });
-      if (!res.ok) throw new Error('Failed to fetch locations');
-      return res.json();
-    },
-    enabled: !isLoadingBranches && branches.length > 0,
+    queryKey: ['/api/locations'],
   });
   const locations = locationsData?.employees ?? [];
 
@@ -143,7 +130,6 @@ export default function BDMatrix({ data, weekStartDate }: BDMatrixProps) {
               <MapDialogWrapper
                 locations={locations}
                 clients={locationsData?.clients ?? []}
-                branches={branches}
                 onRefresh={() => refetchLocations()}
                 isRefreshing={isFetchingLocations}
               />
@@ -172,13 +158,11 @@ export default function BDMatrix({ data, weekStartDate }: BDMatrixProps) {
 function MapDialogWrapper({
   locations,
   clients,
-  branches,
   onRefresh,
   isRefreshing,
 }: {
   locations: EmployeeLocation[];
   clients: ClientLocation[];
-  branches: { id: string; name: string; displayName: string }[];
   onRefresh: () => void;
   isRefreshing: boolean;
 }) {
@@ -220,7 +204,6 @@ function MapDialogWrapper({
             <CareProMap
               locations={locations}
               clients={clients}
-              branches={branches}
               onRefresh={onRefresh}
               isRefreshing={isRefreshing}
             />

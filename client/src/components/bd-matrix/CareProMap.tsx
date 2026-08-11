@@ -1,19 +1,12 @@
 import { useState, useMemo, useEffect, useRef } from "react";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
-import { MapContainer, TileLayer, Marker, Popup, Tooltip, GeoJSON, useMap } from "react-leaflet";
-import type { FeatureCollection } from "geojson";
+import { MapContainer, TileLayer, Marker, Popup, Tooltip, useMap } from "react-leaflet";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Checkbox } from "@/components/ui/checkbox";
-import { RefreshCw, ZoomIn, ZoomOut, Eye, EyeOff, Map as MapIcon, Search, X, Landmark } from "lucide-react";
+import { RefreshCw, ZoomIn, ZoomOut, Eye, EyeOff, Map as MapIcon, Search, X } from "lucide-react";
 import type { EmployeeLocation, ClientLocation } from "@shared/schema";
 import { normalizeGender } from "@/utils/bd-matrix-utils";
-import { getRealFranchiseName } from "@/data/franchise-real-names";
-
-export type FranchiseBranch = { id: string; name: string; displayName: string };
-
-const TERRITORY_BORDER_COLOR = '#5d51d5';
 
 function makeIcon(gender: string) {
   const g = normalizeGender(gender);
@@ -84,72 +77,14 @@ export function CareProMap({
   clients,
   onRefresh,
   isRefreshing,
-  branches,
 }: {
   locations: EmployeeLocation[];
   clients: ClientLocation[];
   onRefresh?: () => void;
   isRefreshing?: boolean;
-  /** When provided, enables the multi-franchise view: territory borders for
-   *  each branch plus a filter to narrow which franchises' markers show.
-   *  `locations`/`clients` are expected to carry `branchId` in this mode. */
-  branches?: FranchiseBranch[];
 }) {
   const [showPostcodes, setShowPostcodes] = useState(false);
   const [layer, setLayer] = useState<MapLayer>('both');
-  const multiFranchise = !!branches && branches.length > 0;
-
-  // Franchise filter — defaults to "all" once branches are known.
-  const [selectedBranchIds, setSelectedBranchIds] = useState<Set<string> | null>(null);
-  const [franchisePanelOpen, setFranchisePanelOpen] = useState(false);
-  useEffect(() => {
-    if (branches && selectedBranchIds === null) {
-      setSelectedBranchIds(new Set(branches.map(b => b.id)));
-    }
-  }, [branches, selectedBranchIds]);
-
-  const activeBranchIds = useMemo(() => {
-    if (!multiFranchise) return null;
-    return selectedBranchIds ?? new Set((branches ?? []).map(b => b.id));
-  }, [multiFranchise, selectedBranchIds, branches]);
-
-  function toggleFranchise(id: string) {
-    setSelectedBranchIds(prev => {
-      const next = new Set(prev ?? (branches ?? []).map(b => b.id));
-      if (next.has(id)) next.delete(id); else next.add(id);
-      return next;
-    });
-  }
-  const selectAllFranchises = () => setSelectedBranchIds(new Set((branches ?? []).map(b => b.id)));
-  const selectNoFranchises = () => setSelectedBranchIds(new Set());
-
-  // Territory borders — loaded once as a static GeoJSON asset; filtered down
-  // to whichever franchises the caller passed in `branches`.
-  const [territories, setTerritories] = useState<FeatureCollection | null>(null);
-  useEffect(() => {
-    if (!multiFranchise) return;
-    let cancelled = false;
-    fetch('/data/franchise-territories.geo.json')
-      .then(res => res.ok ? res.json() : null)
-      .then(data => { if (!cancelled && data) setTerritories(data); })
-      .catch(() => { /* borders are a visual extra — ignore fetch failures */ });
-    return () => { cancelled = true; };
-  }, [multiFranchise]);
-
-  const branchSlugById = useMemo(() => {
-    const map = new Map<string, string>();
-    (branches ?? []).forEach(b => map.set(b.id, b.name));
-    return map;
-  }, [branches]);
-
-  const visibleTerritories = useMemo<FeatureCollection | null>(() => {
-    if (!territories || !branches) return null;
-    const accessibleSlugs = new Set(branches.map(b => b.name));
-    return {
-      ...territories,
-      features: territories.features.filter(f => accessibleSlugs.has((f.properties as any)?.branch)),
-    };
-  }, [territories, branches]);
 
   // Search state
   const [searchOpen, setSearchOpen] = useState(false);
@@ -164,8 +99,8 @@ export function CareProMap({
     if (searchOpen) setTimeout(() => inputRef.current?.focus(), 50);
   }, [searchOpen]);
 
-  const validEmployees = useMemo(() => locations.filter(l => l.homeLat && l.homeLng && (!activeBranchIds || activeBranchIds.has((l as any).branchId))), [locations, activeBranchIds]);
-  const validClients   = useMemo(() => clients.filter(c => c.lat && c.lng && (!activeBranchIds || activeBranchIds.has((c as any).branchId))), [clients, activeBranchIds]);
+  const validEmployees = useMemo(() => locations.filter(l => l.homeLat && l.homeLng), [locations]);
+  const validClients   = useMemo(() => clients.filter(c => c.lat && c.lng), [clients]);
 
   function applyJitter<T>(items: T[], getLat: (i: T) => number, getLng: (i: T) => number) {
     const JITTER = 0.0003;
@@ -250,45 +185,6 @@ export function CareProMap({
 
   const showCPs     = layer === 'both' || layer === 'carePros';
   const showClients = layer === 'both' || layer === 'clients';
-  const selectedCount = activeBranchIds ? activeBranchIds.size : (branches?.length ?? 0);
-
-  const FranchiseFilter = () => {
-    if (!multiFranchise) return null;
-    return (
-      <div className="relative">
-        <Button
-          onClick={() => setFranchisePanelOpen(o => !o)}
-          className="bg-white/95 hover:bg-white text-gray-900 font-bold shadow-2xl border-none rounded-xl gap-2 h-10 px-4"
-          title="Filter franchises"
-        >
-          <Landmark className="w-4 h-4 text-[#5d51d5]" />
-          <span className="hidden sm:inline text-xs">Franchises ({selectedCount}/{branches!.length})</span>
-        </Button>
-        {franchisePanelOpen && (
-          <div className="absolute bottom-12 left-0 z-[1000] bg-white rounded-xl shadow-2xl border border-gray-100 p-3 w-64 max-h-80 overflow-y-auto">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Franchises</span>
-              <div className="flex gap-2">
-                <button onClick={selectAllFranchises} className="text-[11px] font-bold text-[#5d51d5] hover:underline">All</button>
-                <button onClick={selectNoFranchises} className="text-[11px] font-bold text-gray-400 hover:underline">None</button>
-              </div>
-            </div>
-            <div className="flex flex-col gap-1">
-              {branches!.map(b => {
-                const checked = activeBranchIds?.has(b.id) ?? true;
-                return (
-                  <label key={b.id} className="flex items-center gap-2 px-1.5 py-1 text-xs rounded-lg hover:bg-gray-50 cursor-pointer">
-                    <Checkbox checked={checked} onCheckedChange={() => toggleFranchise(b.id)} className="shrink-0" />
-                    <span className="font-semibold text-gray-700 truncate">{getRealFranchiseName(b.name, b.displayName)}</span>
-                  </label>
-                );
-              })}
-            </div>
-          </div>
-        )}
-      </div>
-    );
-  };
 
   const LayerToggle = () => (
     <div className="flex items-center bg-white rounded-xl shadow-2xl border border-gray-100 overflow-hidden">
@@ -312,30 +208,6 @@ export function CareProMap({
         <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
 
         <SearchFlyTo result={searchResult} />
-
-        {visibleTerritories && (
-          <GeoJSON
-            key={JSON.stringify(activeBranchIds ? Array.from(activeBranchIds) : null)}
-            data={visibleTerritories as any}
-            style={(feature: any) => {
-              const slug = feature?.properties?.branch;
-              const branchId = [...branchSlugById.entries()].find(([, s]) => s === slug)?.[0];
-              const isSelected = !branchId || !activeBranchIds || activeBranchIds.has(branchId);
-              return {
-                color: TERRITORY_BORDER_COLOR,
-                weight: isSelected ? 2.5 : 1.5,
-                opacity: isSelected ? 0.9 : 0.35,
-                fillColor: TERRITORY_BORDER_COLOR,
-                fillOpacity: isSelected ? 0.06 : 0.02,
-                dashArray: isSelected ? undefined : '4 4',
-              };
-            }}
-            onEachFeature={(feature: any, layer: any) => {
-              const realName = feature?.properties?.realName ?? feature?.properties?.branch;
-              layer.bindTooltip(realName, { sticky: true, className: 'font-bold text-xs' });
-            }}
-          />
-        )}
 
         {showCPs && jitteredEmployees.map((loc) => (
           <Marker key={`cp-${loc.id}`} position={[loc._jLat, loc._jLng]} icon={makeIcon(loc.gender || '')}>
@@ -402,8 +274,6 @@ export function CareProMap({
 
         <div className="flex gap-2 items-center">
           <LayerToggle />
-
-          <FranchiseFilter />
 
           {/* Show postcodes toggle */}
           <Button
@@ -490,15 +360,6 @@ export function CareProMap({
             <div className="flex items-center gap-2">
               <svg width="14" height="18" viewBox="0 0 32 40"><path d="M16 0C7.163 0 0 7.163 0 16c0 10 16 24 16 24S32 26 32 16C32 7.163 24.837 0 16 0z" fill="#eab308" stroke="white" strokeWidth="2"/></svg>
               <span className="text-xs font-semibold text-gray-700">Search: {searchResult.postcode}</span>
-            </div>
-          </>
-        )}
-        {multiFranchise && (
-          <>
-            <div className="border-t border-gray-100 my-0.5" />
-            <div className="flex items-center gap-2">
-              <Landmark className="w-3.5 h-3.5 text-[#5d51d5]" />
-              <span className="text-xs font-semibold text-gray-700">{selectedCount} of {branches!.length} franchises shown</span>
             </div>
           </>
         )}
