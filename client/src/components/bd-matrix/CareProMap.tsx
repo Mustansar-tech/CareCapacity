@@ -73,19 +73,48 @@ function ZoomControls() {
 
 type MapLayer = 'both' | 'carePros' | 'clients';
 
+// Distinct dot colors for the franchise picker rows (cycled by index)
+const FRANCHISE_DOT_COLORS = [
+  '#dc2626', '#0d9488', '#166534', '#db2777', '#a16207',
+  '#2563eb', '#15803d', '#78350f', '#1d4ed8', '#7c3aed',
+  '#ea580c', '#0891b2', '#be123c', '#4d7c0f', '#6d28d9',
+];
+
 export function CareProMap({
   locations,
   clients,
   onRefresh,
   isRefreshing,
+  franchises = [],
+  selectedFranchiseIds = [],
+  onFranchiseSelectionChange,
 }: {
   locations: EmployeeLocation[];
   clients: ClientLocation[];
   onRefresh?: () => void;
   isRefreshing?: boolean;
+  franchises?: { id: string; name: string; displayName: string }[];
+  selectedFranchiseIds?: string[];
+  onFranchiseSelectionChange?: (ids: string[]) => void;
 }) {
   const [showPostcodes, setShowPostcodes] = useState(false);
   const [layer, setLayer] = useState<MapLayer>('both');
+  const [franchisePanelOpen, setFranchisePanelOpen] = useState(false);
+
+  const hasFranchisePicker = franchises.length > 0 && !!onFranchiseSelectionChange;
+  const selectedSet = useMemo(() => new Set(selectedFranchiseIds), [selectedFranchiseIds]);
+  // slugs (branches.name) of the selected franchises — used to filter territory boundaries
+  const selectedSlugs = useMemo(
+    () => new Set(franchises.filter(f => selectedSet.has(f.id)).map(f => f.name)),
+    [franchises, selectedSet]
+  );
+
+  function toggleFranchise(id: string) {
+    if (!onFranchiseSelectionChange) return;
+    onFranchiseSelectionChange(
+      selectedSet.has(id) ? selectedFranchiseIds.filter(x => x !== id) : [...selectedFranchiseIds, id]
+    );
+  }
 
   // Franchise territory borders — built one franchise at a time from real postcode-sector
   // boundary data (currently: Glasgow North only). Purely visual; no marker/filter logic.
@@ -177,9 +206,19 @@ export function CareProMap({
     setSearchOpen(false);
   }
 
+  // Territories to draw: when the picker is present, only those selected
+  const visibleTerritories = useMemo<FeatureCollection | null>(() => {
+    if (!territories) return null;
+    if (!hasFranchisePicker) return territories;
+    const features = territories.features.filter(f => selectedSlugs.has(f.properties?.branch));
+    return features.length > 0 ? { ...territories, features } : null;
+  }, [territories, hasFranchisePicker, selectedSlugs]);
+
   const hasData = validEmployees.length > 0 || validClients.length > 0;
 
-  if (!hasData) {
+  // With the franchise picker available we always show the map (the user may
+  // simply have nothing ticked yet); the old empty-state only applies without it.
+  if (!hasData && !hasFranchisePicker) {
     return (
       <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-100">
         <MapIcon className="w-16 h-16 text-gray-300 mb-4" />
@@ -220,10 +259,12 @@ export function CareProMap({
 
         <SearchFlyTo result={searchResult} />
 
-        {/* Franchise territory borders (accurate boundaries added one franchise at a time) */}
-        {territories && (
+        {/* Franchise territory borders (accurate boundaries added one franchise at a time).
+            When the franchise picker is active, only selected franchises' boundaries show. */}
+        {visibleTerritories && (
           <GeoJSON
-            data={territories}
+            key={Array.from(selectedSlugs).sort().join('|')}
+            data={visibleTerritories}
             style={{ color: '#7c3aed', weight: 2.5, fillColor: '#7c3aed', fillOpacity: 0.08 }}
             onEachFeature={(feature, layer) => {
               const name = feature.properties?.realName;
@@ -295,8 +336,51 @@ export function CareProMap({
           </div>
         )}
 
+        {/* Franchise picker panel */}
+        {hasFranchisePicker && franchisePanelOpen && (
+          <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 w-72 max-h-[50vh] overflow-hidden flex flex-col">
+            <div className="flex items-center justify-between px-4 pt-3 pb-2 border-b border-gray-100">
+              <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Franchises</span>
+              <div className="flex items-center gap-2 text-xs font-bold">
+                <button className="text-blue-600 hover:underline" onClick={() => onFranchiseSelectionChange!(franchises.map(f => f.id))}>All</button>
+                <button className="text-gray-400 hover:underline" onClick={() => onFranchiseSelectionChange!([])}>None</button>
+              </div>
+            </div>
+            <div className="overflow-y-auto py-1">
+              {franchises.map((f, i) => {
+                const checked = selectedSet.has(f.id);
+                return (
+                  <button
+                    key={f.id}
+                    onClick={() => toggleFranchise(f.id)}
+                    className={`w-full flex items-center gap-2.5 px-4 py-1.5 text-left transition-colors ${checked ? 'bg-blue-50/60' : 'hover:bg-gray-50'}`}
+                  >
+                    <span className={`w-4 h-4 rounded-full flex items-center justify-center flex-shrink-0 border ${checked ? 'bg-blue-600 border-blue-600' : 'border-gray-300 bg-white'}`}>
+                      {checked && <svg width="9" height="9" viewBox="0 0 12 12" fill="none"><path d="M2.5 6l2.5 2.5L9.5 3.5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+                    </span>
+                    <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: FRANCHISE_DOT_COLORS[i % FRANCHISE_DOT_COLORS.length] }} />
+                    <span className="text-sm font-semibold text-gray-800 truncate">{f.displayName}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         <div className="flex gap-2 items-center">
           <LayerToggle />
+
+          {/* Franchise picker toggle */}
+          {hasFranchisePicker && (
+            <Button
+              onClick={() => setFranchisePanelOpen(o => !o)}
+              className={`font-bold shadow-2xl border-none rounded-xl gap-2 h-10 px-4 ${franchisePanelOpen ? 'bg-blue-600 hover:bg-blue-700 text-white' : 'bg-white/95 hover:bg-white text-gray-900'}`}
+              title="Choose franchises to show"
+            >
+              <MapIcon className={`w-4 h-4 ${franchisePanelOpen ? 'text-white' : 'text-blue-600'}`} />
+              <span className="hidden sm:inline text-xs">Franchises ({selectedFranchiseIds.length}/{franchises.length})</span>
+            </Button>
+          )}
 
           {/* Show postcodes toggle */}
           <Button
@@ -386,7 +470,16 @@ export function CareProMap({
             </div>
           </>
         )}
-        {territories && territories.features.length > 0 && (
+        {hasFranchisePicker && (
+          <>
+            <div className="border-t border-gray-100 my-0.5" />
+            <div className="flex items-center gap-2">
+              <MapIcon className="w-3.5 h-3.5 text-blue-600" />
+              <span className="text-xs font-semibold text-gray-700">{selectedFranchiseIds.length} of {franchises.length} franchises shown</span>
+            </div>
+          </>
+        )}
+        {visibleTerritories && visibleTerritories.features.length > 0 && (
           <>
             <div className="border-t border-gray-100 my-0.5" />
             <div className="flex items-center gap-2">

@@ -1,5 +1,7 @@
-import { useState, useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useState, useMemo, useEffect } from "react";
+import { useQueries } from "@tanstack/react-query";
+import { useBranch } from "@/contexts/BranchContext";
+import { toAbsoluteUrl } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -26,10 +28,45 @@ import { BDMatrixTable } from "@/components/bd-matrix/BDMatrixTable";
 export default function BDMatrix({ data, weekStartDate }: BDMatrixProps) {
   const [selectedTimeBlocks, setSelectedTimeBlocks] = useState<Set<string>>(new Set());
 
-  const { data: locationsData, refetch: refetchLocations, isFetching: isFetchingLocations } = useQuery<{ employees: EmployeeLocation[]; clients: ClientLocation[] }>({
-    queryKey: ['/api/locations'],
+  // ── Multi-franchise map data ──────────────────────────────────────────
+  // The map opens showing the globally selected branch; the user can then tick
+  // additional franchises to overlay their markers (and, later, boundaries).
+  const { branches, selectedBranchId } = useBranch();
+  const [selectedFranchiseIds, setSelectedFranchiseIds] = useState<string[]>([]);
+
+  // Default / reset the map selection to the globally selected branch.
+  useEffect(() => {
+    if (selectedBranchId) setSelectedFranchiseIds([selectedBranchId]);
+  }, [selectedBranchId]);
+
+  // Drop any selection that is no longer in the allowed branch list (e.g. the
+  // list narrows once /api/auth/me resolves for a non-admin user).
+  useEffect(() => {
+    if (branches.length === 0) return;
+    const allowed = new Set(branches.map(b => b.id));
+    setSelectedFranchiseIds(prev => {
+      const next = prev.filter(id => allowed.has(id));
+      return next.length === prev.length ? prev : next;
+    });
+  }, [branches]);
+
+  const { locations, allClients, isFetchingLocations, refetchAll } = useQueries({
+    queries: selectedFranchiseIds.map((branchId) => ({
+      queryKey: ['locations-by-branch', branchId],
+      queryFn: async (): Promise<{ employees: EmployeeLocation[]; clients: ClientLocation[] }> => {
+        const res = await fetch(toAbsoluteUrl(`/api/locations?branchId=${encodeURIComponent(branchId)}`), { credentials: 'include' });
+        if (!res.ok) throw new Error(`${res.status}: ${await res.text()}`);
+        return res.json();
+      },
+      staleTime: Infinity,
+    })),
+    combine: (results) => ({
+      locations: results.flatMap(r => r.data?.employees ?? []),
+      allClients: results.flatMap(r => r.data?.clients ?? []),
+      isFetchingLocations: results.some(r => r.isFetching),
+      refetchAll: () => results.forEach(r => r.refetch()),
+    }),
   });
-  const locations = locationsData?.employees ?? [];
 
   const matrixData = useMemo(() => {
     if (!data?.employeeSummaryByDate) return null;
@@ -129,9 +166,12 @@ export default function BDMatrix({ data, weekStartDate }: BDMatrixProps) {
             <div className="flex items-center gap-3">
               <MapDialogWrapper
                 locations={locations}
-                clients={locationsData?.clients ?? []}
-                onRefresh={() => refetchLocations()}
+                clients={allClients}
+                onRefresh={refetchAll}
                 isRefreshing={isFetchingLocations}
+                franchises={branches}
+                selectedFranchiseIds={selectedFranchiseIds}
+                onFranchiseSelectionChange={setSelectedFranchiseIds}
               />
               <ClientEnquiryMatcher weekStartDate={weekStartDate} />
             </div>
@@ -160,11 +200,17 @@ function MapDialogWrapper({
   clients,
   onRefresh,
   isRefreshing,
+  franchises,
+  selectedFranchiseIds,
+  onFranchiseSelectionChange,
 }: {
   locations: EmployeeLocation[];
   clients: ClientLocation[];
   onRefresh: () => void;
   isRefreshing: boolean;
+  franchises: { id: string; name: string; displayName: string }[];
+  selectedFranchiseIds: string[];
+  onFranchiseSelectionChange: (ids: string[]) => void;
 }) {
   const [open, setOpen] = useState(false);
 
@@ -206,6 +252,9 @@ function MapDialogWrapper({
               clients={clients}
               onRefresh={onRefresh}
               isRefreshing={isRefreshing}
+              franchises={franchises}
+              selectedFranchiseIds={selectedFranchiseIds}
+              onFranchiseSelectionChange={onFranchiseSelectionChange}
             />
           </div>
         </DialogContent>
