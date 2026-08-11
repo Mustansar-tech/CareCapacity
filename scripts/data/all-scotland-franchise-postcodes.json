@@ -1,1448 +1,1950 @@
 {
-  "surGroupSectorMap": {
-    "AB10 1": {
-      "area": "Castlegate/City",
-      "territory": "Aberdeen"
+  "franchises": {
+    "Aberdeen": {
+      "group": "SUR Group",
+      "postcodeSectors": [
+        "AB51 4",
+        "AB11 7",
+        "AB13 0",
+        "AB15 5",
+        "AB51 3",
+        "AB15 9",
+        "AB35 5",
+        "AB10 7",
+        "AB24 1",
+        "AB25 3",
+        "AB10 1",
+        "AB15 6",
+        "AB51 6",
+        "AB15 7",
+        "AB25 1",
+        "AB11 6",
+        "AB23 8",
+        "AB34 4",
+        "AB11 5",
+        "AB24 5",
+        "AB24 3",
+        "AB15 4",
+        "AB16 6",
+        "AB22 8",
+        "AB24 4",
+        "AB24 2",
+        "AB16 7",
+        "AB16 5",
+        "AB21 9",
+        "AB14 0",
+        "AB10 6",
+        "AB31 5",
+        "AB31 4",
+        "AB32 7",
+        "AB21 7",
+        "AB25 2",
+        "AB15 8",
+        "AB21 0",
+        "AB32 6",
+        "AB51 0",
+        "AB34 5"
+      ],
+      "towns": [
+        "Aberdeen",
+        "Greenford",
+        "Bridge of Don",
+        "Inverurie",
+        "Bishopston",
+        "Mannofield",
+        "Ferryhill",
+        "Banchory",
+        "Rosemount",
+        "Garthdee",
+        "Tillydrone",
+        "Dyce",
+        "Mastrick",
+        "Blackburn",
+        "Sunnyside",
+        "Westhill",
+        "Tulloch",
+        "Kingswells",
+        "Kingshill",
+        "Kintore",
+        "Peterculter",
+        "Ashgrove",
+        "Newhills",
+        "Oaklands",
+        "Pittodrie",
+        "Sheddocksley",
+        "Danestone",
+        "Oldmeldrum",
+        "Airyhall",
+        "Heathryfold",
+        "Aboyne",
+        "Kittybrewster",
+        "East Mains",
+        "Newmachar",
+        "Milltimber",
+        "Midstocket",
+        "Balmedie",
+        "Elrick",
+        "Cummings Park",
+        "Middlefield",
+        "Rubislaw",
+        "Craigiebuckler",
+        "Torphins",
+        "Bucksburn",
+        "Ballater",
+        "Braeside",
+        "Stockethill",
+        "Bieldside",
+        "Seafield",
+        "Old Aberdeen",
+        "Drumoak",
+        "Port Elphinstone",
+        "Parkhill",
+        "Lumphanan",
+        "Potterton",
+        "Tarland",
+        "Kingseat",
+        "Bishops Court",
+        "Daviot",
+        "Inchmarlo",
+        "Braehead",
+        "Pitfodels",
+        "Hatton of Fintray",
+        "Stoneywood",
+        "Kinmuck",
+        "Cornhill",
+        "Echt",
+        "Kincardine O'Neil",
+        "Bankhead",
+        "Belhelvie",
+        "Blackdog",
+        "Braemar",
+        "Lyne of Skene",
+        "Hilton",
+        "Dunecht",
+        "Hattoncrook",
+        "Marywell",
+        "Knock",
+        "Cothill",
+        "Bridge of Canny",
+        "Crathes",
+        "Boghead",
+        "Gateside",
+        "Seaton",
+        "Muirton",
+        "Footdee",
+        "Easter Balmoral",
+        "Ashley",
+        "Fingask",
+        "Logie Coldstone",
+        "Garlogie",
+        "Dinnet",
+        "Birse",
+        "Moss Side",
+        "Hillside",
+        "Silverburn",
+        "Middleton",
+        "Coull",
+        "Birsemore",
+        "Balhalgardy",
+        "Mosshead",
+        "Ordie",
+        "Rosehill",
+        "Park",
+        "Rosehall",
+        "Mill of Fintray",
+        "Woodside",
+        "Kirkton of Bourtie",
+        "Northfield",
+        "Muir of Kinellar",
+        "Cults",
+        "Kirkton of Skene",
+        "Mid Beltie",
+        "Inver",
+        "Landerberry",
+        "Greystone",
+        "Woodend",
+        "Broomhill",
+        "Summerhill",
+        "West End",
+        "Foresterhill",
+        "Hanover",
+        "Gilcomston",
+        "Ruthrieston",
+        "Kaimhill",
+        "Hazlehead",
+        "Uryside",
+        "George Street",
+        "Crathie",
+        "Countesswells",
+        "Keithhall",
+        "Tullich",
+        "Tanar",
+        "Dalwhing",
+        "Bridge of Gairn",
+        "Inchmarnoch",
+        "Mundurno",
+        "South Mains of Barra",
+        "Barravale",
+        "Airyhillock",
+        "Potarch",
+        "Raemoir",
+        "Overhills",
+        "Cambus o' May",
+        "Woodside of Barra",
+        "Mains of Bogfechel",
+        "Hillhead of Pitcow",
+        "Auchenhuive",
+        "Philipstown",
+        "Ardfork",
+        "Woodside of Thornton",
+        "Pitgaveny",
+        "Balhallach",
+        "Colthill",
+        "Toll Farm",
+        "Clinterty Home Farm",
+        "Meikle Clinterty",
+        "The Mill",
+        "Haughs of Clinterty",
+        "Little Clinterty",
+        "Rivehill",
+        "Cothal",
+        "The Crofts",
+        "Ardmeanach",
+        "Milton of Brackley",
+        "Bridge of Muick",
+        "Newpark",
+        "Old Four Mile Cottages",
+        "Cloghill",
+        "Fairley",
+        "West Hatton",
+        "Longcairn",
+        "Borrowstone",
+        "Cairdhillock",
+        "West Auchlea",
+        "Mill Of Bourtie",
+        "Place of Goval",
+        "Goval Farm",
+        "Corsehill",
+        "Little Goval",
+        "Fowlershill",
+        "Perwinnes",
+        "Backhill of Goval",
+        "Longhills",
+        "Swailend",
+        "Nia Roo Park",
+        "Drumligair",
+        "Moss-side of Millden",
+        "Mains of Whitecairns",
+        "Standryford",
+        "Kinmundy",
+        "Highlands",
+        "Rosevalley",
+        "Aryburn",
+        "Cairnfechel",
+        "Affleck",
+        "North Balnakettle",
+        "Hill Farm",
+        "Glenecht",
+        "North Footie",
+        "Nether Mains",
+        "Whiterashes",
+        "Claybokie",
+        "Glendavan",
+        "Midmill",
+        "North Lasts",
+        "Tillydrine",
+        "Mains of Grandhome",
+        "Grandhome",
+        "Lochgreens",
+        "Leuchlands",
+        "Campfield",
+        "Skene House Court",
+        "Wester Ord",
+        "Eastertown",
+        "Pittrichie",
+        "Mains of Drum",
+        "East Mains of Drum",
+        "Ballogie",
+        "Mill of Brotherfield",
+        "Auchallater",
+        "Balbithan",
+        "Upper Anguston",
+        "South Lasts",
+        "Hillhead of Carnie",
+        "Tornaveen",
+        "Dess",
+        "Lethenty Mill",
+        "Easter Anguston",
+        "Milton of Cullerlie",
+        "Mason Lodge",
+        "Inverey",
+        "West Brathens",
+        "Mill of Beltie",
+        "Brathens",
+        "Glassel",
+        "Woodend of Glassel",
+        "Mains of Easter Beltie",
+        "Spittal of Glenmuick",
+        "Balnault",
+        "Tynabaich",
+        "Whitecairns",
+        "Mains of Abergeldie",
+        "Coalford",
+        "Milton of Logie",
+        "New Kinord",
+        "St. James's"
+      ],
+      "sourceUrl": "https://www.homeinstead.co.uk/aberdeen/about-us/"
+    },
+    "East Lothian and Midlothian": {
+      "group": "SUR Group",
+      "postcodeSectors": [
+        "EH21 7",
+        "EH22 5",
+        "EH22 4",
+        "EH32 9",
+        "EH43 6",
+        "EH40 3",
+        "EH44 6",
+        "EH33 1",
+        "EH34 5",
+        "EH24 9",
+        "EH20 9",
+        "EH39 4",
+        "EH25 9",
+        "EH26 0",
+        "EH41 3",
+        "EH32 0",
+        "EH35 5",
+        "EH21 6",
+        "EH22 3",
+        "EH31 2",
+        "EH21 8",
+        "EH45 9",
+        "EH39 5",
+        "EH23 4",
+        "EH42 1",
+        "EH19 3",
+        "EH38 5",
+        "EH22 1",
+        "EH19 2",
+        "EH22 2",
+        "EH26 9",
+        "EH26 8",
+        "EH36 5",
+        "EH18 1",
+        "EH33 2",
+        "EH37 5",
+        "EH45 8",
+        "EH41 4",
+        "EH46 7"
+      ],
+      "towns": [
+        "Blyth",
+        "Bilston",
+        "Musselburgh",
+        "Bonnyrigg",
+        "Penicuik",
+        "Broxburn",
+        "Dalkeith",
+        "Tranent",
+        "Prestonpans",
+        "Dunbar",
+        "Peebles",
+        "Gorebridge",
+        "North Berwick",
+        "Cockenzie and Port Seton",
+        "Cockenzie",
+        "Melbourne",
+        "Woodburn",
+        "Newtongrange",
+        "Deanburn",
+        "Harestanes",
+        "Thurston",
+        "Wallyford",
+        "Innerleithen",
+        "Hilltown",
+        "Danderhall",
+        "Langside",
+        "Gullane",
+        "Mayfield",
+        "Longniddry",
+        "Eskbank",
+        "Smeaton",
+        "Ormiston",
+        "West Linton",
+        "East Linton",
+        "Crowhill",
+        "Rosewell",
+        "Roslin",
+        "Pencaitland",
+        "Macmerry",
+        "Whitecraig",
+        "Castlehill",
+        "Aberlady",
+        "Newcraighall",
+        "Easthouses",
+        "Cardrona",
+        "Pathhead",
+        "Gifford",
+        "Walkerburn",
+        "Dirleton",
+        "Newbattle",
+        "Elphinstone",
+        "Athelstaneford",
+        "West Barns",
+        "Eddleston",
+        "Auchendinny",
+        "Carrington",
+        "Garvald",
+        "East Saltoun",
+        "Cousland",
+        "Kingston",
+        "Whitekirk",
+        "Dolphinton",
+        "Heriot",
+        "Gowkshill",
+        "Drem",
+        "Straiton",
+        "Carlops",
+        "Lamancha",
+        "Stenton",
+        "Edgehead",
+        "Leadburn",
+        "Millerhill",
+        "Gladsmuir",
+        "Traquair",
+        "Boggs Holdings",
+        "Newton Village",
+        "Kirkton",
+        "Newton Hall",
+        "Whitehill",
+        "Temple",
+        "Tyninghame",
+        "East Fortune",
+        "Whittingehame",
+        "Pitcox",
+        "Mountain Cross",
+        "Spott",
+        "Blyth Bridge",
+        "Bolton",
+        "Silverburn",
+        "Middleton",
+        "Peaston Bank",
+        "Old Pentland",
+        "Ford",
+        "Milton Bridge",
+        "Samuelston",
+        "Old Craighall",
+        "Kirkhouse",
+        "Fala Dam",
+        "Hope",
+        "Fala",
+        "Newhall",
+        "Haddington",
+        "West Saltoun",
+        "Dewartown",
+        "Newlandrig",
+        "Spittal",
+        "Haugh Head",
+        "West Mains",
+        "New Winton",
+        "Chapel",
+        "Loanstone",
+        "Borthwick",
+        "Southfield",
+        "Crichton",
+        "The Mount",
+        "Loanhead",
+        "Howgate",
+        "Luggate Burn",
+        "Kirkhill",
+        "Humbie",
+        "Preston",
+        "Broomhill",
+        "Innerwick",
+        "Penston",
+        "North Middleton",
+        "Lugton",
+        "Levenhall",
+        "Hopefield",
+        "Nungate",
+        "Cuthill",
+        "Pinkie",
+        "Monktonhall",
+        "Stoneybank",
+        "Fisherrow",
+        "Cornbank",
+        "Port Seton",
+        "Belhaven",
+        "Romanno Bridge",
+        "Lasswade",
+        "Inveresk",
+        "Polton",
+        "Madrisa",
+        "Newmains Smallholdings",
+        "Costerton",
+        "Falahills",
+        "Templebar",
+        "Mount Lothian",
+        "Gladhouse",
+        "Lennoxlove Acredales",
+        "Glenormiston",
+        "Stobo",
+        "Hazlieburn",
+        "Waterheads",
+        "Kingside",
+        "West Letham",
+        "Quarryford",
+        "Halflandbarns",
+        "Glen Etive",
+        "Cargarrie Lea Hazlieburn",
+        "Costerton Mains",
+        "Whitburgh",
+        "Humbie Dean",
+        "Crookston North Mains",
+        "Castlelaw",
+        "Carberry Mains",
+        "Carberry",
+        "Crossgatehall",
+        "Springfield Cottages",
+        "Tynehead",
+        "Thorntonloch",
+        "Dryden Farm",
+        "Blegbie",
+        "West Fenton",
+        "Nettlingflat",
+        "Carperstane",
+        "Auldhame",
+        "Morham",
+        "Luggate",
+        "Upper Dalhousie",
+        "Ballencrief",
+        "Mauldslie",
+        "Seton",
+        "Lyneside",
+        "Noblehall",
+        "Easter Howgate",
+        "Eweford Cottages",
+        "Peggyslea",
+        "Glenbenna",
+        "Glenmead",
+        "West Bold",
+        "Traquair Mill",
+        "Macbiehill",
+        "Whitmuir",
+        "Heriot Station",
+        "Fala Mains",
+        "Soutra Mains",
+        "Woodcote Mains",
+        "Fala Hall",
+        "West Mains of Blackshiels",
+        "Saughland",
+        "Longfaugh",
+        "Blackcastle",
+        "Cranston",
+        "Langside Head",
+        "Langlaw",
+        "West Barns Mains",
+        "Cowdenburn",
+        "Skateraw",
+        "Lempockwells",
+        "Eshiels",
+        "Fenton Barns",
+        "Mavishall",
+        "Hallyne",
+        "Lyne Station",
+        "Scotston",
+        "East Fenton",
+        "Rosslynlee",
+        "Lochhead",
+        "Millside",
+        "Grantshall",
+        "Kirkdean",
+        "Netherurd",
+        "New Steading",
+        "Bordlands",
+        "Bryland",
+        "Lochurd",
+        "Brownsland",
+        "Drochil",
+        "Ladyurd",
+        "Stevenson",
+        "Linnburn",
+        "Seacliff",
+        "Scoughall",
+        "Canty Bay",
+        "Buxley Farm Cottages"
+      ],
+      "sourceUrl": "https://www.homeinstead.co.uk/east-midlothian/about-us/"
+    },
+    "Glasgow North": {
+      "group": "SUR Group",
+      "postcodeSectors": [
+        "G22 7",
+        "G40 4",
+        "G2 1",
+        "G31 1",
+        "G12 8",
+        "G64 3",
+        "G66 2",
+        "G3 7",
+        "G1 1",
+        "G2 4",
+        "G11 5",
+        "G2 5",
+        "G2 6",
+        "G11 7",
+        "G13 3",
+        "G2 8",
+        "G40 1",
+        "G40 3",
+        "G66 4",
+        "G20 7",
+        "G12 9",
+        "G22 5",
+        "G2 2",
+        "G1 5",
+        "G1 4",
+        "G2 7",
+        "G21 2",
+        "G1 3",
+        "G66 8",
+        "G20 6",
+        "G21 4",
+        "G20 0",
+        "G2 3",
+        "G64 1",
+        "G66 1",
+        "G12 0",
+        "G13 1",
+        "G61 3",
+        "G64 2",
+        "G20 8",
+        "G3 6",
+        "G62 8",
+        "G11 6",
+        "G14 0",
+        "G40 2",
+        "G14 9",
+        "G61 1",
+        "G13 2",
+        "G61 4",
+        "G21 1",
+        "G66 7",
+        "G61 2",
+        "G21 3",
+        "G20 9",
+        "G1 2",
+        "G3 8",
+        "G66 3",
+        "G4 9",
+        "G22 6",
+        "G4 0",
+        "G23 5",
+        "G62 7",
+        "G64 4",
+        "G62 6"
+      ],
+      "towns": [
+        "Glasgow",
+        "Bearsden",
+        "Bishopbriggs",
+        "Kirkintilloch",
+        "Knightswood",
+        "Maryhill",
+        "Partick",
+        "Milngavie",
+        "Auchinairn",
+        "Scotstoun",
+        "Springburn",
+        "Anniesland",
+        "Bridgeton",
+        "Hyndland",
+        "Kelvinside",
+        "Ruchill",
+        "Finnieston",
+        "Yoker",
+        "Summerston",
+        "Jordanhill",
+        "Kelvindale",
+        "Barmulloch",
+        "Gallowgate",
+        "Lennoxtown",
+        "Cadder",
+        "Kelvingrove",
+        "Milton of Campsie",
+        "Harestanes",
+        "Kessington",
+        "Baljaffray",
+        "Dalmarnock",
+        "Torrance",
+        "Oakbank",
+        "Kelvinhaugh",
+        "Sandyford",
+        "Castlehill",
+        "Germiston",
+        "Port Dundas",
+        "Sighthill",
+        "Killermont",
+        "Parkhouse",
+        "Hillhead",
+        "Bardowie",
+        "Calton",
+        "Temple",
+        "Rosebank",
+        "Mugdock",
+        "Balmore",
+        "Baldernock",
+        "Mosshead",
+        "Milton",
+        "Colston",
+        "Woodside",
+        "Westerton",
+        "Townhead",
+        "Woodlands",
+        "Lambhill",
+        "Clachan of Campsie",
+        "Whiteinch",
+        "Hungry Hill",
+        "Netherton",
+        "Birdston",
+        "Broomhill",
+        "Burnbrae",
+        "Hillfoot",
+        "Blythswood Hill",
+        "Garngad",
+        "North Woodside",
+        "Park District",
+        "Blawarthill",
+        "Anderston",
+        "High Balornock",
+        "Blochairn",
+        "Rockvilla",
+        "Blythswood Holm",
+        "Bonnaughton",
+        "Garscadden",
+        "Garnethill",
+        "Cowcaddens",
+        "Merchant City",
+        "Hamiltonhill",
+        "Possilpark",
+        "Low Balornock",
+        "Dowanhill",
+        "Yorkhill",
+        "Merkland",
+        "Westermains",
+        "Langmuir",
+        "Cleddans",
+        "Barleybank",
+        "Craigallian",
+        "Birdston Bank Farm",
+        "Auchinreoch Holdings",
+        "North Blochairn",
+        "Langbank Holdings"
+      ],
+      "sourceUrl": "https://www.homeinstead.co.uk/glasgow-north/about-us/"
+    },
+    "Glasgow South": {
+      "group": "SUR Group",
+      "postcodeSectors": [
+        "G45 9",
+        "G76 9",
+        "G53 5",
+        "G74 1",
+        "G42 0",
+        "G51 3",
+        "G46 6",
+        "G44 3",
+        "G43 2",
+        "G45 0",
+        "G46 8",
+        "G51 2",
+        "G5 0",
+        "G41 5",
+        "G5 9",
+        "G73 2",
+        "G73 3",
+        "G77 6",
+        "G42 7",
+        "G51 4",
+        "G42 8",
+        "G52 2",
+        "G41 2",
+        "G41 3",
+        "G74 3",
+        "G52 1",
+        "G41 4",
+        "G44 5",
+        "G76 7",
+        "G5 8",
+        "G52 4",
+        "G74 2",
+        "G74 4",
+        "G77 5",
+        "G76 8",
+        "G43 1",
+        "G74 5",
+        "G41 1",
+        "G46 7",
+        "G75 8",
+        "G76 0",
+        "G52 3",
+        "G51 1",
+        "G42 9",
+        "G73 1",
+        "G44 4"
+      ],
+      "towns": [
+        "East Kilbride",
+        "Rutherglen",
+        "Newton Mearns",
+        "Castlemilk",
+        "Govan",
+        "Giffnock",
+        "Shawlands",
+        "Govanhill",
+        "Cardonald",
+        "Pollok",
+        "Thornliebank",
+        "Pollokshields",
+        "Clarkston",
+        "Orchard Park",
+        "King's Park",
+        "Calderwood",
+        "Mosspark",
+        "Cathcart",
+        "Cessnock",
+        "Crookfur",
+        "Oatlands",
+        "Kennishead",
+        "Gorbals",
+        "Netherlee",
+        "Toryglen",
+        "Stewartfield",
+        "Croftfoot",
+        "Merrylee",
+        "Eaglesham",
+        "Tradeston",
+        "Stamperland",
+        "Pollokshaws",
+        "East Mains",
+        "Crossmyloof",
+        "Mount Florida",
+        "Busby",
+        "Langside",
+        "Dumbreck",
+        "Bellahouston",
+        "Hairmyres",
+        "Gardenhall",
+        "Kinning Park",
+        "Muirend",
+        "Carnwadric",
+        "Hillpark",
+        "Mossneuk",
+        "Waterfoot",
+        "Whitecraigs",
+        "Carmunnock",
+        "Westwood",
+        "Jackton",
+        "Battlefield",
+        "Greenlaw",
+        "Thorntonhall",
+        "The Village",
+        "Crosshill",
+        "Ibrox",
+        "Braehead",
+        "Broom",
+        "Polmadie",
+        "Shaw",
+        "Bankhead",
+        "Nerston",
+        "Kingston",
+        "Hillington",
+        "College Milton",
+        "St Leonards",
+        "Arden",
+        "Auldhouse",
+        "Millhall",
+        "Craigton",
+        "Eastwood",
+        "West Mains",
+        "Woodlands",
+        "Mearns",
+        "Newlands",
+        "Crosshouse",
+        "Kirkhill",
+        "Millerston",
+        "Hazelden",
+        "Mansewood",
+        "Corkerhill",
+        "Penilee",
+        "Merrylee Park",
+        "Simshill",
+        "Lower Whitecraigs",
+        "Braidbar",
+        "Woodfarm",
+        "Strathbungo",
+        "South Williamwood",
+        "Carolside",
+        "Plantation",
+        "Gallowflat",
+        "Maidenhill",
+        "Orchardhill",
+        "Malletsheugh",
+        "Robslee",
+        "Eastwoodmains",
+        "Deaconsbank",
+        "Westacres",
+        "Netherplace Estate",
+        "Paidmyre",
+        "Mearnskirk",
+        "Patterton",
+        "Greenfarm",
+        "Overlee",
+        "Shawfield",
+        "Peel Park",
+        "Nerston Village",
+        "Netherplace",
+        "Kittochside Village"
+      ],
+      "sourceUrl": "https://www.homeinstead.co.uk/glasgow-south/about-us/"
+    },
+    "North Lanarkshire and Glasgow East": {
+      "group": "SUR Group",
+      "postcodeSectors": [
+        "G32 6",
+        "G34 9",
+        "G33 5",
+        "ML5 3",
+        "G67 1",
+        "ML5 4",
+        "G34 0",
+        "G31 2",
+        "ML6 6",
+        "G33 2",
+        "G32 9",
+        "ML5 5",
+        "G33 6",
+        "ML5 1",
+        "G33 3",
+        "FK1 3",
+        "G33 4",
+        "G69 6",
+        "G31 4",
+        "ML5 2",
+        "G31 5",
+        "G69 0",
+        "G69 8",
+        "G68 0",
+        "ML6 7",
+        "FK6 5",
+        "G32 7",
+        "G67 2",
+        "G32 0",
+        "G31 3",
+        "G69 9",
+        "G68 9",
+        "FK1 2",
+        "ML6 0",
+        "G33 1",
+        "G66 5",
+        "G32 8",
+        "ML7 5",
+        "G67 4",
+        "G69 7",
+        "FK4 2",
+        "G67 3",
+        "ML7 4",
+        "FK4 1",
+        "ML6 9",
+        "ML2 9",
+        "G65 0",
+        "ML6 8",
+        "G65 9"
+      ],
+      "towns": [
+        "Cumbernauld",
+        "Coatbridge",
+        "Airdrie",
+        "Brownhills",
+        "Dennistoun",
+        "Shettleston",
+        "Baillieston",
+        "Easterhouse",
+        "Kilsyth",
+        "Lenzie",
+        "Clarkston",
+        "Thrashbush",
+        "Shotts",
+        "Tollcross",
+        "Riddrie",
+        "Stepps",
+        "Abronhill",
+        "Moodiesburn",
+        "Chapelhall",
+        "Kirkshaws",
+        "Carntyne",
+        "Condorrat",
+        "Petersburn",
+        "Blairhill",
+        "Garrowhill",
+        "Newmains",
+        "Sunnyside",
+        "Bonnybridge",
+        "Kirkwood",
+        "Whinhall",
+        "Carbrain",
+        "Greenfaulds",
+        "Hirst",
+        "Craigneuk",
+        "Croftfoot",
+        "Seafar",
+        "Kildrum",
+        "Robroyston",
+        "Carnbroe",
+        "Old Monkland",
+        "Garthamlock",
+        "Eastfield",
+        "Barlanark",
+        "Brucefield",
+        "Provanmill",
+        "Hallglen",
+        "Craiglinn",
+        "Blackhill",
+        "Gartlea",
+        "Mount Vernon",
+        "Craigmarloch",
+        "Bargeddie",
+        "Plains",
+        "Glenboig",
+        "Chryston",
+        "Caldercruix",
+        "Carmyle",
+        "Banknock",
+        "Shieldhill",
+        "Gartcosh",
+        "Langloan",
+        "Glenmavis",
+        "Torbrex",
+        "Springboig",
+        "Muirhead",
+        "Whifflet",
+        "Ruchazie",
+        "Cumbernauld Village",
+        "Harthill",
+        "Head of Muir",
+        "Dennyloanhead",
+        "Calderbank",
+        "Slamannan",
+        "Croy",
+        "Castlehill",
+        "Salsburgh",
+        "Balloch",
+        "Parkhead",
+        "Twechar",
+        "Springfield",
+        "Morningside",
+        "Avonbridge",
+        "Moffat Mills",
+        "Auchinloch",
+        "Winterhill",
+        "Brownsburn",
+        "Janefield",
+        "Dullatur",
+        "High Bonnybridge",
+        "Springhill",
+        "Queenzieburn",
+        "Hartfield",
+        "Gartloch",
+        "Stoneywood",
+        "Westfield",
+        "Fankerton",
+        "Banton",
+        "Dykehead",
+        "Swinton",
+        "Hillhead",
+        "Allandale",
+        "Haghill",
+        "Hogganfield",
+        "Limerigg",
+        "Hartwood",
+        "Standburn",
+        "Annathill",
+        "Allanton",
+        "Castlecary",
+        "Wellhouse",
+        "Longriggend",
+        "Luggiebank",
+        "Mollinsburn",
+        "Sandyhills",
+        "Bogside",
+        "Riggend",
+        "Upperton",
+        "Gartness",
+        "Greenfoot",
+        "Craigend",
+        "Greenfield",
+        "Cranhill",
+        "Strathloanhead",
+        "Lochend",
+        "High Banton",
+        "Chapel",
+        "Northfield",
+        "Townhead",
+        "California",
+        "Greenhill",
+        "Hillend",
+        "Kelvinhead",
+        "Stand",
+        "Loanhead",
+        "Braeface",
+        "Bonkle",
+        "Millerston",
+        "Longcroft",
+        "Burnbrae",
+        "Blackwood",
+        "Burnfoot",
+        "South Barrwood",
+        "North Barrwood",
+        "Barrwood",
+        "Golfhill",
+        "Holehills",
+        "Newbank",
+        "Dunrobin",
+        "Gartsherrie",
+        "Espieside",
+        "Coathill",
+        "Rawyards",
+        "Stane",
+        "Camlachie",
+        "Torbothie",
+        "Budhill",
+        "Easthall",
+        "Lightburn",
+        "Barrowfield",
+        "Lenziemill",
+        "Mull",
+        "East Crindledyke",
+        "Broadwood",
+        "Balmalloch",
+        "High Balmalloch",
+        "Marnock",
+        "Smithstone",
+        "Cuparhead",
+        "Collingwood",
+        "Drumpellier",
+        "Haggs",
+        "Greenrigg",
+        "Glen Village",
+        "Wattston",
+        "Greengairs",
+        "Mount Ellen",
+        "Auchinstarry",
+        "Wester Auchinloch",
+        "Blackloch",
+        "Brackenhirst",
+        "Airdriehill Farm",
+        "Eastercroft",
+        "South Medrox",
+        "Lochwood",
+        "Low Palacecraig",
+        "Garngibboch",
+        "Gain",
+        "Meikle Drumbreck",
+        "Forrestfield",
+        "Millcroft",
+        "Windyridge",
+        "Staylee",
+        "Glenhove",
+        "Craigelvan",
+        "Wester Blairlinn",
+        "Ramoan",
+        "Mosside",
+        "Cullochrig (Farm)",
+        "Drumbowie",
+        "Wester Glentore",
+        "Fedderland",
+        "Westside Farm",
+        "Shawhead (farm)",
+        "Heatheryknowe",
+        "Commonhead",
+        "Luckenhill",
+        "Langdales",
+        "Sandy Knowes",
+        "Tannoch",
+        "Heathfield Moss",
+        "Ivy Cottage",
+        "Southshotts Myre",
+        "Loch Hill",
+        "Claddens Holdings",
+        "Stoneyetts",
+        "Bentfoot",
+        "Forrest",
+        "Auchinvole",
+        "Duntillan Farm",
+        "Craigannet",
+        "Jersay",
+        "Gartness Farm",
+        "Easter Dunsyston Farm",
+        "South Hirst",
+        "North Hirst",
+        "Blairmains",
+        "Blacktongue Farm",
+        "Hillend (farm)",
+        "Kirk o' Shotts",
+        "East Redmire",
+        "Rosehall Farm",
+        "Parkfoot",
+        "Fortissat",
+        "Easter Fortissat",
+        "Mains",
+        "Summerlee Cottages",
+        "Bowhousebog",
+        "Knowton Farm",
+        "Dura",
+        "Brow Farm",
+        "Auchterhead",
+        "Kirkhall",
+        "Spoutscross",
+        "Barhill",
+        "Netherhall",
+        "Lodgehill",
+        "Cathburn",
+        "Woodside Farm",
+        "Wester Hassockrigg",
+        "Easter Hassockrigg",
+        "West Waterhead",
+        "Waterhead Farm",
+        "Palacerigg Cottages",
+        "Budshaw",
+        "Wester Dunsyton",
+        "Brockieside",
+        "Berryhill",
+        "Binniehill"
+      ],
+      "sourceUrl": "https://www.homeinstead.co.uk/north-lanarkshire-glasgow-east/about-us/"
+    },
+    "Perthshire": {
+      "group": "SUR Group",
+      "postcodeSectors": [
+        "PH1 2",
+        "PH6 2",
+        "PH14 9",
+        "DD6 9",
+        "PH4 1",
+        "PH1 4",
+        "KY14 7",
+        "KY14 6",
+        "KY16 0",
+        "DD6 8",
+        "PH5 2",
+        "PH1 5",
+        "PH13 9",
+        "KY15 4",
+        "PH2 8",
+        "PH2 6",
+        "PH2 9",
+        "DD2 5",
+        "PH7 4",
+        "PH1 1",
+        "PH2 7",
+        "PH7 3",
+        "PH3 1",
+        "PH1 3",
+        "PH2 0"
+      ],
+      "towns": [
+        "Perth",
+        "Crieff",
+        "Auchterarder",
+        "Tulloch",
+        "Scone",
+        "Newport-on-Tay",
+        "Tayport",
+        "North Muirton",
+        "Bridge of Earn",
+        "Leuchars",
+        "Coupar Angus",
+        "Burghmuir",
+        "Grange",
+        "Auchtermuchty",
+        "Comrie",
+        "Oakbank",
+        "Hatton",
+        "Muirhead",
+        "Invergowrie",
+        "Luncarty",
+        "Abernethy",
+        "Inchture",
+        "Methven",
+        "Almondbank",
+        "Bankfoot",
+        "Balmullo",
+        "Longforgan",
+        "St Davids",
+        "Cherrybank",
+        "Littleton",
+        "Viewlands",
+        "Newburgh",
+        "Dunning",
+        "Blairhall",
+        "Glenfarg",
+        "Muthill",
+        "Strathmiglo",
+        "Liff",
+        "Forgandenny",
+        "Guardbridge",
+        "Bridgend",
+        "Burrelton",
+        "Gauldry",
+        "Murthly",
+        "Balbeggie",
+        "Friarton",
+        "Aberuthven",
+        "Myreside",
+        "Piperdam",
+        "Dunshalt",
+        "Balgowan",
+        "Guildtown",
+        "Kinfauns",
+        "St Fillans",
+        "Letham",
+        "Spittalfield",
+        "Abernyte",
+        "Wolfhill",
+        "Gateside",
+        "Newbigging",
+        "Westown",
+        "Inchyra",
+        "Leetown",
+        "Drumoig",
+        "Meikleour",
+        "Gilmerton",
+        "Chapelhill",
+        "Pitcairngreen",
+        "Pickletillum",
+        "Duncrub",
+        "Kinrossie",
+        "Muirton",
+        "Redgorton",
+        "Kettins",
+        "Forteviot",
+        "Aberargie",
+        "Tibbermore",
+        "Craigie",
+        "Rait",
+        "Lindores",
+        "Madderty",
+        "Rathillet",
+        "Campmuir",
+        "Luthrie",
+        "Grange of Lindores",
+        "Harrietfield",
+        "Gellyburn",
+        "Brunton",
+        "Craigdallie",
+        "Balruddery",
+        "Kilspindie",
+        "Foodieash",
+        "Kilmany",
+        "New Fowlis",
+        "Saucher",
+        "Milltown of Aberdalgie",
+        "Bow of Fife",
+        "Logie",
+        "Gannochy",
+        "Caputh",
+        "Templehall",
+        "Pathstruie",
+        "Craigend",
+        "Barnhill",
+        "Fowlis Wester",
+        "Cottown",
+        "Cargill",
+        "Ballathie",
+        "Kinnaird",
+        "Airntully",
+        "Woodside",
+        "Rhynd",
+        "Lundie",
+        "Denhead of Gray",
+        "Dron",
+        "Moonzie",
+        "Balmerino",
+        "Den of Lindores",
+        "Huntingtower",
+        "Collace",
+        "Baledgarno",
+        "Blackford",
+        "Gallowhill",
+        "Bottomcraig",
+        "Monzie",
+        "Stanley",
+        "Old Scone",
+        "Stronachie",
+        "Fetterdale",
+        "Waterloo",
+        "Lucklawhill",
+        "Invergeldie",
+        "Millhill",
+        "Knapp",
+        "Redstone",
+        "Errol",
+        "Burnside",
+        "Woodhaven",
+        "Wormit",
+        "Upper Craigie",
+        "Hillyland",
+        "Kincarrathie",
+        "Kintillo",
+        "Dairsie",
+        "Bertha Park",
+        "Fowlis Easter",
+        "Kirkton of Balmerino",
+        "Oudenarde",
+        "Clathymore",
+        "Glencarse",
+        "Gleneagles",
+        "Colenhaugh",
+        "Birkhill",
+        "St Madoes",
+        "Duncrievie",
+        "Tippermallo",
+        "Meckphen",
+        "Abercairny",
+        "St Martins",
+        "Baldowrie",
+        "Backmuir of Liff",
+        "South Dronley",
+        "East Keillor",
+        "Aberuchill",
+        "Over Rankeilour",
+        "Balhomie",
+        "Laystone",
+        "Links",
+        "Mains of Cargill",
+        "Mains of Keithick",
+        "Keithick",
+        "Brunty",
+        "Campsie",
+        "Campsie Hill",
+        "Knowehead",
+        "East Whitefield",
+        "Lawton",
+        "Forth of Lawton",
+        "Kinnochtry Holdings",
+        "West Buttergask",
+        "Over Buttergask",
+        "Boreland Holdings",
+        "Whitelea",
+        "Drunzie",
+        "Tullybelton",
+        "Coshievachan",
+        "The Ross",
+        "Millearn",
+        "Aberdalgie",
+        "Moneydie",
+        "Monzievaird",
+        "Strowan",
+        "Balindean",
+        "Path of Condie",
+        "Thriepley",
+        "East Adamston Mill",
+        "North Mains of Liff",
+        "St Michael's",
+        "Newfargie",
+        "Berryhill Farm",
+        "Buchanty",
+        "Tullibardine",
+        "Hawkstane",
+        "Errol Station",
+        "Overyards",
+        "Benvie",
+        "Flocklones",
+        "West Grange",
+        "Kirkton of Lethendy",
+        "Berryhill",
+        "Dundriven",
+        "Monorgan",
+        "Mains of Fowlis",
+        "Balruddery Meadows",
+        "Redmyre",
+        "Castle Huntly",
+        "Upper Obney",
+        "Ardeblae",
+        "Gowrie",
+        "Nether Obney",
+        "Back Mill",
+        "Garry",
+        "Culloch",
+        "Ochtermuthill",
+        "Damside",
+        "Balmenoch",
+        "Pitkeathly Wells",
+        "Pitermo",
+        "Kingoodie",
+        "Leys of Hallyburton",
+        "Dairsie Mains"
+      ],
+      "sourceUrl": "https://www.homeinstead.co.uk/perthshire/about-us/"
+    },
+    "Scottish Borders": {
+      "group": "SUR Group",
+      "postcodeSectors": [
+        "TD1 1",
+        "TD1 2",
+        "TD1 3",
+        "TD2 6",
+        "TD3 6",
+        "TD4 6",
+        "TD5 7",
+        "TD5 8",
+        "TD6 0",
+        "TD6 9",
+        "TD7 4",
+        "TD7 5",
+        "TD8 6",
+        "TD9 0",
+        "TD9 7",
+        "TD9 8",
+        "TD9 9",
+        "TD10 6",
+        "TD11 3",
+        "TD12 4",
+        "TD13 5",
+        "TD14 5"
+      ],
+      "towns": [
+        "Galashiels",
+        "Hawick",
+        "Peebles",
+        "Kelso",
+        "Selkirk",
+        "Jedburgh",
+        "Eyemouth",
+        "Innerleithen",
+        "Duns",
+        "Melrose"
+      ],
+      "sourceUrl": "https://www.homeinstead.co.uk/scottish-borders/"
+    },
+    "South Ayrshire and Kilmarnock": {
+      "group": "SUR Group",
+      "postcodeSectors": [
+        "KA10 6",
+        "KA8 0",
+        "KA1 3",
+        "KA7 2",
+        "KA2 0",
+        "KA8 9",
+        "KA7 3",
+        "KA3 7",
+        "KA10 7",
+        "KA1 5",
+        "KA3 1",
+        "KA1 4",
+        "KA1 2",
+        "KA9 2",
+        "KA3 5",
+        "KA4 8",
+        "KA1 1",
+        "KA8 8",
+        "KA7 1",
+        "KA6 5",
+        "KA2 9",
+        "KA3 2",
+        "KA9 1",
+        "KA16 9",
+        "KA6 6",
+        "KA3 6",
+        "KA7 4",
+        "KA5 5"
+      ],
+      "towns": [
+        "Ayr",
+        "Kilmarnock",
+        "Troon",
+        "Prestwick",
+        "Heathfield",
+        "Stewarton",
+        "New Farm Loch",
+        "Bellfield",
+        "Whitletts",
+        "Galston",
+        "Onthank",
+        "Mauchline",
+        "Belmont",
+        "Shortlees",
+        "Doonfoot",
+        "Alloway",
+        "Kilmaurs",
+        "Newmilns",
+        "Dundonald",
+        "Mossblown",
+        "Coylton",
+        "Grange",
+        "Dalmilling",
+        "Earlston",
+        "Tarbolton",
+        "Dalrymple",
+        "Holmston",
+        "Altonhill",
+        "Castlehill",
+        "Seafield",
+        "Caprington",
+        "Annbank",
+        "Symington",
+        "Beansburn",
+        "Kincaidston",
+        "Riccarton",
+        "Monkton",
+        "Loans",
+        "Braehead",
+        "Knockinlaw",
+        "Dunure",
+        "Hillhead",
+        "Moscow",
+        "St Quivox",
+        "Crossroads",
+        "St Leonards",
+        "Cunninghamhead",
+        "Lochside",
+        "Sornhill",
+        "Stair",
+        "Coalhall",
+        "Kingsford",
+        "Craigie",
+        "Hansel Village",
+        "Fenwick",
+        "Fisherton",
+        "Failford",
+        "Crosshands",
+        "Waterside",
+        "Wallacetown",
+        "Longpark",
+        "Bonnyton",
+        "Crosshouse",
+        "Newton-on-Ayr",
+        "New Prestwick",
+        "Masonhill",
+        "Forehill",
+        "Fort",
+        "Kirkstyle",
+        "Townholm",
+        "Greenholm",
+        "Knockentiber",
+        "Bogend",
+        "Gatehead",
+        "Hurlford",
+        "Crookedholm",
+        "Townend of Fullwood",
+        "Fail",
+        "Underhills",
+        "Blairston Mains",
+        "Brae of Auchendrane"
+      ],
+      "sourceUrl": "https://www.homeinstead.co.uk/south-ayrshire-kilmarnock/about-us/"
+    },
+    "Stirling and Falkirk": {
+      "group": "SUR Group",
+      "postcodeSectors": [
+        "FK10 1",
+        "FK1 4",
+        "FK3 0",
+        "FK6 6",
+        "FK2 7",
+        "FK2 0",
+        "FK8 1",
+        "FK8 2",
+        "FK2 8",
+        "FK5 4",
+        "FK7 9",
+        "FK9 5",
+        "FK7 8",
+        "FK2 9",
+        "FK1 1",
+        "FK7 0",
+        "FK11 7",
+        "FK3 9",
+        "FK1 5",
+        "FK5 3",
+        "FK3 8",
+        "FK10 2",
+        "FK16 6",
+        "FK7 7",
+        "FK9 4",
+        "FK15 0",
+        "FK15 9"
+      ],
+      "towns": [
+        "Stirling",
+        "Falkirk",
+        "Alloa",
+        "Grangemouth",
+        "Larbert",
+        "Dunblane",
+        "Stenhousemuir",
+        "Tullibody",
+        "Denny",
+        "Bannockburn",
+        "St Ninians",
+        "Bainsford",
+        "Camelon",
+        "Bridge of Allan",
+        "Polmont",
+        "Brightons",
+        "Maddiston",
+        "Redding",
+        "Raploch",
+        "Cambusbarron",
+        "Causewayhead",
+        "Cornton",
+        "Carronshore",
+        "Menstrie",
+        "Fallin",
+        "Cowie",
+        "Laurieston",
+        "Dunipace",
+        "Doune",
+        "Broomridge",
+        "Middlefield",
+        "Bowhouse",
+        "Riverside",
+        "Plean",
+        "Airth",
+        "Torbrex",
+        "Bantaskin",
+        "Grahamston",
+        "Tamfourhill",
+        "Reddingmuirhead",
+        "Langlees",
+        "Westquarter",
+        "Wallacestone",
+        "Rumford",
+        "Arnothill",
+        "Braco",
+        "Callendar Park",
+        "Braehead",
+        "Westfield",
+        "Greenloaning",
+        "Whins of Milton",
+        "Torwood",
+        "Letham",
+        "Skinflats",
+        "Carron",
+        "Kinbuck",
+        "Throsk",
+        "Chartershall",
+        "Dunmore",
+        "Lower Town",
+        "South Alloa",
+        "Blairlogie",
+        "Manor Powis",
+        "Upper Town",
+        "Pisgah",
+        "Ashfield",
+        "Buchany",
+        "Woodlands",
+        "Lionthorn",
+        "Kersiebank",
+        "Auld Toon",
+        "Inverallan",
+        "Sunnylaw",
+        "Kings Park",
+        "Antonshill",
+        "Kinnaird Village",
+        "North Broomage",
+        "South Broomage",
+        "Sports Village",
+        "Deanston",
+        "Cambus",
+        "Cambuskenneth",
+        "West Plean",
+        "Argaty",
+        "Bothkennar",
+        "Sauchenford West",
+        "Glensburgh",
+        "Old Polmont",
+        "Old Plean",
+        "Auchenlay",
+        "Sauchenford Holdings"
+      ],
+      "sourceUrl": "https://www.homeinstead.co.uk/stirling-falkirk/about-us/"
+    },
+    "West Fife and Kinross": {
+      "group": "SUR Group",
+      "postcodeSectors": [
+        "KY4 8",
+        "KY1 1",
+        "FK14 7",
+        "KY4 0",
+        "KY3 0",
+        "KY12 9",
+        "KY13 9",
+        "KY12 8",
+        "KY13 0",
+        "KY12 0",
+        "KY2 5",
+        "FK10 3",
+        "KY11 7",
+        "KY4 9",
+        "KY11 4",
+        "KY11 1",
+        "KY11 3",
+        "KY11 2",
+        "KY3 9",
+        "KY5 9",
+        "FK12 5",
+        "FK13 6",
+        "KY5 0",
+        "KY5 8",
+        "KY12 7",
+        "KY11 9",
+        "KY13 8",
+        "FK10 4",
+        "KY11 8"
+      ],
+      "towns": [
+        "Dunfermline",
+        "Kirkcaldy",
+        "Rosyth",
+        "Cowdenbeath",
+        "Dalgety Bay",
+        "Abbeyview",
+        "Burntisland",
+        "Lochgelly",
+        "Kelty",
+        "Sauchie",
+        "Ballingry",
+        "Cardenden",
+        "Pitcorthie",
+        "Kinross",
+        "Tillicoultry",
+        "Greenacres",
+        "Inverkeithing",
+        "Alva",
+        "Linktown",
+        "Brucefield",
+        "Clackmannan",
+        "Bellyeoman",
+        "Headwell",
+        "Dollar",
+        "Kincardine",
+        "Kinghorn",
+        "Camdean",
+        "Cairneyhill",
+        "High Valleyfield",
+        "Comrie",
+        "Milnathort",
+        "Hayfield",
+        "Kinglassie",
+        "Halbeath",
+        "Aberdour",
+        "Touch",
+        "Newmills",
+        "Limekilns",
+        "Seafield",
+        "Milesmark",
+        "Saline",
+        "Townhill",
+        "North Queensferry",
+        "Blairhall",
+        "Crossford",
+        "Crook of Devon",
+        "Coalsnaughton",
+        "Carnock",
+        "Kingseat",
+        "Fishcross",
+        "Crosshill",
+        "Kinnesswood",
+        "Hill of Beath",
+        "Wellwood",
+        "Lumphinnans",
+        "Crossgates",
+        "Powmill",
+        "Crombie",
+        "Pitreavie",
+        "Scotlandwell",
+        "Blairingone",
+        "Pool of Muckhart",
+        "Auchtertool",
+        "Gowkhall",
+        "Steelend",
+        "Balado",
+        "Gairney Bank",
+        "Carnbo",
+        "Glendevon",
+        "Hill End",
+        "Forestmill",
+        "Rumbling Bridge",
+        "Wester Balgedie",
+        "Yetts o' Muckhart",
+        "Bowershall",
+        "Cleish",
+        "Jamestown",
+        "Glenlomond",
+        "Oakley",
+        "Kennet",
+        "Cowstrandburn",
+        "Fordell",
+        "Maryburgh",
+        "Blairforge",
+        "Hillend",
+        "Pattiesmuir",
+        "Drum",
+        "Netherton",
+        "Charlestown",
+        "Burnside",
+        "Leuchatsbeath",
+        "Lady's Mill",
+        "Hospital Hill",
+        "Masterton",
+        "Kingseathill",
+        "Garvock",
+        "Parkneuk",
+        "Baldridge",
+        "Abbey Parks",
+        "Duloch",
+        "Pettycur",
+        "Pittencrieff",
+        "Baldridgeburn",
+        "Keltybridge",
+        "Glencraig",
+        "Lochore",
+        "Glenochil",
+        "Bowhill",
+        "Torryburn",
+        "Culross",
+        "Auchterderran",
+        "Devonside",
+        "Benview",
+        "Killernie",
+        "Hattonburn",
+        "Kilmagadwood",
+        "New Row",
+        "East Lochran",
+        "Low Valleyfield",
+        "Fruix",
+        "Donibristle",
+        "Coaledge",
+        "Carsegour",
+        "Lochcraig",
+        "Marchglen",
+        "Devon Village",
+        "Helensfield",
+        "Kennet Pans",
+        "Blairburn",
+        "Lower Mains",
+        "Shiresmill",
+        "Easter Balgedie",
+        "Butterwell",
+        "Mawcarse"
+      ],
+      "sourceUrl": "https://www.homeinstead.co.uk/west-fife-kinross/about-us/"
     },
-    "AB10 6": {
-      "area": "Broomhill/City",
-      "territory": "Aberdeen"
-    },
-    "AB10 7": {
-      "area": "Bridge of Dee/Mannofield/West End",
-      "territory": "Aberdeen"
-    },
-    "AB11 5": {
-      "area": "Footdee",
-      "territory": "Aberdeen"
-    },
-    "AB11 6": {
-      "area": "Ferryhill/City",
-      "territory": "Aberdeen"
-    },
-    "AB11 7": {
-      "area": "Ferryhill/City",
-      "territory": "Aberdeen"
-    },
-    "AB13 0": {
-      "area": "Milltimber/Contlaw",
-      "territory": "Aberdeen"
-    },
-    "AB14 0": {
-      "area": "Peterculter",
-      "territory": "Aberdeen"
-    },
-    "AB15 4": {
-      "area": "Rubislaw",
-      "territory": "Aberdeen"
-    },
-    "AB15 5": {
-      "area": "Rubislaw/Midstocket",
-      "territory": "Aberdeen"
-    },
-    "AB15 6": {
-      "area": "City",
-      "territory": "Aberdeen"
-    },
-    "AB15 7": {
-      "area": "Braeside/City",
-      "territory": "Aberdeen"
-    },
-    "AB15 8": {
-      "area": "Hazlehead/Kingswells/Fairley/Countesswells",
-      "territory": "Aberdeen"
-    },
-    "AB15 9": {
-      "area": "Bieldside/Cults",
-      "territory": "Aberdeen"
-    },
-    "AB16 5": {
-      "area": "City",
-      "territory": "Aberdeen"
-    },
-    "AB16 6": {
-      "area": "Sheddocksley/Mastrick",
-      "territory": "Aberdeen"
-    },
-    "AB16 7": {
-      "area": "Cummings Park",
-      "territory": "Aberdeen"
-    },
-    "AB21 0": {
-      "area": "Blackburn/Kingseat/East Auchronie",
-      "territory": "Aberdeen"
-    },
-    "AB21 7": {
-      "area": "Swailen",
-      "territory": "Aberdeen"
-    },
-    "AB21 9": {
-      "area": "Bucksburn/Stoneywood/Craibstone",
-      "territory": "Aberdeen"
-    },
-    "AB22 8": {
-      "area": "Bridge of Don/Danestone/Persley",
-      "territory": "Aberdeen"
-    },
-    "AB23 5": {
-      "area": "City",
-      "territory": "Aberdeen"
-    },
-    "AB23 8": {
-      "area": "Cloverhill/Middleton of Potterton/Milden/Balmedie",
-      "territory": "Aberdeen"
-    },
-    "AB24 1": {
-      "area": "Old Aberdeen/Seaton",
-      "territory": "Aberdeen"
-    },
-    "AB24 2": {
-      "area": "Tillydrone/Hayton/Donside",
-      "territory": "Aberdeen"
-    },
-    "AB24 3": {
-      "area": "University of Aberdeen",
-      "territory": "Aberdeen"
-    },
-    "AB24 4": {
-      "area": "Hilton/Kittybrewster",
-      "territory": "Aberdeen"
-    },
-    "AB24 5": {
-      "area": "Pittodrie/Hanover",
-      "territory": "Aberdeen"
-    },
-    "AB25 1": {
-      "area": "Gilcomston",
-      "territory": "Aberdeen"
-    },
-    "AB25 2": {
-      "area": "Foresterhill",
-      "territory": "Aberdeen"
-    },
-    "AB31 4": {
-      "area": "Banchory/Torphins",
-      "territory": "Aberdeen"
-    },
-    "AB31 5": {
-      "area": "Drumoak/West Park",
-      "territory": "Aberdeen"
-    },
-    "AB32 6": {
-      "area": "Westhill/Skene/Elrick/Easter Ord/Wester Ord",
-      "territory": "Aberdeen"
-    },
-    "AB32 7": {
-      "area": "Blackchambers",
-      "territory": "Aberdeen"
-    },
-    "AB34 4": {
-      "area": "Aboyne/Tarland",
-      "territory": "Aberdeen"
-    },
-    "AB35 5": {
-      "area": "Ballater",
-      "territory": "Aberdeen"
-    },
-    "AB51 0": {
-      "area": "Inverurie/Kintore/Oldmeldrum",
-      "territory": "Aberdeen"
-    },
-    "AB51 3": {
-      "area": "Port Elphinstone",
-      "territory": "Aberdeen"
-    },
-    "AB51 4": {
-      "area": "Inverurie",
-      "territory": "Aberdeen"
-    },
-    "AB51 6": {
-      "area": "Inverurie",
-      "territory": "Aberdeen"
-    },
-    "DD2 5": {
-      "area": "Invergowrie / Lundie / Longforgan / Muirhead / Fowlis",
-      "territory": "Perthshire"
-    },
-    "DD6 8": {
-      "area": "Newport-on-Tay / Woodhaven / Wormit / Balmerino",
-      "territory": "Perthshire"
-    },
-    "DD6 9": {
-      "area": "Tayport / Scotscraig / Fetterdale",
-      "territory": "Perthshire"
-    },
-    "EH18 1": {
-      "area": "Lasswade/ Polton",
-      "territory": "East Lothian and Midlothian"
-    },
-    "EH19 2": {
-      "area": "Bonnyrigg",
-      "territory": "East Lothian and Midlothian"
-    },
-    "EH19 3": {
-      "area": "Hopefield",
-      "territory": "East Lothian and Midlothian"
-    },
-    "EH20 9": {
-      "area": "Loanhead",
-      "territory": "East Lothian and Midlothian"
-    },
-    "EH21 6": {
-      "area": "Musselburgh",
-      "territory": "East Lothian and Midlothian"
-    },
-    "EH21 7": {
-      "area": "Inveresk",
-      "territory": "East Lothian and Midlothian"
-    },
-    "EH21 8": {
-      "area": "Wallyford/ Whitecraig",
-      "territory": "East Lothian and Midlothian"
-    },
-    "EH22 1": {
-      "area": "Dalkeith/ Danderhall",
-      "territory": "East Lothian and Midlothian"
-    },
-    "EH22 2": {
-      "area": "Cousland",
-      "territory": "East Lothian and Midlothian"
-    },
-    "EH22 3": {
-      "area": "Eskbank",
-      "territory": "East Lothian and Midlothian"
-    },
-    "EH22 4": {
-      "area": "Cockpen",
-      "territory": "East Lothian and Midlothian"
-    },
-    "EH22 5": {
-      "area": "Mayfield",
-      "territory": "East Lothian and Midlothian"
-    },
-    "EH23 4": {
-      "area": "Gorebridge",
-      "territory": "East Lothian and Midlothian"
-    },
-    "EH24 9": {
-      "area": "Rosewell",
-      "territory": "East Lothian and Midlothian"
-    },
-    "EH25 9": {
-      "area": "Roslin",
-      "territory": "East Lothian and Midlothian"
-    },
-    "EH26 0": {
-      "area": "Penicuik",
-      "territory": "East Lothian and Midlothian"
-    },
-    "EH26 8": {
-      "area": "Penicuik",
-      "territory": "East Lothian and Midlothian"
-    },
-    "EH26 9": {
-      "area": "Silverburn",
-      "territory": "East Lothian and Midlothian"
-    },
-    "EH31 2": {
-      "area": "Gullane",
-      "territory": "East Lothian and Midlothian"
-    },
-    "EH32 0": {
-      "area": "Longniddry/Prestonpans/Port Seton",
-      "territory": "East Lothian and Midlothian"
-    },
-    "EH32 9": {
-      "area": "Prestonpans",
-      "territory": "East Lothian and Midlothian"
-    },
-    "EH33 1": {
-      "area": "Tranent/ Macmerry",
-      "territory": "East Lothian and Midlothian"
-    },
-    "EH33 2": {
-      "area": "Tranent",
-      "territory": "East Lothian and Midlothian"
-    },
-    "EH35 5": {
-      "area": "New Town/ Pencaitland/ Peaston",
-      "territory": "East Lothian and Midlothian"
-    },
-    "EH36 5": {
-      "area": "Humbie",
-      "territory": "East Lothian and Midlothian"
-    },
-    "EH37 5": {
-      "area": "Pathhead/ Tynehead",
-      "territory": "East Lothian and Midlothian"
-    },
-    "EH38 5": {
-      "area": "Heriot",
-      "territory": "East Lothian and Midlothian"
-    },
-    "EH39 4": {
-      "area": "North Berwick",
-      "territory": "East Lothian and Midlothian"
-    },
-    "EH39 5": {
-      "area": "Fenton Barns/ Kingston/ Scoughall",
-      "territory": "East Lothian and Midlothian"
-    },
-    "EH40 3": {
-      "area": "East Linton",
-      "territory": "East Lothian and Midlothian"
-    },
-    "EH41 3": {
-      "area": "Haddington",
-      "territory": "East Lothian and Midlothian"
-    },
-    "EH41 4": {
-      "area": "Gifford / Whittingehame/ Garvald",
-      "territory": "East Lothian and Midlothian"
-    },
-    "EH42 1": {
-      "area": "Dunbar/Thortonloch",
-      "territory": "East Lothian and Midlothian"
-    },
-    "EH44 6": {
-      "area": "Innerleithen",
-      "territory": "East Lothian and Midlothian"
-    },
-    "EH45 8": {
-      "area": "Peebles",
-      "territory": "East Lothian and Midlothian"
-    },
-    "EH45 9": {
-      "area": "Bellspool",
-      "territory": "East Lothian and Midlothian"
-    },
-    "EH46 7": {
-      "area": "West Linton/ Leadburn",
-      "territory": "East Lothian and Midlothian"
-    },
-    "FK1 1": {
-      "area": "Falkirk / Callendar Park",
-      "territory": "Stirling and Falkirk"
-    },
-    "FK1 2": {
-      "area": "California / Avonbridge / Standburn",
-      "territory": "North Lanarkshire and Glasgow East"
-    },
-    "FK1 3": {
-      "area": "Slamannan / Jawcraig / Limerigg",
-      "territory": "North Lanarkshire and Glasgow East"
-    },
-    "FK1 4": {
-      "area": "Camelon / Tamfourhill / Carmuirs",
-      "territory": "Stirling and Falkirk"
-    },
-    "FK1 5": {
-      "area": "Summerford / Greenbank / Woodlands",
-      "territory": "Stirling and Falkirk"
-    },
-    "FK10 1": {
-      "area": "Alloa",
-      "territory": "Stirling and Falkirk"
-    },
-    "FK10 2": {
-      "area": "Cambus / Tillibody / Inglewood",
-      "territory": "Stirling and Falkirk"
-    },
-    "FK10 3": {
-      "area": "Alloa, Clackmannan, Sauchie, Tullibody, Falkirk, Fishcross, Forrest Mill, Devon Village, Keilarsbrae, Fairfield",
-      "territory": "West Fife and Kinross"
-    },
-    "FK10 4": {
-      "area": "Kincardine, Clackmannan, Sauchie, Tullibody",
-      "territory": "West Fife and Kinross"
-    },
-    "FK11 7": {
-      "area": "Menstrie",
-      "territory": "Stirling and Falkirk"
-    },
-    "FK13 6": {
-      "area": "Kinross, Milnathort, Crook of Devon, Scotlandwell, Kinnesswood",
-      "territory": "West Fife and Kinross"
-    },
-    "FK14 7": {
-      "area": "Dollar, Glendevon, Burnfoot, Lower Mains, Blairingone, Yetts O' Muckhart, Pool of Muckhart, Clackmannanshire",
-      "territory": "West Fife and Kinross"
-    },
-    "FK15 0": {
-      "area": "Dunblane / Kinbuck / Greenloaning / Sheriffmuir / Kippenross",
-      "territory": "Stirling and Falkirk"
-    },
-    "FK15 9": {
-      "area": "Cromlix",
-      "territory": "Stirling and Falkirk"
-    },
-    "FK16 6": {
-      "area": "Deanston",
-      "territory": "Stirling and Falkirk"
-    },
-    "FK2 0": {
-      "area": "Polmont / Reddingmuirhead / Maddiston",
-      "territory": "Stirling and Falkirk"
-    },
-    "FK2 7": {
-      "area": "Grahamston / Bainsford / Mugal / Langlees",
-      "territory": "Stirling and Falkirk"
-    },
-    "FK2 8": {
-      "area": "Dunmore",
-      "territory": "Stirling and Falkirk"
-    },
-    "FK2 9": {
-      "area": "Redding",
-      "territory": "Stirling and Falkirk"
-    },
-    "FK3 0": {
-      "area": "Grangemouth / Bowhouse",
-      "territory": "Stirling and Falkirk"
-    },
-    "FK3 8": {
-      "area": "Grangemouth / Glensburgh / The Ports",
-      "territory": "Stirling and Falkirk"
-    },
-    "FK3 9": {
-      "area": "Grangemouth / Wholeflats / Bowhouse",
-      "territory": "Stirling and Falkirk"
-    },
-    "FK4 1": {
-      "area": "Dennyloanhead",
-      "territory": "North Lanarkshire and Glasgow East"
-    },
-    "FK4 2": {
-      "area": "Bonnybridge",
-      "territory": "North Lanarkshire and Glasgow East"
-    },
-    "FK5 3": {
-      "area": "Larbert",
-      "territory": "Stirling and Falkirk"
-    },
-    "FK5 4": {
-      "area": "Torwood / Larbert",
-      "territory": "Stirling and Falkirk"
-    },
-    "FK6 5": {
-      "area": "Stoneywood",
-      "territory": "North Lanarkshire and Glasgow East"
-    },
-    "FK6 6": {
-      "area": "Stoneywood / Denny",
-      "territory": "Stirling and Falkirk"
-    },
-    "FK7 0": {
-      "area": "Bannockburn",
-      "territory": "Stirling and Falkirk"
-    },
-    "FK7 7": {
-      "area": "Throsk / Stirling",
-      "territory": "Stirling and Falkirk"
-    },
-    "FK7 8": {
-      "area": "Whins of Milton",
-      "territory": "Stirling and Falkirk"
-    },
-    "FK7 9": {
-      "area": "Cambusbarron / Stirling",
-      "territory": "Stirling and Falkirk"
-    },
-    "FK8 1": {
-      "area": "Stirling Centre",
-      "territory": "Stirling and Falkirk"
-    },
-    "FK8 2": {
-      "area": "Stirling / Torbex",
-      "territory": "Stirling and Falkirk"
-    },
-    "FK9 4": {
-      "area": "Drip Bridge / Blair Drummond / Bridge of Allan / Sunnylaw",
-      "territory": "Stirling and Falkirk"
-    },
-    "FK9 5": {
-      "area": "Causewayhead / Blairlogie",
-      "territory": "Stirling and Falkirk"
-    },
-    "G1 1": {
-      "area": "West End / Hyndland / Partick",
-      "territory": "Glasgow North"
-    },
-    "G1 2": {
-      "area": "Glasgow City Centre / Queen St area",
-      "territory": "Glasgow North"
-    },
-    "G1 3": {
-      "area": "Glasgow City Centre / Cnetral / Merchant City area",
-      "territory": "Glasgow North"
-    },
-    "G1 4": {
-      "area": "Glasgow City Centre / Broomielaw / St Enochs",
-      "territory": "Glasgow North"
-    },
-    "G1 5": {
-      "area": "Drumchapel",
-      "territory": "Glasgow North"
-    },
-    "G11 7": {
-      "area": "West End (Partick/Broomhill)",
-      "territory": "Glasgow North"
-    },
-    "G13 1": {
-      "area": "West End (Anniesland/Jordanhill)",
-      "territory": "Glasgow North"
-    },
-    "G13 2": {
-      "area": "Knightswood",
-      "territory": "Glasgow North"
-    },
-    "G13 3": {
-      "area": "Knightswood",
-      "territory": "Glasgow North"
-    },
-    "G14 0": {
-      "area": "Garscadden",
-      "territory": "Glasgow North"
-    },
-    "G14 9": {
-      "area": "Scotstoun",
-      "territory": "Glasgow North"
-    },
-    "G2 1": {
-      "area": "Glasgow City Centre / West Nile St to Renfield St / Sauchiehall St to St Vincent St",
-      "territory": "Glasgow North"
-    },
-    "G2 2": {
-      "area": "Glasgow City Centre / Sauchiehall St to West George Lane / West Campbell St to Renfield St",
-      "territory": "Glasgow North"
-    },
-    "G2 3": {
-      "area": "Summerston / Lambhill",
-      "territory": "Glasgow North"
-    },
-    "G2 4": {
-      "area": "Glasgow City Centre / West Campbell St to North St / Sauchiehall St to St Vincent St",
-      "territory": "Glasgow North"
-    },
-    "G2 5": {
-      "area": "Glasgow City Centre / St Vincent St / West Nile St to Holland St",
-      "territory": "Glasgow North"
-    },
-    "G2 6": {
-      "area": "Glasgow City Centre / Hope St to West Campbell St / St Vincent Lane to Argyle St",
-      "territory": "Glasgow North"
-    },
-    "G2 7": {
-      "area": "Glasgow City Centre / St Vincent St to Argyle St / West Campbell St to Bishop St",
-      "territory": "Glasgow North"
-    },
-    "G2 8": {
-      "area": "Glasgow City Centre / Argyle St to Broomielaw / McAlpine Street to Oswald St",
-      "territory": "Glasgow North"
-    },
-    "G20 0": {
-      "area": "Maryhill",
-      "territory": "Glasgow North"
-    },
-    "G20 6": {
-      "area": "West End at Maryhill Road",
-      "territory": "Glasgow North"
-    },
-    "G20 7": {
-      "area": "Firhill / Ruchill Park",
-      "territory": "Glasgow North"
-    },
-    "G20 8": {
-      "area": "Maryhill",
-      "territory": "Glasgow North"
-    },
-    "G20 9": {
-      "area": "Ruchill",
-      "territory": "Glasgow North"
-    },
-    "G21 1": {
-      "area": "Port Dundas / Sighthill",
-      "territory": "Glasgow North"
-    },
-    "G21 2": {
-      "area": "Royston / Barmulloch",
-      "territory": "Glasgow North"
-    },
-    "G21 3": {
-      "area": "Stobhill / Balornock",
-      "territory": "Glasgow North"
-    },
-    "G21 4": {
-      "area": "Springburn",
-      "territory": "Glasgow North"
-    },
-    "G22 5": {
-      "area": "Possil Park",
-      "territory": "Glasgow North"
-    },
-    "G22 6": {
-      "area": "Ashfield / Parkhouse / Lambhill",
-      "territory": "Glasgow North"
-    },
-    "G22 7": {
-      "area": "Milton",
-      "territory": "Glasgow North"
-    },
-    "G23 5": {
-      "area": "Summerston",
-      "territory": "Glasgow North"
-    },
-    "G3 6": {
-      "area": "Kelvingrove / Park District",
-      "territory": "Glasgow North"
-    },
-    "G3 7": {
-      "area": "Charing Cross / Kelvingrove",
-      "territory": "Glasgow North"
-    },
-    "G3 8": {
-      "area": "Finniestone / Yorkhill",
-      "territory": "Glasgow North"
-    },
-    "G31 1": {
-      "area": "Bellgrove / Dennistoun / Parkhead",
-      "territory": "Glasgow North"
-    },
-    "G31 2": {
-      "area": "Glasgow Royal / The Drives",
-      "territory": "Glasgow North"
-    },
-    "G31 3": {
-      "area": "Alexandra Park",
-      "territory": "Glasgow North"
-    },
-    "G31 4": {
-      "area": "Parkhead",
-      "territory": "Glasgow North"
-    },
-    "G31 5": {
-      "area": "Parkhead / Tollcross",
-      "territory": "Glasgow North"
-    },
-    "G32 0": {
-      "area": "Mount Vernon / Springboig",
-      "territory": "Glasgow North"
-    },
-    "G32 6": {
-      "area": "Greenfield / Carntyne",
-      "territory": "Glasgow North"
-    },
-    "G32 7": {
-      "area": "Shettleston",
-      "territory": "Glasgow North"
-    },
-    "G32 8": {
-      "area": "Dalbeth / Carmyle",
-      "territory": "Glasgow North"
-    },
-    "G32 9": {
-      "area": "Sandyhills",
-      "territory": "Glasgow North"
-    },
-    "G33 1": {
-      "area": "Provanmill",
-      "territory": "Glasgow North"
-    },
-    "G33 2": {
-      "area": "Riddrie",
-      "territory": "Glasgow North"
-    },
-    "G33 3": {
-      "area": "Cranhill / Ruchazie",
-      "territory": "Glasgow North"
-    },
-    "G33 4": {
-      "area": "Springboig",
-      "territory": "North Lanarkshire and Glasgow East"
-    },
-    "G33 5": {
-      "area": "Garthamlock",
-      "territory": "North Lanarkshire and Glasgow East"
-    },
-    "G33 6": {
-      "area": "Stepps",
-      "territory": "North Lanarkshire and Glasgow East"
-    },
-    "G34 0": {
-      "area": "Lochend",
-      "territory": "North Lanarkshire and Glasgow East"
-    },
-    "G34 9": {
-      "area": "Garthamlock",
-      "territory": "North Lanarkshire and Glasgow East"
-    },
-    "G4 0": {
-      "area": "Glasgow Green / Barrowfield / Dalmarnock",
-      "territory": "Glasgow North"
-    },
-    "G4 9": {
-      "area": "Woodside / Hamiltonhill / Port Dundas / Keppochhill",
-      "territory": "Glasgow North"
-    },
-    "G40 1": {
-      "area": "Glasgow Green area",
-      "territory": "Glasgow North"
-    },
-    "G40 2": {
-      "area": "Calton",
-      "territory": "Glasgow North"
-    },
-    "G40 3": {
-      "area": "Bridgeton",
-      "territory": "Glasgow North"
-    },
-    "G40 4": {
-      "area": "Dalmarnock /Clyde Gateway",
-      "territory": "Glasgow North"
-    },
-    "G41 1": {
-      "area": "Pollocksheilds",
-      "territory": "Glasgow South"
-    },
-    "G41 2": {
-      "area": "Pollocksheilds",
-      "territory": "Glasgow South"
-    },
-    "G41 3": {
-      "area": "Shawlands",
-      "territory": "Glasgow South"
-    },
-    "G41 4": {
-      "area": "Pollocksheilds / Pollock",
-      "territory": "Glasgow South"
-    },
-    "G41 5": {
-      "area": "Bellahouston",
-      "territory": "Glasgow South"
-    },
-    "G42 0": {
-      "area": "Polmadie",
-      "territory": "Glasgow South"
-    },
-    "G42 7": {
-      "area": "Southside Central",
-      "territory": "Glasgow South"
-    },
-    "G42 8": {
-      "area": "Queens Park",
-      "territory": "Glasgow South"
-    },
-    "G42 9": {
-      "area": "Hampden",
-      "territory": "Glasgow South"
-    },
-    "G43 1": {
-      "area": "Pollock",
-      "territory": "Glasgow South"
-    },
-    "G43 2": {
-      "area": "Newlands / Auldhouse / Hillpark",
-      "territory": "Glasgow South"
-    },
-    "G44 3": {
-      "area": "Muuirend / Netherlee",
-      "territory": "Glasgow South"
-    },
-    "G44 4": {
-      "area": "Mount Florida",
-      "territory": "Glasgow South"
-    },
-    "G44 5": {
-      "area": "Kings Park",
-      "territory": "Glasgow South"
-    },
-    "G45 0": {
-      "area": "Castlemilk",
-      "territory": "Glasgow South"
-    },
-    "G45 9": {
-      "area": "Castlemilk",
-      "territory": "Glasgow South"
-    },
-    "G46 6": {
-      "area": "Giffnock / Williamwood",
-      "territory": "Glasgow South"
-    },
-    "G46 7": {
-      "area": "Eastwood / Rouken Glen",
-      "territory": "Glasgow South"
-    },
-    "G46 8": {
-      "area": "Thornliebank",
-      "territory": "Glasgow South"
-    },
-    "G5 0": {
-      "area": "Hutchesontown / Oatlands / Richmond Park",
-      "territory": "Glasgow South"
-    },
-    "G5 8": {
-      "area": "Tradeston / Kingston",
-      "territory": "Glasgow South"
-    },
-    "G5 9": {
-      "area": "Gorbals / Laurieston",
-      "territory": "Glasgow South"
-    },
-    "G51 1": {
-      "area": "Cessnock / Festival Park",
-      "territory": "Glasgow South"
-    },
-    "G51 2": {
-      "area": "Moorepark / Ibrox / Riverside",
-      "territory": "Glasgow South"
-    },
-    "G51 3": {
-      "area": "Govan",
-      "territory": "Glasgow South"
-    },
-    "G51 4": {
-      "area": "Linthouse / Shieldhall / West Drumoyne",
-      "territory": "Glasgow South"
-    },
-    "G52 1": {
-      "area": "Bellahouston / Corkerhill",
-      "territory": "Glasgow South"
-    },
-    "G52 2": {
-      "area": "Craigton / North Cardonald / Hillington",
-      "territory": "Glasgow South"
-    },
-    "G52 3": {
-      "area": "Crookston / Rosshall / Cardonald",
-      "territory": "Glasgow South"
-    },
-    "G52 4": {
-      "area": "Penilee / Hillington",
-      "territory": "Glasgow South"
-    },
-    "G53 5": {
-      "area": "Pollok",
-      "territory": "Glasgow South"
-    },
-    "G61 1": {
-      "area": "Canniesburn",
-      "territory": "Glasgow North"
-    },
-    "G61 2": {
-      "area": "Bearsden",
-      "territory": "Glasgow North"
-    },
-    "G61 3": {
-      "area": "Bearsden",
-      "territory": "Glasgow North"
-    },
-    "G61 4": {
-      "area": "Bearsden / Beljaffray",
-      "territory": "Glasgow North"
-    },
-    "G62 6": {
-      "area": "Milngavie",
-      "territory": "Glasgow North"
-    },
-    "G62 7": {
-      "area": "Milngavie / Craigton",
-      "territory": "Glasgow North"
-    },
-    "G62 8": {
-      "area": "Mugdock",
-      "territory": "Glasgow North"
-    },
-    "G64 1": {
-      "area": "Bishopbriggs",
-      "territory": "Glasgow North"
-    },
-    "G64 2": {
-      "area": "Bishopbriggs",
-      "territory": "Glasgow North"
-    },
-    "G64 3": {
-      "area": "Cadder",
-      "territory": "Glasgow North"
-    },
-    "G64 4": {
-      "area": "Balmore / Carlston",
-      "territory": "Glasgow North"
-    },
-    "G65 0": {
-      "area": "Kilsyth",
-      "territory": "North Lanarkshire and Glasgow East"
-    },
-    "G65 9": {
-      "area": "Queenzieburn",
-      "territory": "North Lanarkshire and Glasgow East"
-    },
-    "G66 1": {
-      "area": "Kirkintilloch",
-      "territory": "Glasgow North"
-    },
-    "G66 2": {
-      "area": "Kirkintilloch",
-      "territory": "Glasgow North"
-    },
-    "G66 3": {
-      "area": "Woodilee / Duntiblae / Waterside",
-      "territory": "Glasgow North"
-    },
-    "G66 4": {
-      "area": "Lenzie",
-      "territory": "Glasgow North"
-    },
-    "G66 5": {
-      "area": "Auchinloch",
-      "territory": "Glasgow South"
-    },
-    "G66 7": {
-      "area": "Lennoxtown / Clachan of Campsie",
-      "territory": "Glasgow North"
-    },
-    "G66 8": {
-      "area": "Milton of Campsie",
-      "territory": "Glasgow North"
-    },
-    "G67 1": {
-      "area": "Cumbernauld",
-      "territory": "North Lanarkshire and Glasgow East"
-    },
-    "G67 2": {
-      "area": "Cumbernauld / Lenziemill",
-      "territory": "North Lanarkshire and Glasgow East"
-    },
-    "G67 3": {
-      "area": "Cumbernauld / Abronhill",
-      "territory": "North Lanarkshire and Glasgow East"
-    },
-    "G67 4": {
-      "area": "Condorrat / Mollinsburn",
-      "territory": "North Lanarkshire and Glasgow East"
-    },
-    "G68 0": {
-      "area": "Cumbernauld Village / Castlecary",
-      "territory": "North Lanarkshire and Glasgow East"
-    },
-    "G68 9": {
-      "area": "Balloch",
-      "territory": "North Lanarkshire and Glasgow East"
-    },
-    "G69 0": {
-      "area": "Moodiesburn",
-      "territory": "North Lanarkshire and Glasgow East"
-    },
-    "G69 6": {
-      "area": "Garrowhill / Easterhouse",
-      "territory": "Glasgow South"
-    },
-    "G69 7": {
-      "area": "Bailleston / Bargeddie",
-      "territory": "Glasgow South"
-    },
-    "G69 8": {
-      "area": "Gartscosh",
-      "territory": "North Lanarkshire and Glasgow East"
-    },
-    "G69 9": {
-      "area": "Chryston",
-      "territory": "North Lanarkshire and Glasgow East"
-    },
-    "G73 1": {
-      "area": "Toryglen / Rutherglen",
-      "territory": "Glasgow South"
-    },
-    "G73 2": {
-      "area": "Rutherglen / Bankhead",
-      "territory": "Glasgow South"
-    },
-    "G73 3": {
-      "area": "Gallowflat / Burnside",
-      "territory": "Glasgow South"
-    },
-    "G74 1": {
-      "area": "East Kilbride / Calderglen",
-      "territory": "Glasgow South"
-    },
-    "G74 2": {
-      "area": "East Kilbride / Birniehill",
-      "territory": "Glasgow South"
-    },
-    "G74 3": {
-      "area": "East Kilbride / Hamilton Road",
-      "territory": "Glasgow South"
-    },
-    "G74 4": {
-      "area": "East Kilbride / East Mains / Rogerton",
-      "territory": "Glasgow South"
-    },
-    "G74 5": {
-      "area": "Thorntonhall",
-      "territory": "Glasgow South"
-    },
-    "G75 8": {
-      "area": "Hairmyers / Westwood / Mossneuk / Jackton",
-      "territory": "Glasgow South"
-    },
-    "G76 0": {
-      "area": "Eaglesham",
-      "territory": "Glasgow South"
-    },
-    "G76 7": {
-      "area": "Williamwood",
-      "territory": "Glasgow South"
-    },
-    "G76 8": {
-      "area": "Clarkston / Busby",
-      "territory": "Glasgow South"
-    },
-    "G76 9": {
-      "area": "Carmunnock",
-      "territory": "Glasgow South"
-    },
-    "G77 5": {
-      "area": "Newton Mearns",
-      "territory": "Glasgow South"
-    },
-    "G77 6": {
-      "area": "Crookfur / Newton Mearns / Eastwood",
-      "territory": "Glasgow South"
-    },
-    "KA1 1": {
-      "area": "Kilmarnock",
-      "territory": "South Ayrshire and Kilmarnock"
-    },
-    "KA1 2": {
-      "area": "Annandale / Kilmarnock",
-      "territory": "South Ayrshire and Kilmarnock"
-    },
-    "KA1 3": {
-      "area": "Bellfield / Kilmarnock",
-      "territory": "South Ayrshire and Kilmarnock"
-    },
-    "KA1 4": {
-      "area": "Riccarton / Shortlees / Caprington",
-      "territory": "South Ayrshire and Kilmarnock"
-    },
-    "KA1 5": {
-      "area": "Symington / Coodham / Craigie / Hurlford",
-      "territory": "South Ayrshire and Kilmarnock"
-    },
-    "KA10 6": {
-      "area": "Troon",
-      "territory": "South Ayrshire and Kilmarnock"
-    },
-    "KA10 7": {
-      "area": "Loans",
-      "territory": "South Ayrshire and Kilmarnock"
-    },
-    "KA16 9": {
-      "area": "Newmilns",
-      "territory": "South Ayrshire and Kilmarnock"
-    },
-    "KA2 0": {
-      "area": "Crosshouse / Knockentiber / Gatehead",
-      "territory": "South Ayrshire and Kilmarnock"
-    },
-    "KA2 9": {
-      "area": "Dundonald",
-      "territory": "South Ayrshire and Kilmarnock"
-    },
-    "KA3 1": {
-      "area": "Altonhill / Hillhead / Beansburn / Knockinlaw",
-      "territory": "South Ayrshire and Kilmarnock"
-    },
-    "KA3 2": {
-      "area": "Cunninghamhead / Kilmaurs",
-      "territory": "South Ayrshire and Kilmarnock"
-    },
-    "KA3 5": {
-      "area": "Stewarton / Kingsford / Fullwood",
-      "territory": "South Ayrshire and Kilmarnock"
-    },
-    "KA3 6": {
-      "area": "Crookedholm / Fenwick",
-      "territory": "South Ayrshire and Kilmarnock"
-    },
-    "KA3 7": {
-      "area": "New Farm",
-      "territory": "South Ayrshire and Kilmarnock"
-    },
-    "KA4 8": {
-      "area": "Moscow / Galston / Sornhill",
-      "territory": "South Ayrshire and Kilmarnock"
-    },
-    "KA5 5": {
-      "area": "Tarbolton",
-      "territory": "South Ayrshire and Kilmarnock"
-    },
-    "KA6 5": {
-      "area": "St. Quivox / Mossblown / Annbank / Sundrum",
-      "territory": "South Ayrshire and Kilmarnock"
-    },
-    "KA6 6": {
-      "area": "Coylton / Dalrymple / Doonholm",
-      "territory": "South Ayrshire and Kilmarnock"
-    },
-    "KA7 1": {
-      "area": "Ayr",
-      "territory": "South Ayrshire and Kilmarnock"
-    },
-    "KA7 2": {
-      "area": "Ayr / Belmont",
-      "territory": "South Ayrshire and Kilmarnock"
-    },
-    "KA7 3": {
-      "area": "Holmston / Forehill / Masonhill / Castlehill",
-      "territory": "South Ayrshire and Kilmarnock"
-    },
-    "KA7 4": {
-      "area": "Alloway / Doonfoot / Fisherton",
-      "territory": "South Ayrshire and Kilmarnock"
-    },
-    "KA8 0": {
-      "area": "Ayr Central",
-      "territory": "South Ayrshire and Kilmarnock"
-    },
-    "KA8 8": {
-      "area": "Ayr / Newton on Ayr",
-      "territory": "South Ayrshire and Kilmarnock"
-    },
-    "KA8 9": {
-      "area": "Lochside / Braehead / Highfield",
-      "territory": "South Ayrshire and Kilmarnock"
-    },
-    "KA9 1": {
-      "area": "Preswick",
-      "territory": "South Ayrshire and Kilmarnock"
-    },
-    "KA9 2": {
-      "area": "Monkton",
-      "territory": "South Ayrshire and Kilmarnock"
-    },
-    "KY1 1": {
-      "area": "Kirkcaldy, Linktown, Port Brae, Kinghorn",
-      "territory": "West Fife and Kinross"
-    },
-    "KY11 1": {
-      "area": "Inverkeithing, North Queensferry, Dunfermline, Pitreavie Castle",
-      "territory": "West Fife and Kinross"
-    },
-    "KY11 2": {
-      "area": "Rosyth, Dunfermline",
-      "territory": "West Fife and Kinross"
-    },
-    "KY11 3": {
-      "area": "Limekilns, charlestown,Halbeath, Piteavie Castle, Crossford, Cairneyhill",
-      "territory": "West Fife and Kinross"
-    },
-    "KY11 4": {
-      "area": "Brucefield, Pitcorthie, Abbey View/ Woodmill Road",
-      "territory": "West Fife and Kinross"
-    },
-    "KY11 7": {
-      "area": "Halbeath, Inverkeithing, Pattiesmuir, Pitcorthie, Charlestown, Brucefield, Dalgety Bay, North Queensferry, Limekilns, Rosyth, Hillend, Dulch,",
-      "territory": "West Fife and Kinross"
-    },
-    "KY11 8": {
-      "area": "Pitreavie Castle, Inverkeithing, North Queensferry, Rosythm Dalgety Bay",
-      "territory": "West Fife and Kinross"
-    },
-    "KY11 9": {
-      "area": "Pattiesmuir, Pitcorthie, Brucefield, Dalgety Bay, North Queensferry , Duloch",
-      "territory": "West Fife and Kinross"
-    },
-    "KY12 0": {
-      "area": "Townhill, Kingseat/Kingseathill, Bellyoman, Headwell, Wellwood/Bowershall",
-      "territory": "West Fife and Kinross"
-    },
-    "KY12 7": {
-      "area": "Kingseathill, Balgonar, Crombie, Wellwood, Hillend, Blairburn, Blairhall, Low Valleyfield, Milesmark, Shires Mill, Steelend, Black Muir Newmills",
-      "territory": "West Fife and Kinross"
-    },
-    "KY12 8": {
-      "area": "Dunfermline, Kingseat, Kingseathill, Balgonar, Crombie, Wellwood, Hill End, Blairburn, Blairhall, Low Calleyfield, Milesmark,",
-      "territory": "West Fife and Kinross"
-    },
-    "KY12 9": {
-      "area": "Dunfermline, Oakley, Saline, Parkneuk, Milesmark, Hilend, Gowkhall, Comrie, Steelend, Cowstrandburn, Balgonar, Carnock, Blairhall",
-      "territory": "West Fife and Kinross"
-    },
-    "KY13 0": {
-      "area": "Crook of Devon, Milnathort, Balado, Pool if Muckhart, CleishDrum, Dalqueich, Carnbo, Rumbling Bridge",
-      "territory": "West Fife and Kinross"
-    },
-    "KY13 9": {
-      "area": "Kinross, Milnathort, Kinnesswood, Scotlandwell",
-      "territory": "West Fife and Kinross"
-    },
-    "KY14 6": {
-      "area": "Den of Lindores / Cupar / Newburgh / Dunbog",
-      "territory": "Perthshire"
-    },
-    "KY14 7": {
-      "area": "Auchtermuchty / Strathmiglo / Dunshalt / Gateside",
-      "territory": "Perthshire"
-    },
-    "KY15 4": {
-      "area": "Cupar / Brunton / Moonzie /Rathillet / Kilmany",
-      "territory": "Perthshire"
-    },
-    "KY16 0": {
-      "area": "Balmullo / Leuchars",
-      "territory": "Perthshire"
-    },
-    "KY2 5": {
-      "area": "Auchtertool, Tempelhill, Dunnikier, Cluny, Hayfield, Chapel, Newliston, Orrock,",
-      "territory": "West Fife and Kinross"
-    },
-    "KY3 0": {
-      "area": "Burnt Island, Aberdour, Kinghorn, Kirkton",
-      "territory": "West Fife and Kinross"
-    },
-    "KY3 9": {
-      "area": "Burnt Island, Kinghorn, Aberdour, Kirkton",
-      "territory": "West Fife and Kinross"
-    },
-    "KY4 0": {
-      "area": "Kelty, Cowdenbeath, Crossgates, Hill of Beath",
-      "territory": "West Fife and Kinross"
-    },
-    "KY4 8": {
-      "area": "Cowdenbeath, Crossgates, Hillof Beath, Fordell, Lumphinnans",
-      "territory": "West Fife and Kinross"
-    },
-    "KY4 9": {
-      "area": "Cowdenbeath, Meadowfield, Lumpinnans",
-      "territory": "West Fife and Kinross"
-    },
-    "KY5 0": {
-      "area": "Bowhill, Woodend, Jamphlars, Lochgelly",
-      "territory": "West Fife and Kinross"
-    },
-    "KY5 8": {
-      "area": "Crosshill, Lochcraig, Lochore",
-      "territory": "West Fife and Kinross"
-    },
-    "KY5 9": {
-      "area": "Lochgelly Cardenden, Kinglassie, Benarty",
-      "territory": "West Fife and Kinross"
-    },
-    "ML2 9": {
-      "area": "Newmains / Morningside",
-      "territory": "North Lanarkshire and Glasgow East"
-    },
-    "ML5 1": {
-      "area": "Drumplellier / Blairhill",
-      "territory": "North Lanarkshire and Glasgow East"
-    },
-    "ML5 2": {
-      "area": "Glenboig",
-      "territory": "North Lanarkshire and Glasgow East"
-    },
-    "ML5 3": {
-      "area": "Coatbridge",
-      "territory": "North Lanarkshire and Glasgow East"
-    },
-    "ML5 4": {
-      "area": "Coatbridge / Rosehall / Sikeside",
-      "territory": "North Lanarkshire and Glasgow East"
-    },
-    "ML5 5": {
-      "area": "Coatbridge / Kirkwood",
-      "territory": "North Lanarkshire and Glasgow East"
-    },
-    "ML6 0": {
-      "area": "Coatbridge / Monklands / Glenmavis",
-      "territory": "North Lanarkshire and Glasgow East"
-    },
-    "ML6 6": {
-      "area": "Airdrie",
-      "territory": "North Lanarkshire and Glasgow East"
-    },
-    "ML6 7": {
-      "area": "Caldercruix",
-      "territory": "North Lanarkshire and Glasgow East"
-    },
-    "ML6 8": {
-      "area": "Chapelhall / Gartness / Craigneuk",
-      "territory": "North Lanarkshire and Glasgow East"
-    },
-    "ML6 9": {
-      "area": "Cranhill / Calderbank / Coatdyke",
-      "territory": "North Lanarkshire and Glasgow East"
-    },
-    "ML7 4": {
-      "area": "Salsburgh / Kirk of Shotts / Shotts",
-      "territory": "North Lanarkshire and Glasgow East"
-    },
-    "ML7 5": {
-      "area": "Harthill / Stane / Hartwood",
-      "territory": "North Lanarkshire and Glasgow East"
-    },
-    "PH1 1": {
-      "area": "Tibbermore",
-      "territory": "Perthshire"
-    },
-    "PH1 2": {
-      "area": "Perth / Letham / Tulloch",
-      "territory": "Perthshire"
-    },
-    "PH1 3": {
-      "area": "Huntingtowerfield / Almondbank / Buchanty",
-      "territory": "Perthshire"
-    },
-    "PH1 4": {
-      "area": "Murthly / Bankfoot / Tullybelton / Glenshee / Stanley",
-      "territory": "Perthshire"
-    },
-    "PH1 5": {
-      "area": "North Inch",
-      "territory": "Perthshire"
-    },
-    "PH13 9": {
-      "area": "Cupar Angus / Kittins / Woodside / Burrelton",
-      "territory": "Perthshire"
-    },
-    "PH14 9": {
-      "area": "Abernyte / Kinnaird / Inchture",
-      "territory": "Perthshire"
-    },
-    "PH2 0": {
-      "area": "Craigend / Aberdalgie / Dunning",
-      "territory": "Perthshire"
-    },
-    "PH2 6": {
-      "area": "Old Scone / Guildtown / St. Martins / Kinrossie / Balbeggie",
-      "territory": "Perthshire"
-    },
-    "PH2 7": {
-      "area": "Kilspindie / Kinfauns / Glencarse / St. Madoes / Errol",
-      "territory": "Perthshire"
-    },
-    "PH2 8": {
-      "area": "Perth / Rhynd / Craigend",
-      "territory": "Perthshire"
-    },
-    "PH2 9": {
-      "area": "Glenfarg / Forgandenny",
-      "territory": "Perthshire"
-    },
-    "PH3 1": {
-      "area": "Auchterarder",
-      "territory": "Perthshire"
-    },
-    "PH4 1": {
-      "area": "Blackford",
-      "territory": "Perthshire"
-    },
-    "PH5 2": {
-      "area": "Muthill",
-      "territory": "Perthshire"
-    },
-    "PH6 2": {
-      "area": "Comrie / Invergeldie / St. Fillans",
-      "territory": "Perthshire"
-    },
-    "PH7 3": {
-      "area": "Crieff / St. Davids / Gilmerton",
-      "territory": "Perthshire"
-    },
-    "PH7 4": {
-      "area": "Crieff",
-      "territory": "Perthshire"
-    },
-    "TD1 1": {
-      "area": "Galashiels",
-      "territory": "Scottish Borders"
-    },
-    "TD1 2": {
-      "area": "Abbotsford, Langlee/ Fountainhall",
-      "territory": "Scottish Borders"
-    },
-    "TD1 3": {
-      "area": "Clovenfords",
-      "territory": "Scottish Borders"
-    },
-    "TD10 6": {
-      "area": "Duns, Channelkirk",
-      "territory": "Scottish Borders"
-    },
-    "TD11 3": {
-      "area": "Eyemouth/Duns",
-      "territory": "Scottish Borders"
-    },
-    "TD12 4": {
-      "area": "Springwood Park/Coldstream",
-      "territory": "Scottish Borders"
-    },
-    "TD13 5": {
-      "area": "Oxton/Cockburnspath",
-      "territory": "Scottish Borders"
-    },
-    "TD14 5": {
-      "area": "St Abbs Head/Ayton/Coldingham",
-      "territory": "Scottish Borders"
-    },
-    "TD2 6": {
-      "area": "Lauder, Oxton, Stow",
-      "territory": "Scottish Borders"
-    },
-    "TD3 6": {
-      "area": "Gordon",
-      "territory": "Scottish Borders"
-    },
-    "TD4 6": {
-      "area": "Earlston/Huntlywood",
-      "territory": "Scottish Borders"
-    },
-    "TD5 7": {
-      "area": "Kelso",
-      "territory": "Scottish Borders"
-    },
-    "TD5 8": {
-      "area": "Smailholm/Kalemouth/ Morebattle",
-      "territory": "Scottish Borders"
-    },
-    "TD6 0": {
-      "area": "St Boswells, Newton St Boswells",
-      "territory": "Scottish Borders"
-    },
-    "TD6 9": {
-      "area": "Melrose, Eildon Hills",
-      "territory": "Scottish Borders"
-    },
-    "TD7 4": {
-      "area": "Hawick/Selkirk",
-      "territory": "Scottish Borders"
-    },
-    "TD7 5": {
-      "area": "Denholm, Cavers",
-      "territory": "Scottish Borders"
-    },
-    "TD8 6": {
-      "area": "Jedburgh",
-      "territory": "Scottish Borders"
-    },
-    "TD9 0": {
-      "area": "Langholm / Newcastleton",
-      "territory": "Scottish Borders"
-    },
-    "TD9 7": {
-      "area": "Eskdale/Liddesdale/Hawick",
-      "territory": "Scottish Borders"
-    },
-    "TD9 8": {
-      "area": "Langholm Castle/ Langholm Moor/ Denholm/ Southdean",
-      "territory": "Scottish Borders"
-    },
-    "TD9 9": {
-      "area": "Liddesdale Valleys",
-      "territory": "Scottish Borders"
-    }
-  },
-  "independentFranchises": {
     "Dundee and South Angus": {
+      "group": "Independent Franchise",
       "postcodeSectors": [
         "DD5 4",
         "DD2 3",
@@ -1864,6 +2366,7 @@
       "sourceUrl": "https://www.homeinstead.co.uk/dundee/about-us/"
     },
     "East Fife": {
+      "group": "Independent Franchise",
       "postcodeSectors": [
         "KY6 2",
         "KY7 4",
@@ -2043,6 +2546,7 @@
       "sourceUrl": "https://www.homeinstead.co.uk/east-fife/about-us/"
     },
     "Edinburgh": {
+      "group": "Independent Franchise",
       "postcodeSectors": [
         "EH9 3",
         "EH6 8",
@@ -2152,6 +2656,7 @@
       "sourceUrl": "https://www.homeinstead.co.uk/edinburgh/about-us/"
     },
     "Edinburgh West": {
+      "group": "Independent Franchise",
       "postcodeSectors": [
         "EH4 7",
         "EH14 4",
@@ -2236,6 +2741,7 @@
       "sourceUrl": "https://www.homeinstead.co.uk/edinburgh-west/about-us/"
     },
     "Inverclyde and North Ayrshire": {
+      "group": "Independent Franchise",
       "postcodeSectors": [
         "KA12 0",
         "PA15 2",
@@ -2354,6 +2860,7 @@
       "sourceUrl": "https://www.homeinstead.co.uk/inverclyde-north-ayrshire/about-us/"
     },
     "Renfrewshire and Barrhead": {
+      "group": "Independent Franchise",
       "postcodeSectors": [
         "G78 2",
         "PA3 1",
@@ -2431,6 +2938,7 @@
       "sourceUrl": "https://www.homeinstead.co.uk/renfrewshire-barrhead/about-us/"
     },
     "South Lanarkshire – Lanark": {
+      "group": "Independent Franchise",
       "postcodeSectors": [
         "ML8 5",
         "ML10 6",
@@ -2466,6 +2974,7 @@
       "sourceUrl": "https://www.homeinstead.co.uk/south-lanarkshire/about-us/"
     },
     "South Lanarkshire – Hamilton": {
+      "group": "Independent Franchise",
       "postcodeSectors": [
         "G72 7",
         "G71 5",
@@ -2505,6 +3014,7 @@
       "sourceUrl": "https://www.homeinstead.co.uk/south-lanarkshire-hamilton/about-us/"
     },
     "West Dunbartonshire, Argyll & Bute and Arran": {
+      "group": "Independent Franchise",
       "postcodeSectors": [
         "PA34 5",
         "G83 0",
