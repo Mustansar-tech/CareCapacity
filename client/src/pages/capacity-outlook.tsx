@@ -130,7 +130,8 @@ const leaverFormSchema = z.object({
   employeeNo: z.string().min(1, "Employee number is required"),
   gender: z.enum(["male", "female", "other"], { required_error: "Gender is required" }),
   employmentType: z.enum(["driver", "walker"], { required_error: "Type is required" }),
-  weeklyHours: z.coerce.number({ invalid_type_error: "Enter hours or select Bank" }).nonnegative("Enter hours or select Bank"),
+  weeklyHours: z.coerce.number({ invalid_type_error: "Enter hours or select Bank/LIC" }).nonnegative("Enter hours or select Bank/LIC"),
+  isLic: z.boolean().default(false),
   contractedHours: z.coerce.number({ invalid_type_error: "Enter contracted hours" }).nonnegative("Must be 0 or more"),
   postcode: z.string().min(1, "Postcode is required"),
   firstDayOfNotice: z.string().min(1, "Day of notice is required"),
@@ -180,6 +181,7 @@ function LeaverModal({
       employeeNo: "",
       gender: undefined,
       weeklyHours: undefined as any,
+      isLic: false,
       contractedHours: undefined,
       postcode: "",
       firstDayOfNotice: "",
@@ -197,6 +199,7 @@ function LeaverModal({
           gender: (editing.gender as "male" | "female" | "other") ?? undefined,
           employmentType: editing.employmentType as "driver" | "walker",
           weeklyHours: editing.weeklyHours ?? (undefined as any),
+          isLic: editing.isLic ?? false,
           contractedHours: editing.contractedHours ?? undefined,
           postcode: editing.postcode ?? "",
           firstDayOfNotice: editing.firstDayOfNotice ?? "",
@@ -209,6 +212,7 @@ function LeaverModal({
           employeeNo: "",
           gender: undefined,
           weeklyHours: undefined as any,
+      isLic: false,
           contractedHours: undefined,
           postcode: "",
           firstDayOfNotice: "",
@@ -310,26 +314,29 @@ function LeaverModal({
               )} />
 
               <FormField control={form.control} name="weeklyHours" render={({ field }) => {
-                const isBank = field.value === 0;
+                const isLic = form.watch('isLic');
+                const isBank = field.value === 0 && !isLic;
+                const isSpecial = isBank || (field.value === 0 && isLic);
                 return (
                   <FormItem>
                     <FormLabel>Desired Hrs/wk <span className="text-red-500">*</span></FormLabel>
                     <FormControl>
                       <div>
-                        {isBank ? (
+                        {isSpecial ? (
                           <button
                             type="button"
-                            onClick={() => field.onChange(undefined)}
+                            onClick={() => { form.setValue('isLic', false); field.onChange(undefined); }}
                             style={{
                               width: '100%', height: 36, borderRadius: 6,
-                              border: '2px solid #6366F1', background: '#EEF2FF',
-                              color: '#4F46E5', fontSize: 13, fontWeight: 700,
+                              border: isLic ? '2px solid #0D9488' : '2px solid #6366F1',
+                              background: isLic ? '#F0FDFA' : '#EEF2FF',
+                              color: isLic ? '#0F766E' : '#4F46E5', fontSize: 13, fontWeight: 700,
                               cursor: 'pointer', display: 'flex', alignItems: 'center',
                               justifyContent: 'center', gap: 6,
                             }}
                           >
-                            Bank
-                            <span style={{ fontSize: 10, fontWeight: 400, color: '#818CF8' }}>click to enter hours</span>
+                            {isLic ? 'LIC' : 'Bank'}
+                            <span style={{ fontSize: 10, fontWeight: 400, color: isLic ? '#5EEAD4' : '#818CF8' }}>click to enter hours</span>
                           </button>
                         ) : (
                           <div style={{ display: 'flex', gap: 6 }}>
@@ -340,7 +347,7 @@ function LeaverModal({
                             />
                             <button
                               type="button"
-                              onClick={() => field.onChange(0)}
+                              onClick={() => { form.setValue('isLic', false); field.onChange(0); }}
                               style={{
                                 padding: '0 12px', height: 36, borderRadius: 6, flexShrink: 0,
                                 border: '1px solid #E2E8F0', background: 'white',
@@ -348,6 +355,17 @@ function LeaverModal({
                               }}
                             >
                               Bank
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => { form.setValue('isLic', true); field.onChange(0); }}
+                              style={{
+                                padding: '0 12px', height: 36, borderRadius: 6, flexShrink: 0,
+                                border: '1px solid #E2E8F0', background: 'white',
+                                color: '#0F766E', fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                              }}
+                            >
+                              LIC
                             </button>
                           </div>
                         )}
@@ -2109,7 +2127,7 @@ export default function CapacityOutlookPage() {
                             <TableCell>
                               <Badge variant="outline" className="capitalize text-xs">{l.employmentType}</Badge>
                             </TableCell>
-                            <TableCell>{l.weeklyHours === 0 ? <Badge variant="outline" className="text-xs text-indigo-600 border-indigo-200 bg-indigo-50">Bank</Badge> : `${l.weeklyHours}h`}</TableCell>
+                            <TableCell>{l.isLic ? <Badge variant="outline" className="text-xs text-teal-700 border-teal-200 bg-teal-50">LIC</Badge> : l.weeklyHours === 0 ? <Badge variant="outline" className="text-xs text-indigo-600 border-indigo-200 bg-indigo-50">Bank</Badge> : `${l.weeklyHours}h`}</TableCell>
                             <TableCell>{l.contractedHours != null ? `${l.contractedHours}h` : '—'}</TableCell>
                             <TableCell className="font-mono text-xs">{l.postcode || '—'}</TableCell>
                             <TableCell>{l.firstDayOfNotice ? formatDate(l.firstDayOfNotice) : '—'}</TableCell>
@@ -2177,7 +2195,7 @@ export default function CapacityOutlookPage() {
                               <TableCell>
                                 <Badge variant="outline" className="capitalize text-xs">{l.employmentType}</Badge>
                               </TableCell>
-                              <TableCell>{l.weeklyHours === 0 ? <Badge variant="outline" className="text-xs text-indigo-600 border-indigo-200 bg-indigo-50">Bank</Badge> : `${l.weeklyHours}h`}</TableCell>
+                              <TableCell>{l.isLic ? <Badge variant="outline" className="text-xs text-teal-700 border-teal-200 bg-teal-50">LIC</Badge> : l.weeklyHours === 0 ? <Badge variant="outline" className="text-xs text-indigo-600 border-indigo-200 bg-indigo-50">Bank</Badge> : `${l.weeklyHours}h`}</TableCell>
                               <TableCell>{l.contractedHours != null ? `${l.contractedHours}h` : '—'}</TableCell>
                               <TableCell className="font-mono text-xs">{l.postcode || '—'}</TableCell>
                               <TableCell>{l.firstDayOfNotice ? formatDate(l.firstDayOfNotice) : '—'}</TableCell>
@@ -2261,7 +2279,7 @@ export default function CapacityOutlookPage() {
                                         <TableCell>
                                           <Badge variant="outline" className="capitalize text-xs">{l.employmentType}</Badge>
                                         </TableCell>
-                                        <TableCell>{l.weeklyHours === 0 ? <Badge variant="outline" className="text-xs text-indigo-600 border-indigo-200 bg-indigo-50">Bank</Badge> : `${l.weeklyHours}h`}</TableCell>
+                                        <TableCell>{l.isLic ? <Badge variant="outline" className="text-xs text-teal-700 border-teal-200 bg-teal-50">LIC</Badge> : l.weeklyHours === 0 ? <Badge variant="outline" className="text-xs text-indigo-600 border-indigo-200 bg-indigo-50">Bank</Badge> : `${l.weeklyHours}h`}</TableCell>
                                         <TableCell>{l.contractedHours != null ? `${l.contractedHours}h` : '—'}</TableCell>
                                         <TableCell>{formatDate(l.lastWorkingDay)}</TableCell>
                                         <TableCell className="text-xs text-muted-foreground max-w-[200px] whitespace-pre-wrap">{l.notes || '—'}</TableCell>

@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, timestamp, jsonb, unique, index, integer, serial, real } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, timestamp, jsonb, unique, index, integer, serial, real, boolean } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -797,6 +797,9 @@ export const leavers = pgTable("leavers", {
   gender: text("gender", { enum: ["male", "female", "other"] }),
   employmentType: text("employment_type", { enum: ["driver", "walker"] }).notNull(),
   weeklyHours: real("weekly_hours").notNull(),
+  // LIC leavers: shown like Bank in the Desired Hrs column, excluded from KPI
+  // counts, but still included in the monthly leavers report.
+  isLic: boolean("is_lic").notNull().default(false),
   contractedHours: real("contracted_hours"),
   postcode: text("postcode"),
   firstDayOfNotice: text("first_day_of_notice"),
@@ -818,6 +821,7 @@ export const insertLeaverSchema = createInsertSchema(leavers).omit({
 }).extend({
   employmentType: z.enum(["driver", "walker"]),
   weeklyHours: z.number().nonnegative(),
+  isLic: z.boolean().default(false),
   contractedHours: z.number().nonnegative().optional().nullable(),
   status: z.enum(["active", "processed"]).default("active"),
 });

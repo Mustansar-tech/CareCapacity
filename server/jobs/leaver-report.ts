@@ -90,7 +90,7 @@ async function buildExcel(sections: BranchSection[], monthLabel: string): Promis
 
   let totalHrsAll = 0;
   for (const sec of sections) {
-    const hrs = sec.rows.reduce((s, l) => s + (l.weeklyHours ?? 0), 0);
+    const hrs = sec.rows.reduce((s, l) => s + (l.isLic ? 0 : (l.weeklyHours ?? 0)), 0);
     totalHrsAll += hrs;
     const row = summary.addRow({ branch: sec.displayName, leavers: sec.rows.length, hours: hrs });
     row.border = BORDER;
@@ -136,7 +136,7 @@ async function buildExcel(sections: BranchSection[], monthLabel: string): Promis
         name:    l.employeeName,
         empNo:   l.employeeNo ?? '',
         type:    capitalize(l.employmentType),
-        wkHrs:   l.weeklyHours ?? '',
+        wkHrs:   l.isLic ? 'LIC' : (l.weeklyHours ?? ''),
         ctHrs:   l.contractedHours ?? '',
         lastDay: formatDate(l.lastWorkingDay),
         notes:   l.notes ?? '',
@@ -155,16 +155,16 @@ async function buildExcel(sections: BranchSection[], monthLabel: string): Promis
 // ── HTML email ────────────────────────────────────────────────────────────────
 
 function buildHtml(sections: BranchSection[], monthLabel: string, totalLeavers: number): string {
-  const totalHrs = sections.reduce((s, sec) => s + sec.rows.reduce((a, l) => a + (l.weeklyHours ?? 0), 0), 0);
+  const totalHrs = sections.reduce((s, sec) => s + sec.rows.reduce((a, l) => a + (l.isLic ? 0 : (l.weeklyHours ?? 0)), 0), 0);
 
   const branchCards = sections.map(({ displayName, rows }) => {
-    const sectionHrs = rows.reduce((s, l) => s + (l.weeklyHours ?? 0), 0);
+    const sectionHrs = rows.reduce((s, l) => s + (l.isLic ? 0 : (l.weeklyHours ?? 0)), 0);
     const tableRows = rows.map((l, i) => `
       <tr style="background:${i % 2 === 0 ? '#fff' : '#f9fafb'}">
         <td style="padding:9px 14px;border-bottom:1px solid #f3f4f6;font-weight:500;color:#111827">${l.employeeName}</td>
         <td style="padding:9px 14px;border-bottom:1px solid #f3f4f6;font-family:monospace;font-size:12px;color:#374151">${l.employeeNo ?? '—'}</td>
         <td style="padding:9px 14px;border-bottom:1px solid #f3f4f6;color:#374151">${capitalize(l.employmentType)}</td>
-        <td style="padding:9px 14px;border-bottom:1px solid #f3f4f6;text-align:right;color:#374151;font-weight:500">${l.weeklyHours != null ? `${l.weeklyHours}h` : '—'}</td>
+        <td style="padding:9px 14px;border-bottom:1px solid #f3f4f6;text-align:right;color:#374151;font-weight:500">${l.isLic ? 'LIC' : l.weeklyHours != null ? `${l.weeklyHours}h` : '—'}</td>
         <td style="padding:9px 14px;border-bottom:1px solid #f3f4f6;text-align:right;color:#374151">${l.contractedHours != null ? `${l.contractedHours}h` : '—'}</td>
         <td style="padding:9px 14px;border-bottom:1px solid #f3f4f6;color:#dc2626;font-weight:500">${formatDate(l.lastWorkingDay)}</td>
         <td style="padding:9px 14px;border-bottom:1px solid #f3f4f6;color:#6b7280;font-size:12px">${l.notes || '—'}</td>

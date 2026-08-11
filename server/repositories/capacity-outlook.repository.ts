@@ -65,6 +65,7 @@ function weekLabel(weekStart: string): string {
 // ── Per-week contribution calculations ───────────────────────────────────────
 
 function calcLossForWeek(leaver: Leaver, weekStart: string, weekEnd: string): number {
+  if (leaver.isLic) return 0; // LIC leavers don't count towards capacity loss KPIs
   const lwd = leaver.lastWorkingDay;
   if (lwd < weekStart) {
     return leaver.weeklyHours ?? 0;
@@ -358,7 +359,8 @@ export async function getCurrentMonthLive(branchId: string): Promise<{
   const allLeavers = await getLeavers(branchId, false);
   // Running total: only count active leavers whose last working day has actually passed (≤ today)
   const leaversThisMonth = allLeavers.filter(l =>
-    l.lastWorkingDay >= start && l.lastWorkingDay < end && l.lastWorkingDay <= todayStr,
+    l.lastWorkingDay >= start && l.lastWorkingDay < end && l.lastWorkingDay <= todayStr
+    && !l.isLic, // LIC leavers are excluded from KPI counts (still in the leavers report)
   );
   const hoursOut = round2(leaversThisMonth.reduce((s, l) => s + (l.weeklyHours ?? 0), 0));
   const headsOut = leaversThisMonth.length;
@@ -422,7 +424,8 @@ export async function computeCumulativeKpi(branchId: string): Promise<Cumulative
   const allLeaversRaw = await getLeavers(branchId, true);
   const todayStr = isoDate(new Date());
   const terminatedYtd = allLeaversRaw.filter(l =>
-    l.lastWorkingDay >= ytdStart && l.lastWorkingDay < ytdEnd && l.lastWorkingDay <= todayStr,
+    l.lastWorkingDay >= ytdStart && l.lastWorkingDay < ytdEnd && l.lastWorkingDay <= todayStr
+    && !l.isLic, // LIC leavers are excluded from KPI counts
   ).length;
 
   const hiredYtd = allJoiners.filter(j =>
@@ -509,7 +512,8 @@ export async function closeMonth(
 
   const allLeavers = await getLeavers(branchId, true);
   const leaversThisMonth = allLeavers.filter(l =>
-    l.lastWorkingDay >= start && l.lastWorkingDay < end,
+    l.lastWorkingDay >= start && l.lastWorkingDay < end
+    && !l.isLic, // LIC leavers are excluded from all KPI snapshots
   );
   const hoursOut = round2(leaversThisMonth.reduce((s, l) => s + (l.weeklyHours ?? 0), 0));
   const headsOut = leaversThisMonth.length;
