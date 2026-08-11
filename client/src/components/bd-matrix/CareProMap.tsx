@@ -262,8 +262,8 @@ export function CareProMap({
             key="all-territories"
             data={visibleTerritories}
             style={(feature) => feature?.properties?.group === 'independent'
-              ? { color: '#dc2626', weight: 4, fillColor: '#dc2626', fillOpacity: 0.05, dashArray: '8 6' }
-              : { color: '#7c3aed', weight: 4, fillColor: '#7c3aed', fillOpacity: 0.06 }}
+              ? { color: '#dc2626', weight: 3, fillColor: '#dc2626', fillOpacity: 0.05, dashArray: '8 6' }
+              : { color: '#7c3aed', weight: 3, fillColor: '#7c3aed', fillOpacity: 0.06 }}
             onEachFeature={(feature, layer) => {
               const name = feature.properties?.realName;
               const label = feature.properties?.group === 'independent' ? `${name} (Independent Franchise)` : name;
