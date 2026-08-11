@@ -333,9 +333,27 @@ export function CareProMap({
   );
 
   return (
+    <>
+    {/* SVG pattern defs — declared here so url(#...) references resolve anywhere in the document */}
+    <svg style={{ position: 'absolute', width: 0, height: 0, overflow: 'hidden' }} aria-hidden>
+      <defs>
+        {/* Diagonal hatch used to fill non-SUR territories — distinct from SUR solid fills */}
+        <pattern id="hatch-non-sur" patternUnits="userSpaceOnUse" width="8" height="8" patternTransform="rotate(45 0 0)">
+          <line x1="0" y1="0" x2="0" y2="8" stroke="#b91c1c" strokeWidth="1.5" strokeOpacity="0.45" />
+        </pattern>
+      </defs>
+    </svg>
     <div className="absolute inset-0">
       <MapContainer center={center} zoom={10} style={{ height: '100%', width: '100%' }} scrollWheelZoom zoomControl={false}>
-        <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+        {/* CartoDB Positron — neutral light-grey basemap; territories and markers
+            read clearly against it without competing with OSM's green forests
+            and blue water. Free, no API key required. */}
+        <TileLayer
+          url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
+          attribution='© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors © <a href="https://carto.com/attributions">CARTO</a>'
+          subdomains="abcd"
+          maxZoom={20}
+        />
 
         <SearchFlyTo result={searchResult} />
 
@@ -350,10 +368,10 @@ export function CareProMap({
               const color = getFranchiseColor(slug);
               return {
                 color,
-                weight: isSelected ? 5 : 3.5,
-                opacity: isSelected ? 1 : 0.7,
+                weight: isSelected ? 2.5 : 1.5,
+                opacity: isSelected ? 1 : 0.5,
                 fillColor: color,
-                fillOpacity: isSelected ? 0.1 : 0.03,
+                fillOpacity: isSelected ? 0.18 : 0.05,
                 lineCap: 'round' as const,
                 lineJoin: 'round' as const,
               };
@@ -377,12 +395,11 @@ export function CareProMap({
           <GeoJSON
             data={otherTerritories as any}
             style={() => ({
-              color: '#dc2626',
+              color: '#b91c1c',
               weight: 2,
-              opacity: 0.55,
-              fillColor: '#dc2626',
-              fillOpacity: 0.06,
-              dashArray: '6 4',
+              opacity: 0.75,
+              fillColor: 'url(#hatch-non-sur)',
+              fillOpacity: 1,
               lineCap: 'round' as const,
               lineJoin: 'round' as const,
             })}
@@ -407,8 +424,8 @@ export function CareProMap({
               ref={(marker) => {
                 if (marker && !marker.getTooltip()) {
                   marker.bindTooltip(
-                    `<span style="display:inline-flex;align-items:center;gap:6px;color:#991b1b;"><span style="width:8px;height:8px;border-radius:9999px;background:#dc2626;display:inline-block;"></span>${realName}</span>`,
-                    { permanent: true, direction: 'center', className: 'font-bold text-[10px] !bg-white/80 !border-red-200' },
+                    `<span style="display:inline-flex;align-items:center;gap:5px;color:#7f1d1d;font-weight:700;font-size:11px;letter-spacing:0.01em;"><span style="width:7px;height:7px;border-radius:9999px;background:#b91c1c;flex-shrink:0;display:inline-block;"></span>${realName}</span>`,
+                    { permanent: true, direction: 'center', className: '!bg-white/90 !border-red-300 !shadow-md !px-2 !py-1 !rounded-lg' },
                   );
                 }
               }}
@@ -583,5 +600,6 @@ export function CareProMap({
         )}
       </div>
     </div>
+    </>
   );
 }
