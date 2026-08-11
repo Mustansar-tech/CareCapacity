@@ -52,10 +52,13 @@ Working scripts live in `reference/` next to this file. Steps:
      sector "FK1 3"); rejecting them silently drops real cells and punches false multi-km² holes
    - compute hole/sliver areas AFTER reprojecting to WGS84 (or convert first) — turf.area on raw BNG
      metre coordinates returns garbage and the <1 km² noise filter silently keeps everything
-   - territories touching the English border (or open coast beyond point coverage) spill outward
-     because NRS points cover Scotland only — clip the WGS84 result against the Scotland national
-     boundary (ONS \`Countries_December_2023_Boundaries_UK_BUC\` FeatureServer, where CTRY23NM='Scotland',
-     f=geojson) via turf.intersect. Scottish Borders needed this (7528 km² → 3769 km² after clip).
+   - **ALWAYS clip the WGS84 result against the Scotland national boundary** (ONS
+     \`Countries_December_2023_Boundaries_UK_BUC\` FeatureServer, where CTRY23NM='Scotland', f=geojson)
+     via turf.intersect — this is a mandatory step for every territory, coastal or not. NRS points
+     cover Scotland only, so coastal/border territories spill into the sea or England (Scottish
+     Borders: 7528 → 3769 km²; East Lothian: 2516 → 1669 km²), and inland ones pass through unchanged.
+     The user requires this for consistency. After clipping, keep the largest part and re-apply the
+     <1 km² hole/sliver filter.
    - **post-union cleanup** (needed for Glasgow South): stray misassigned unit postcodes create tiny
      interior holes and detached slivers. Keep only the largest polygon part and drop interior rings
      < 1 km²; anything that small is point noise, not real geography. Real parts/holes would be sector-sized.
