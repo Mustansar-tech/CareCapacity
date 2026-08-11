@@ -1,7 +1,8 @@
 import { useState, useMemo, useEffect, useRef } from "react";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
-import { MapContainer, TileLayer, Marker, Popup, Tooltip, useMap } from "react-leaflet";
+import { MapContainer, TileLayer, Marker, Popup, Tooltip, useMap, GeoJSON } from "react-leaflet";
+import type { FeatureCollection } from "geojson";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { RefreshCw, ZoomIn, ZoomOut, Eye, EyeOff, Map as MapIcon, Search, X } from "lucide-react";
@@ -85,6 +86,16 @@ export function CareProMap({
 }) {
   const [showPostcodes, setShowPostcodes] = useState(false);
   const [layer, setLayer] = useState<MapLayer>('both');
+
+  // Franchise territory borders — built one franchise at a time from real postcode-sector
+  // boundary data (currently: Glasgow North only). Purely visual; no marker/filter logic.
+  const [territories, setTerritories] = useState<FeatureCollection | null>(null);
+  useEffect(() => {
+    fetch('/data/franchise-territories.geo.json')
+      .then(res => (res.ok ? res.json() : null))
+      .then(setTerritories)
+      .catch(() => setTerritories(null));
+  }, []);
 
   // Search state
   const [searchOpen, setSearchOpen] = useState(false);
@@ -208,6 +219,18 @@ export function CareProMap({
         <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
 
         <SearchFlyTo result={searchResult} />
+
+        {/* Franchise territory borders (accurate boundaries added one franchise at a time) */}
+        {territories && (
+          <GeoJSON
+            data={territories}
+            style={{ color: '#7c3aed', weight: 2.5, fillColor: '#7c3aed', fillOpacity: 0.08 }}
+            onEachFeature={(feature, layer) => {
+              const name = feature.properties?.realName;
+              if (name) layer.bindTooltip(name, { sticky: true, className: 'font-bold text-xs' });
+            }}
+          />
+        )}
 
         {showCPs && jitteredEmployees.map((loc) => (
           <Marker key={`cp-${loc.id}`} position={[loc._jLat, loc._jLng]} icon={makeIcon(loc.gender || '')}>
@@ -360,6 +383,15 @@ export function CareProMap({
             <div className="flex items-center gap-2">
               <svg width="14" height="18" viewBox="0 0 32 40"><path d="M16 0C7.163 0 0 7.163 0 16c0 10 16 24 16 24S32 26 32 16C32 7.163 24.837 0 16 0z" fill="#eab308" stroke="white" strokeWidth="2"/></svg>
               <span className="text-xs font-semibold text-gray-700">Search: {searchResult.postcode}</span>
+            </div>
+          </>
+        )}
+        {territories && territories.features.length > 0 && (
+          <>
+            <div className="border-t border-gray-100 my-0.5" />
+            <div className="flex items-center gap-2">
+              <div className="w-3.5 h-3.5 rounded-sm border-2 border-violet-600 bg-violet-600/10" />
+              <span className="text-xs font-semibold text-gray-700">Territory border</span>
             </div>
           </>
         )}

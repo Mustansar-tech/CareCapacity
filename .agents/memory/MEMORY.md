@@ -1,3 +1,4 @@
 - [Drizzle push vs Supabase](drizzle-push-supabase.md) — `npm run db:push` fails against the Supabase pooler; use SSL env overrides or create tables via direct SQL.
 - [DPO Standing Role](dpo-standing-role.md) — Ongoing privacy lead for Care Capacity; DPIA complete at docs/DPIA-Care-Capacity.md; 10 open compliance actions; PVG = criminal-offence data; no Art 28 DPAs obtained yet.
 - [Supabase egress / visits bloat](supabase-egress-visits-bloat.md) — check table sizes first when diagnosing egress; upload pipelines must clear/upsert prior rows for a scope before re-inserting or storage grows unbounded.
+- [Scotland postcode territory boundaries](scotland-postcode-territory-boundaries.md) — build accurate franchise territories via Voronoi over real NRS unit postcode points, not buffer-and-dissolve (caused rollbacks twice).
