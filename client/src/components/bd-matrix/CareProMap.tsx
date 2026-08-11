@@ -97,7 +97,7 @@ function territoryLabelPoint(geometry: any): [number, number] | null {
 }
 
 /** Territory name labels — visible from zoom 8 in, hidden when zoomed far out. */
-function TerritoryLabels({ territories }: { territories: FeatureCollection }) {
+function TerritoryLabels({ territories, selectedSlugs }: { territories: FeatureCollection; selectedSlugs: Set<string> }) {
   const map = useMap();
   const [zoom, setZoom] = useState(map.getZoom());
   useEffect(() => {
@@ -111,10 +111,11 @@ function TerritoryLabels({ territories }: { territories: FeatureCollection }) {
         const pos = territoryLabelPoint(f.geometry);
         const name = f.properties?.realName as string | undefined;
         if (!pos || !name) return null;
-        return { pos, name, color: territoryColor(f.properties?.branch) };
+        const focused = selectedSlugs.size === 0 || selectedSlugs.has(f.properties?.branch);
+        return { pos, name, color: focused ? territoryColor(f.properties?.branch) : '#94a3b8', focused };
       })
-      .filter(Boolean) as { pos: [number, number]; name: string; color: string }[],
-  [territories]);
+      .filter(Boolean) as { pos: [number, number]; name: string; color: string; focused: boolean }[],
+  [territories, selectedSlugs]);
   if (zoom < 8) return null;
   return (
     <>
@@ -131,7 +132,9 @@ function TerritoryLabels({ territories }: { territories: FeatureCollection }) {
               font: 700 ${zoom >= 10 ? 12 : 10.5}px/1.2 system-ui, -apple-system, sans-serif;
               letter-spacing: 0.02em;
               color: ${l.color};
-              text-shadow: 0 0 3px #fff, 0 0 6px #fff, 1px 1px 2px rgba(255,255,255,0.95), -1px -1px 2px rgba(255,255,255,0.95);
+              opacity: ${l.focused ? 1 : 0.45};
+              text-shadow: 0 0 4px #000, 0 0 8px rgba(0,0,0,0.9), 1px 1px 2px rgba(0,0,0,0.95);
+              filter: brightness(${l.focused ? 1.35 : 1});
               pointer-events: none;
             ">${l.name}</div>`,
             iconSize: [0, 0],
@@ -350,28 +353,40 @@ export function CareProMap({
   return (
     <div className="absolute inset-0">
       <MapContainer center={center} zoom={10} style={{ height: '100%', width: '100%' }} scrollWheelZoom zoomControl={false}>
-        <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+        <TileLayer
+          url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
+          subdomains="abcd"
+        />
 
         <SearchFlyTo result={searchResult} />
 
-        {/* Franchise territories — all 19 always visible. Atlas style: white casing under
-            a slim per-territory coloured border + soft tinted fill, with name labels.
-            Markers (not territories) follow the franchise picker. */}
+        {/* Franchise territories — Dark Command Centre + focus mode.
+            All 19 always visible as luminous outlines on the dark basemap.
+            Ticked franchises glow bright with a tinted fill; the rest rest dim.
+            When nothing is ticked, all territories share the same resting glow. */}
         {visibleTerritories && (
           <>
-            {/* Casing layer: crisp white halo under the coloured borders */}
+            {/* Glow layer: wide, soft, low-opacity halo under each border */}
             <GeoJSON
-              key="territory-casing"
+              key={`territory-glow|${Array.from(selectedSlugs).sort().join(',')}`}
               data={visibleTerritories}
-              style={{ color: '#ffffff', weight: 5, fill: false, opacity: 0.9 }}
+              style={(feature) => {
+                const focused = selectedSlugs.size === 0 || selectedSlugs.has(feature?.properties?.branch);
+                const c = territoryColor(feature?.properties?.branch);
+                return { color: c, weight: focused ? 8 : 5, opacity: focused ? 0.28 : 0.1, fill: false };
+              }}
               interactive={false}
             />
             <GeoJSON
-              key="all-territories"
+              key={`all-territories|${Array.from(selectedSlugs).sort().join(',')}`}
               data={visibleTerritories}
               style={(feature) => {
-                const c = territoryColor(feature?.properties?.branch);
-                return { color: c, weight: 2.25, fillColor: c, fillOpacity: 0.12 };
+                const focused = selectedSlugs.size === 0 || selectedSlugs.has(feature?.properties?.branch);
+                const c = focused ? territoryColor(feature?.properties?.branch) : '#64748b';
+                return focused
+                  ? { color: c, weight: 2, opacity: 0.95, fillColor: c, fillOpacity: selectedSlugs.size === 0 ? 0.07 : 0.14 }
+                  : { color: c, weight: 1.25, opacity: 0.55, fillColor: c, fillOpacity: 0.03 };
               }}
               onEachFeature={(feature, layer) => {
                 const name = feature.properties?.realName;
@@ -379,7 +394,7 @@ export function CareProMap({
                 if (name) layer.bindTooltip(label, { sticky: true, className: 'font-bold text-xs' });
               }}
             />
-            <TerritoryLabels territories={visibleTerritories} />
+            <TerritoryLabels territories={visibleTerritories} selectedSlugs={selectedSlugs} />
           </>
         )}
 
