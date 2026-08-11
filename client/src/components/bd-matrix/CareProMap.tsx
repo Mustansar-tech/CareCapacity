@@ -210,7 +210,11 @@ export function CareProMap({
   const visibleTerritories = useMemo<FeatureCollection | null>(() => {
     if (!territories) return null;
     if (!hasFranchisePicker) return territories;
-    const features = territories.features.filter(f => selectedSlugs.has(f.properties?.branch));
+    // Independent (non-SUR) franchise territories are always shown as context;
+    // SUR territories show only when their franchise is ticked in the picker.
+    const features = territories.features.filter(
+      f => f.properties?.group === 'independent' || selectedSlugs.has(f.properties?.branch),
+    );
     return features.length > 0 ? { ...territories, features } : null;
   }, [territories, hasFranchisePicker, selectedSlugs]);
 
@@ -265,10 +269,13 @@ export function CareProMap({
           <GeoJSON
             key={Array.from(selectedSlugs).sort().join('|')}
             data={visibleTerritories}
-            style={{ color: '#7c3aed', weight: 2.5, fillColor: '#7c3aed', fillOpacity: 0.08 }}
+            style={(feature) => feature?.properties?.group === 'independent'
+              ? { color: '#dc2626', weight: 2, fillColor: '#dc2626', fillOpacity: 0.05, dashArray: '6 4' }
+              : { color: '#7c3aed', weight: 2.5, fillColor: '#7c3aed', fillOpacity: 0.08 }}
             onEachFeature={(feature, layer) => {
               const name = feature.properties?.realName;
-              if (name) layer.bindTooltip(name, { sticky: true, className: 'font-bold text-xs' });
+              const label = feature.properties?.group === 'independent' ? `${name} (Independent Franchise)` : name;
+              if (name) layer.bindTooltip(label, { sticky: true, className: 'font-bold text-xs' });
             }}
           />
         )}
