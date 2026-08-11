@@ -27,7 +27,7 @@ import { toAbsoluteUrl } from "@/lib/queryClient";
 
 export default function BDMatrix({ data, weekStartDate }: BDMatrixProps) {
   const [selectedTimeBlocks, setSelectedTimeBlocks] = useState<Set<string>>(new Set());
-  const { branches, isLoadingBranches, selectedBranchId } = useBranch();
+  const { branches, isLoadingBranches } = useBranch();
 
   // Workforce & Client Map spans every franchise the user can see, not just
   // the currently selected branch, so the Sur Group team can compare
@@ -144,7 +144,6 @@ export default function BDMatrix({ data, weekStartDate }: BDMatrixProps) {
                 locations={locations}
                 clients={locationsData?.clients ?? []}
                 branches={branches}
-                defaultBranchId={selectedBranchId}
                 onRefresh={() => refetchLocations()}
                 isRefreshing={isFetchingLocations}
               />
@@ -174,14 +173,12 @@ function MapDialogWrapper({
   locations,
   clients,
   branches,
-  defaultBranchId,
   onRefresh,
   isRefreshing,
 }: {
   locations: EmployeeLocation[];
   clients: ClientLocation[];
   branches: { id: string; name: string; displayName: string }[];
-  defaultBranchId: string | null;
   onRefresh: () => void;
   isRefreshing: boolean;
 }) {
@@ -224,7 +221,6 @@ function MapDialogWrapper({
               locations={locations}
               clients={clients}
               branches={branches}
-              defaultBranchId={defaultBranchId}
               onRefresh={onRefresh}
               isRefreshing={isRefreshing}
             />

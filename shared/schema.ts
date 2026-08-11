@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, timestamp, jsonb, unique, index, integer, serial, real, boolean } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, timestamp, jsonb, unique, index, integer, serial, real } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -796,9 +796,6 @@ export const leavers = pgTable("leavers", {
   employeeNo: text("employee_no"),
   gender: text("gender", { enum: ["male", "female", "other"] }),
   employmentType: text("employment_type", { enum: ["driver", "walker"] }).notNull(),
-  // LIC is an additional flag on top of Driver/Walker, not a mutually exclusive type.
-  // LIC leavers still go into the leaver list & monthly report but are excluded from KPI cards.
-  isLic: boolean("is_lic").notNull().default(false),
   weeklyHours: real("weekly_hours").notNull(),
   contractedHours: real("contracted_hours"),
   postcode: text("postcode"),
@@ -820,7 +817,6 @@ export const insertLeaverSchema = createInsertSchema(leavers).omit({
   updatedAt: true,
 }).extend({
   employmentType: z.enum(["driver", "walker"]),
-  isLic: z.boolean().optional().default(false),
   weeklyHours: z.number().nonnegative(),
   contractedHours: z.number().nonnegative().optional().nullable(),
   status: z.enum(["active", "processed"]).default("active"),

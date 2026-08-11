@@ -24,17 +24,3 @@ id = "rrWIM-fbnm8IXvjZT_j_Z"
 uri = "file://email-platform-update.txt"
 type = "text"
 title = "Updated Email — Before & After Dashboard Redesign"
-
-[[outputs]]
-id = "ctBZGxz7IKc1S6zbjVqkJ"
-uri = "file://attached_assets/Home_Instead_Scotland_Franchise_Postcodes.xlsx"
-type = "table"
-title = "Home Instead Scotland — All 19 Franchise Postcodes"
-description = "Postcode sectors for all 19 Home Instead franchises across Scotland (10 SUR Group + 9 independent), with a summary sheet and a towns/areas reference sheet."
-
-[[outputs]]
-id = "jGvMntLUgMqihTyxqM9Pe"
-uri = "file://attached_assets/Home_Instead_Scotland_Franchise_Postcodes_MASTER.xlsx"
-type = "table"
-title = "Home Instead Scotland — Master Franchise Postcode Data"
-description = "All 19 franchises, postcode sectors sourced directly from each franchise's official website, with a sheet showing exactly what changed vs the old SUR Group internal spreadsheet."

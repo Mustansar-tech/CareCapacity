@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useRef } from "react";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
-import { MapContainer, TileLayer, Marker, Popup, Tooltip, GeoJSON, CircleMarker, useMap } from "react-leaflet";
+import { MapContainer, TileLayer, Marker, Popup, Tooltip, GeoJSON, useMap } from "react-leaflet";
 import type { FeatureCollection } from "geojson";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,9 +9,11 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { RefreshCw, ZoomIn, ZoomOut, Eye, EyeOff, Map as MapIcon, Search, X, Landmark } from "lucide-react";
 import type { EmployeeLocation, ClientLocation } from "@shared/schema";
 import { normalizeGender } from "@/utils/bd-matrix-utils";
-import { getRealFranchiseName, getFranchiseColor } from "@/data/franchise-real-names";
+import { getRealFranchiseName } from "@/data/franchise-real-names";
 
 export type FranchiseBranch = { id: string; name: string; displayName: string };
+
+const TERRITORY_BORDER_COLOR = '#5d51d5';
 
 function makeIcon(gender: string) {
   const g = normalizeGender(gender);
@@ -83,7 +85,6 @@ export function CareProMap({
   onRefresh,
   isRefreshing,
   branches,
-  defaultBranchId,
 }: {
   locations: EmployeeLocation[];
   clients: ClientLocation[];
@@ -93,28 +94,19 @@ export function CareProMap({
    *  each branch plus a filter to narrow which franchises' markers show.
    *  `locations`/`clients` are expected to carry `branchId` in this mode. */
   branches?: FranchiseBranch[];
-  /** The app's globally selected branch id — used as the initial franchise
-   *  filter selection so opening the map doesn't show every franchise's
-   *  markers at once. */
-  defaultBranchId?: string | null;
 }) {
   const [showPostcodes, setShowPostcodes] = useState(false);
   const [layer, setLayer] = useState<MapLayer>('both');
   const multiFranchise = !!branches && branches.length > 0;
 
-  // Franchise filter — defaults to just the app's globally selected
-  // franchise (not "all"), so opening the map doesn't dump every franchise's
-  // markers on screen at once. Territory borders for every franchise still
-  // render regardless. Falls back to "all" if there's no global selection
-  // or it isn't in the accessible branch list.
+  // Franchise filter — defaults to "all" once branches are known.
   const [selectedBranchIds, setSelectedBranchIds] = useState<Set<string> | null>(null);
   const [franchisePanelOpen, setFranchisePanelOpen] = useState(false);
   useEffect(() => {
     if (branches && selectedBranchIds === null) {
-      const defaultValid = defaultBranchId && branches.some(b => b.id === defaultBranchId);
-      setSelectedBranchIds(new Set(defaultValid ? [defaultBranchId!] : branches.map(b => b.id)));
+      setSelectedBranchIds(new Set(branches.map(b => b.id)));
     }
-  }, [branches, selectedBranchIds, defaultBranchId]);
+  }, [branches, selectedBranchIds]);
 
   const activeBranchIds = useMemo(() => {
     if (!multiFranchise) return null;
@@ -158,23 +150,6 @@ export function CareProMap({
       features: territories.features.filter(f => accessibleSlugs.has((f.properties as any)?.branch)),
     };
   }, [territories, branches]);
-
-  // Other (non-SUR) Home Instead franchise territories — a read-only
-  // reference layer so the SUR team can see where neighbouring, independently
-  // owned franchises operate. These aren't real Branch records in this app,
-  // so they're always shown (no filter/access-control tie-in) whenever the
-  // SUR territory layer is shown, styled distinctly (transparent red) so
-  // they're never confused with SUR's own coloured territories.
-  const [otherTerritories, setOtherTerritories] = useState<FeatureCollection | null>(null);
-  useEffect(() => {
-    if (!multiFranchise) return;
-    let cancelled = false;
-    fetch('/data/other-franchise-territories.geo.json')
-      .then(res => res.ok ? res.json() : null)
-      .then(data => { if (!cancelled && data) setOtherTerritories(data); })
-      .catch(() => { /* borders are a visual extra — ignore fetch failures */ });
-    return () => { cancelled = true; };
-  }, [multiFranchise]);
 
   // Search state
   const [searchOpen, setSearchOpen] = useState(false);
@@ -304,7 +279,6 @@ export function CareProMap({
                 return (
                   <label key={b.id} className="flex items-center gap-2 px-1.5 py-1 text-xs rounded-lg hover:bg-gray-50 cursor-pointer">
                     <Checkbox checked={checked} onCheckedChange={() => toggleFranchise(b.id)} className="shrink-0" />
-                    <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: getFranchiseColor(b.name) }} />
                     <span className="font-semibold text-gray-700 truncate">{getRealFranchiseName(b.name, b.displayName)}</span>
                   </label>
                 );
@@ -333,27 +307,9 @@ export function CareProMap({
   );
 
   return (
-    <>
-    {/* SVG pattern defs — declared here so url(#...) references resolve anywhere in the document */}
-    <svg style={{ position: 'absolute', width: 0, height: 0, overflow: 'hidden' }} aria-hidden>
-      <defs>
-        {/* Diagonal hatch used to fill non-SUR territories — distinct from SUR solid fills */}
-        <pattern id="hatch-non-sur" patternUnits="userSpaceOnUse" width="8" height="8" patternTransform="rotate(45 0 0)">
-          <line x1="0" y1="0" x2="0" y2="8" stroke="#b91c1c" strokeWidth="1.5" strokeOpacity="0.45" />
-        </pattern>
-      </defs>
-    </svg>
     <div className="absolute inset-0">
       <MapContainer center={center} zoom={10} style={{ height: '100%', width: '100%' }} scrollWheelZoom zoomControl={false}>
-        {/* CartoDB Positron — neutral light-grey basemap; territories and markers
-            read clearly against it without competing with OSM's green forests
-            and blue water. Free, no API key required. */}
-        <TileLayer
-          url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
-          attribution='© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors © <a href="https://carto.com/attributions">CARTO</a>'
-          subdomains="abcd"
-          maxZoom={20}
-        />
+        <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
 
         <SearchFlyTo result={searchResult} />
 
@@ -365,73 +321,21 @@ export function CareProMap({
               const slug = feature?.properties?.branch;
               const branchId = [...branchSlugById.entries()].find(([, s]) => s === slug)?.[0];
               const isSelected = !branchId || !activeBranchIds || activeBranchIds.has(branchId);
-              const color = getFranchiseColor(slug);
               return {
-                color,
+                color: TERRITORY_BORDER_COLOR,
                 weight: isSelected ? 2.5 : 1.5,
-                opacity: isSelected ? 1 : 0.5,
-                fillColor: color,
-                fillOpacity: isSelected ? 0.18 : 0.05,
-                lineCap: 'round' as const,
-                lineJoin: 'round' as const,
+                opacity: isSelected ? 0.9 : 0.35,
+                fillColor: TERRITORY_BORDER_COLOR,
+                fillOpacity: isSelected ? 0.06 : 0.02,
+                dashArray: isSelected ? undefined : '4 4',
               };
             }}
             onEachFeature={(feature: any, layer: any) => {
-              const slug = feature?.properties?.branch;
-              const realName = feature?.properties?.realName ?? slug;
-              const color = getFranchiseColor(slug);
-              layer.bindTooltip(
-                `<span style="display:inline-flex;align-items:center;gap:6px;"><span style="width:8px;height:8px;border-radius:9999px;background:${color};display:inline-block;"></span>${realName}</span>`,
-                { sticky: true, className: 'font-bold text-xs' },
-              );
+              const realName = feature?.properties?.realName ?? feature?.properties?.branch;
+              layer.bindTooltip(realName, { sticky: true, className: 'font-bold text-xs' });
             }}
           />
         )}
-
-        {/* Non-SUR Home Instead franchise territories — always-on reference
-            layer, styled distinctly (transparent red) from SUR's own
-            territories above. Purely visual: no selection/filter tie-in. */}
-        {otherTerritories && (
-          <GeoJSON
-            data={otherTerritories as any}
-            style={() => ({
-              color: '#b91c1c',
-              weight: 2,
-              opacity: 0.75,
-              fillColor: 'url(#hatch-non-sur)',
-              fillOpacity: 1,
-              lineCap: 'round' as const,
-              lineJoin: 'round' as const,
-            })}
-          />
-        )}
-
-        {/* Permanent name labels for the non-SUR layer, anchored at each
-            polygon's pre-computed centroid (guaranteed to fall inside the
-            shape — see scripts/generate-franchise-territories.mjs) rather
-            than Leaflet's bounding-box center, which can land outside an
-            odd-shaped or multi-part (e.g. island-containing) territory. */}
-        {otherTerritories?.features.map((feature: any, idx: number) => {
-          const centroid = feature?.properties?.centroid;
-          if (!Array.isArray(centroid)) return null;
-          const realName = feature?.properties?.realName ?? 'Other franchise';
-          return (
-            <CircleMarker
-              key={`other-label-${idx}`}
-              center={[centroid[1], centroid[0]]}
-              radius={0}
-              pathOptions={{ opacity: 0, fillOpacity: 0 }}
-              ref={(marker) => {
-                if (marker && !marker.getTooltip()) {
-                  marker.bindTooltip(
-                    `<span style="display:inline-flex;align-items:center;gap:5px;color:#7f1d1d;font-weight:700;font-size:11px;letter-spacing:0.01em;"><span style="width:7px;height:7px;border-radius:9999px;background:#b91c1c;flex-shrink:0;display:inline-block;"></span>${realName}</span>`,
-                    { permanent: true, direction: 'center', className: '!bg-white/90 !border-red-300 !shadow-md !px-2 !py-1 !rounded-lg' },
-                  );
-                }
-              }}
-            />
-          );
-        })}
 
         {showCPs && jitteredEmployees.map((loc) => (
           <Marker key={`cp-${loc.id}`} position={[loc._jLat, loc._jLng]} icon={makeIcon(loc.gender || '')}>
@@ -600,6 +504,5 @@ export function CareProMap({
         )}
       </div>
     </div>
-    </>
   );
 }

@@ -113,14 +113,6 @@ export async function getLeavers(branchId: string, includeProcessed = false): Pr
     .orderBy(leavers.lastWorkingDay);
 }
 
-// LIC leavers are tracked in the leaver list and the monthly leaver report,
-// but must never contribute to capacity KPI cards (outlook, current-month,
-// cumulative, or monthly snapshot totals). LIC is an additional flag on top
-// of the Driver/Walker type, not a mutually exclusive type.
-function excludeLic<T extends { isLic: boolean | null }>(items: T[]): T[] {
-  return items.filter(l => !l.isLic);
-}
-
 export async function getJoiners(branchId: string, includeDropped = false, includeAll = false): Promise<Joiner[]> {
   const baseWhere = eq(joiners.branchId, branchId);
   if (includeDropped) {
@@ -232,7 +224,7 @@ export async function computeOutlook(
   horizonWeeks = 4,
   segment = 'all',
 ): Promise<OutlookResponse> {
-  const allLeavers = excludeLic(await getLeavers(branchId));
+  const allLeavers = await getLeavers(branchId);
   const allJoinersRaw = await getJoiners(branchId);
   // Only active (not-yet-hired) pipeline joiners in the outlook forecast
   const allJoiners = allJoinersRaw.filter(j => j.status === 'active');
@@ -304,7 +296,7 @@ export async function computeOutlook(
 export async function getOutlookDetail(branchId: string, weekStart: string): Promise<OutlookDetail> {
   const weekEnd = addDays(weekStart, 6);
 
-  const allLeavers = excludeLic(await getLeavers(branchId));
+  const allLeavers = await getLeavers(branchId);
   const allJoinersRaw = await getJoiners(branchId);
   const allJoiners = allJoinersRaw.filter(j => j.status === 'active');
 
@@ -363,7 +355,7 @@ export async function getCurrentMonthLive(branchId: string): Promise<{
   const hoursIn = round2(hiredThisMonth.reduce((s, j) => s + (j.desiredWeeklyHours ?? 0), 0));
   const headsIn = hiredThisMonth.length;
 
-  const allLeavers = excludeLic(await getLeavers(branchId, false));
+  const allLeavers = await getLeavers(branchId, false);
   // Running total: only count active leavers whose last working day has actually passed (≤ today)
   const leaversThisMonth = allLeavers.filter(l =>
     l.lastWorkingDay >= start && l.lastWorkingDay < end && l.lastWorkingDay <= todayStr,
@@ -427,7 +419,7 @@ export async function computeCumulativeKpi(branchId: string): Promise<Cumulative
   const ytdStart = `${currentYear}-01-01`;
   const ytdEnd = `${currentYear + 1}-01-01`;
 
-  const allLeaversRaw = excludeLic(await getLeavers(branchId, true));
+  const allLeaversRaw = await getLeavers(branchId, true);
   const todayStr = isoDate(new Date());
   const terminatedYtd = allLeaversRaw.filter(l =>
     l.lastWorkingDay >= ytdStart && l.lastWorkingDay < ytdEnd && l.lastWorkingDay <= todayStr,
@@ -515,7 +507,7 @@ export async function closeMonth(
   const femaleHeadsIn  = femaleHiresThisMonth.length;
   const maleHeadsIn    = maleHiresThisMonth.length;
 
-  const allLeavers = excludeLic(await getLeavers(branchId, true));
+  const allLeavers = await getLeavers(branchId, true);
   const leaversThisMonth = allLeavers.filter(l =>
     l.lastWorkingDay >= start && l.lastWorkingDay < end,
   );

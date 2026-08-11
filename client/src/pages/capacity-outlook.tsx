@@ -123,25 +123,6 @@ function ragBgClass(rag: string): string {
   return 'from-red-500 to-red-600';
 }
 
-// LIC is an acronym and must always render fully uppercase, never "Lic"
-function formatEmploymentType(type: string | null | undefined): string {
-  if (!type) return '—';
-  if (type.toLowerCase() === 'lic') return 'LIC';
-  return type.charAt(0).toUpperCase() + type.slice(1);
-}
-
-// LIC is an additional flag alongside Driver/Walker — render both badges together
-function LeaverTypeBadges({ employmentType, isLic }: { employmentType: string | null | undefined; isLic?: boolean | null }) {
-  return (
-    <div className="flex items-center gap-1">
-      <Badge variant="outline" className="text-xs">{formatEmploymentType(employmentType)}</Badge>
-      {isLic && (
-        <Badge className="text-xs bg-red-100 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-800">LIC</Badge>
-      )}
-    </div>
-  );
-}
-
 // ── Leaver form ───────────────────────────────────────────────────────────────
 
 const leaverFormSchema = z.object({
@@ -149,7 +130,6 @@ const leaverFormSchema = z.object({
   employeeNo: z.string().min(1, "Employee number is required"),
   gender: z.enum(["male", "female", "other"], { required_error: "Gender is required" }),
   employmentType: z.enum(["driver", "walker"], { required_error: "Type is required" }),
-  isLic: z.boolean().default(false),
   weeklyHours: z.coerce.number({ invalid_type_error: "Enter hours or select Bank" }).nonnegative("Enter hours or select Bank"),
   contractedHours: z.coerce.number({ invalid_type_error: "Enter contracted hours" }).nonnegative("Must be 0 or more"),
   postcode: z.string().min(1, "Postcode is required"),
@@ -199,7 +179,6 @@ function LeaverModal({
       employeeName: "",
       employeeNo: "",
       gender: undefined,
-      isLic: false,
       weeklyHours: undefined as any,
       contractedHours: undefined,
       postcode: "",
@@ -217,7 +196,6 @@ function LeaverModal({
           employeeNo: editing.employeeNo ?? "",
           gender: (editing.gender as "male" | "female" | "other") ?? undefined,
           employmentType: editing.employmentType as "driver" | "walker",
-          isLic: editing.isLic ?? false,
           weeklyHours: editing.weeklyHours ?? (undefined as any),
           contractedHours: editing.contractedHours ?? undefined,
           postcode: editing.postcode ?? "",
@@ -230,7 +208,6 @@ function LeaverModal({
           employeeName: "",
           employeeNo: "",
           gender: undefined,
-          isLic: false,
           weeklyHours: undefined as any,
           contractedHours: undefined,
           postcode: "",
@@ -321,31 +298,13 @@ function LeaverModal({
               <FormField control={form.control} name="employmentType" render={({ field }) => (
                 <FormItem>
                   <FormLabel>Type <span className="text-red-500">*</span></FormLabel>
-                  <div className="flex items-center gap-2">
-                    <Select onValueChange={field.onChange} value={field.value}>
-                      <FormControl><SelectTrigger><SelectValue placeholder="Select…" /></SelectTrigger></FormControl>
-                      <SelectContent>
-                        <SelectItem value="driver">Driver</SelectItem>
-                        <SelectItem value="walker">Walker</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormField control={form.control} name="isLic" render={({ field: licField }) => (
-                      <button
-                        type="button"
-                        onClick={() => licField.onChange(!licField.value)}
-                        title="Also mark as LIC (Live-in Care) — LIC leavers are excluded from KPI cards"
-                        style={{
-                          flexShrink: 0, height: 36, padding: '0 10px', borderRadius: 6,
-                          border: licField.value ? '2px solid #DC2626' : '1px solid #E2E8F0',
-                          background: licField.value ? '#FEF2F2' : 'white',
-                          color: licField.value ? '#DC2626' : '#64748B',
-                          fontSize: 12, fontWeight: 700, cursor: 'pointer',
-                        }}
-                      >
-                        LIC
-                      </button>
-                    )} />
-                  </div>
+                  <Select onValueChange={field.onChange} value={field.value}>
+                    <FormControl><SelectTrigger><SelectValue placeholder="Select…" /></SelectTrigger></FormControl>
+                    <SelectContent>
+                      <SelectItem value="driver">Driver</SelectItem>
+                      <SelectItem value="walker">Walker</SelectItem>
+                    </SelectContent>
+                  </Select>
                   <FormMessage />
                 </FormItem>
               )} />
@@ -1367,14 +1326,8 @@ export default function CapacityOutlookPage() {
   const hoursAlreadyGone = Math.round(alreadyGone.reduce((s, l) => s + (l.weeklyHours ?? 0), 0) * 10) / 10;
   const hoursOnNotice    = Math.round(onNotice.reduce((s, l) => s + (l.weeklyHours ?? 0), 0) * 10) / 10;
 
-  // LIC leavers are tracked in the leaver list/report but never counted in KPI cards
-  const kpiAlreadyGone = alreadyGone.filter(l => !l.isLic);
-  const kpiOnNotice = onNotice.filter(l => !l.isLic);
-  const kpiHoursAlreadyGone = Math.round(kpiAlreadyGone.reduce((s, l) => s + (l.weeklyHours ?? 0), 0) * 10) / 10;
-  const kpiHoursOnNotice = Math.round(kpiOnNotice.reduce((s, l) => s + (l.weeklyHours ?? 0), 0) * 10) / 10;
-
   // For the Staff Leaving / In Pipeline KPI cards (current period)
-  const weeklyLossRate = kpiHoursAlreadyGone;
+  const weeklyLossRate = hoursAlreadyGone;
   const weeklyGainRate = Math.round(activeJoiners.reduce((s, j) => s + (j.desiredWeeklyHours ?? 0) * (j.confidenceWeight ?? 0), 0) * 10) / 10;
   const rawWeeklyHours = Math.round(activeJoiners.reduce((s, j) => s + (j.desiredWeeklyHours ?? 0), 0) * 10) / 10;
   const weeklyNet = Math.round((weeklyGainRate - weeklyLossRate) * 10) / 10;
@@ -1625,20 +1578,20 @@ export default function CapacityOutlookPage() {
               ) : (
                 <>
                   <div className="mt-1 space-y-1">
-                    {kpiAlreadyGone.length === 0 && kpiOnNotice.length === 0 ? (
+                    {alreadyGone.length === 0 && onNotice.length === 0 ? (
                       <div className="text-sm text-muted-foreground">no active leavers</div>
                     ) : (
                       <>
-                        {kpiAlreadyGone.length > 0 && (
+                        {alreadyGone.length > 0 && (
                           <div className="flex items-baseline gap-1.5 text-red-600 dark:text-red-400">
-                            <span className="text-2xl font-bold leading-none">{kpiAlreadyGone.length}</span>
-                            <span className="text-xs font-medium">{kpiHoursAlreadyGone}h/wk already gone</span>
+                            <span className="text-2xl font-bold leading-none">{alreadyGone.length}</span>
+                            <span className="text-xs font-medium">{hoursAlreadyGone}h/wk already gone</span>
                           </div>
                         )}
-                        {kpiOnNotice.length > 0 && (
+                        {onNotice.length > 0 && (
                           <div className="flex items-baseline gap-1.5 text-amber-600 dark:text-amber-400">
-                            <span className="text-2xl font-bold leading-none">{kpiOnNotice.length}</span>
-                            <span className="text-xs">{kpiHoursOnNotice}h/wk still on notice</span>
+                            <span className="text-2xl font-bold leading-none">{onNotice.length}</span>
+                            <span className="text-xs">{hoursOnNotice}h/wk still on notice</span>
                           </div>
                         )}
                       </>
@@ -2154,7 +2107,7 @@ export default function CapacityOutlookPage() {
                             </TableCell>
                             <TableCell className="font-mono text-xs">{l.employeeNo || '—'}</TableCell>
                             <TableCell>
-                              <LeaverTypeBadges employmentType={l.employmentType} isLic={l.isLic} />
+                              <Badge variant="outline" className="capitalize text-xs">{l.employmentType}</Badge>
                             </TableCell>
                             <TableCell>{l.weeklyHours === 0 ? <Badge variant="outline" className="text-xs text-indigo-600 border-indigo-200 bg-indigo-50">Bank</Badge> : `${l.weeklyHours}h`}</TableCell>
                             <TableCell>{l.contractedHours != null ? `${l.contractedHours}h` : '—'}</TableCell>
@@ -2222,7 +2175,7 @@ export default function CapacityOutlookPage() {
                               </TableCell>
                               <TableCell className="font-mono text-xs">{l.employeeNo || '—'}</TableCell>
                               <TableCell>
-                                <LeaverTypeBadges employmentType={l.employmentType} isLic={l.isLic} />
+                                <Badge variant="outline" className="capitalize text-xs">{l.employmentType}</Badge>
                               </TableCell>
                               <TableCell>{l.weeklyHours === 0 ? <Badge variant="outline" className="text-xs text-indigo-600 border-indigo-200 bg-indigo-50">Bank</Badge> : `${l.weeklyHours}h`}</TableCell>
                               <TableCell>{l.contractedHours != null ? `${l.contractedHours}h` : '—'}</TableCell>
@@ -2306,7 +2259,7 @@ export default function CapacityOutlookPage() {
                                         <TableCell className="font-medium">{l.employeeName}</TableCell>
                                         <TableCell className="font-mono text-xs">{l.employeeNo || '—'}</TableCell>
                                         <TableCell>
-                                          <LeaverTypeBadges employmentType={l.employmentType} isLic={l.isLic} />
+                                          <Badge variant="outline" className="capitalize text-xs">{l.employmentType}</Badge>
                                         </TableCell>
                                         <TableCell>{l.weeklyHours === 0 ? <Badge variant="outline" className="text-xs text-indigo-600 border-indigo-200 bg-indigo-50">Bank</Badge> : `${l.weeklyHours}h`}</TableCell>
                                         <TableCell>{l.contractedHours != null ? `${l.contractedHours}h` : '—'}</TableCell>
@@ -2858,9 +2811,8 @@ function MonthlyViewSheet({
                   const net = Math.round((displayHoursIn - displayHoursOut) * 10) / 10;
 
                   // Gender split — live row: compute from individual records; closed row: use stored snapshot fields
-                  // LIC leavers are excluded from all KPI tables (report-only)
                   const currentMonthLeavers = allLeavers.filter(l => {
-                    if (!l.lastWorkingDay || l.isLic) return false;
+                    if (!l.lastWorkingDay) return false;
                     const d = new Date(l.lastWorkingDay + 'T00:00:00Z');
                     return d.getUTCFullYear() === row.year && d.getUTCMonth() + 1 === row.month;
                   });
