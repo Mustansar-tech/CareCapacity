@@ -48,11 +48,23 @@ const missing = [...targetSectors].filter((s) => !allSectors.has(s));
 console.log(`target sectors found ${found.length} / ${targetSectors.size}`);
 console.log("missing sectors", missing); // MUST be [] — otherwise fix the sector list or widen the fetch
 
-// union all cells (batch to keep turf fast)
-let merged = cellPolys[0];
-for (let i = 1; i < cellPolys.length; i++) {
-  merged = turf.union(turf.featureCollection([merged, cellPolys[i]]));
+// union all cells — divide-and-conquer (a naive sequential loop times out on ~8k cells)
+function unionAll(polys) {
+  if (polys.length === 1) return polys[0];
+  const mid = Math.floor(polys.length / 2);
+  return turf.union(turf.featureCollection([unionAll(polys.slice(0, mid)), unionAll(polys.slice(mid))]));
 }
+let merged = unionAll(cellPolys);
+// cleanup: keep only the largest part; drop interior holes < 1 km² (stray-point noise)
+if (merged.geometry.type === "MultiPolygon") {
+  const parts = merged.geometry.coordinates.map((poly) => ({ poly, area: turf.area(turf.polygon(poly)) }));
+  parts.sort((a, b) => b.area - a.area);
+  merged = turf.polygon(parts[0].poly);
+}
+merged.geometry.coordinates = [
+  merged.geometry.coordinates[0],
+  ...merged.geometry.coordinates.slice(1).filter((ring) => turf.area(turf.polygon([ring])) >= 1e6),
+];
 merged = turf.simplify(merged, { tolerance: 15, highQuality: true, mutate: true }); // metres (still in BNG)
 
 // reproject BNG -> WGS84

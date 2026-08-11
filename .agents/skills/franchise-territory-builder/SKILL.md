@@ -32,8 +32,9 @@ Independent (non-SUR) franchises have no branch row; style them red when they're
 
 Working scripts live in `reference/` next to this file. Steps:
 
-1. **Install one-off deps** (generation-time only, remove after):
-   `npm install --no-save d3-delaunay @turf/turf`
+1. **Install one-off deps** (generation-time only, remove after) in ONE command —
+   separate `--no-save` installs prune each other:
+   `npm install --no-save d3-delaunay @turf/turf xlsx`
 2. **Extract the territory's sector list** from the Excel (`Address` column, strip ", United Kingdom")
    into a JSON array like `["G1 1","G1 2",...]`. Save to `work/<slug>-sectors.json`.
 3. **Fetch unit postcode points**: run `reference/fetch-points.mjs` (edit the district list / bbox at the
@@ -45,7 +46,11 @@ Working scripts live in `reference/` next to this file. Steps:
 4. **Build the polygon**: run `reference/build-territory.mjs`. It:
    - computes a Voronoi tessellation (d3-delaunay) over all context points in BNG metres, clipped to the fetch bbox
    - assigns each cell to its point's sector = `outward code + " " + first digit of inward code`
-   - unions the cells of the target sectors (turf.union), reprojects BNG→WGS84 via `reference/bng.mjs`
+   - unions the cells of the target sectors with a **divide-and-conquer** union (recursive halves) —
+     a naive sequential turf.union loop times out on ~8k cells — then reprojects BNG→WGS84 via `reference/bng.mjs`
+   - **post-union cleanup** (needed for Glasgow South): stray misassigned unit postcodes create tiny
+     interior holes and detached slivers. Keep only the largest polygon part and drop interior rings
+     < 1 km²; anything that small is point noise, not real geography. Real parts/holes would be sector-sized.
 5. **Mandatory sanity checks — all must pass before shipping:**
    - build log: every target sector matched (`found N / N`, `missing []`)
    - `turf.booleanValid` true, `turf.kinks(...)` = 0 features
