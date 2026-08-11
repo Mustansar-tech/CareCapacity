@@ -43,108 +43,6 @@ const searchPinIcon = L.divIcon({
   popupAnchor: [0, -46],
 });
 
-// Curated muted palette — one distinct colour per territory (keyed by branch slug).
-// Cool tones for SUR territories, warm tones for Independent Franchises.
-const TERRITORY_COLORS: Record<string, string> = {
-  // SUR (cool)
-  'glasgow-north':                   '#6366f1',
-  'glasgow-south':                   '#0d9488',
-  'north-lanarkshire':               '#0284c7',
-  'stirling-falkirk':                '#7c3aed',
-  'west-fife-kinross':               '#2563eb',
-  'east-lothian':                    '#059669',
-  'perthshire':                      '#0891b2',
-  'scottish-borders':                '#475569',
-  'south-ayrshire':                  '#4f46e5',
-  'aberdeen':                        '#14b8a6',
-  // Independent (warm)
-  'inverclyde-north-ayrshire':       '#e11d48',
-  'west-dunbartonshire-argyll-bute': '#ea580c',
-  'dundee-south-angus':              '#d97706',
-  'east-fife':                       '#ca8a04',
-  'edinburgh':                       '#dc2626',
-  'edinburgh-west':                  '#db2777',
-  'renfrewshire-barrhead':           '#c2410c',
-  'south-lanarkshire-hamilton':      '#b91c1c',
-  'south-lanarkshire-lanark':        '#9f1239',
-};
-const territoryColor = (branch?: string) => TERRITORY_COLORS[branch ?? ''] ?? '#64748b';
-
-// Label anchor: centroid of the largest polygon part (shoelace-weighted).
-function territoryLabelPoint(geometry: any): [number, number] | null {
-  const polys: number[][][][] =
-    geometry?.type === 'Polygon' ? [geometry.coordinates] :
-    geometry?.type === 'MultiPolygon' ? geometry.coordinates : [];
-  let best: { ring: number[][]; area: number } | null = null;
-  for (const poly of polys) {
-    const ring = poly[0];
-    let a = 0;
-    for (let i = 0; i < ring.length - 1; i++) a += ring[i][0] * ring[i + 1][1] - ring[i + 1][0] * ring[i][1];
-    a = Math.abs(a / 2);
-    if (!best || a > best.area) best = { ring, area: a };
-  }
-  if (!best) return null;
-  const ring = best.ring;
-  let cx = 0, cy = 0, a2 = 0;
-  for (let i = 0; i < ring.length - 1; i++) {
-    const cross = ring[i][0] * ring[i + 1][1] - ring[i + 1][0] * ring[i][1];
-    a2 += cross;
-    cx += (ring[i][0] + ring[i + 1][0]) * cross;
-    cy += (ring[i][1] + ring[i + 1][1]) * cross;
-  }
-  if (a2 === 0) return null;
-  return [cy / (3 * a2), cx / (3 * a2)]; // [lat, lng]
-}
-
-/** Territory name labels — visible from zoom 8 in, hidden when zoomed far out. */
-function TerritoryLabels({ territories, selectedSlugs }: { territories: FeatureCollection; selectedSlugs: Set<string> }) {
-  const map = useMap();
-  const [zoom, setZoom] = useState(map.getZoom());
-  useEffect(() => {
-    const onZoom = () => setZoom(map.getZoom());
-    map.on('zoomend', onZoom);
-    return () => { map.off('zoomend', onZoom); };
-  }, [map]);
-  const labels = useMemo(() =>
-    territories.features
-      .map((f) => {
-        const pos = territoryLabelPoint(f.geometry);
-        const name = f.properties?.realName as string | undefined;
-        if (!pos || !name) return null;
-        const focused = selectedSlugs.size === 0 || selectedSlugs.has(f.properties?.branch);
-        return { pos, name, color: focused ? territoryColor(f.properties?.branch) : '#94a3b8', focused };
-      })
-      .filter(Boolean) as { pos: [number, number]; name: string; color: string; focused: boolean }[],
-  [territories, selectedSlugs]);
-  if (zoom < 8) return null;
-  return (
-    <>
-      {labels.map((l) => (
-        <Marker
-          key={l.name}
-          position={l.pos}
-          interactive={false}
-          icon={L.divIcon({
-            className: '',
-            html: `<div style="
-              transform: translate(-50%, -50%);
-              white-space: nowrap;
-              font: 700 ${zoom >= 10 ? 12 : 10.5}px/1.2 system-ui, -apple-system, sans-serif;
-              letter-spacing: 0.02em;
-              color: ${l.color};
-              opacity: ${l.focused ? 1 : 0.45};
-              text-shadow: 0 0 4px #000, 0 0 8px rgba(0,0,0,0.9), 1px 1px 2px rgba(0,0,0,0.95);
-              filter: brightness(${l.focused ? 1.35 : 1});
-              pointer-events: none;
-            ">${l.name}</div>`,
-            iconSize: [0, 0],
-          })}
-        />
-      ))}
-    </>
-  );
-}
-
 type SearchResult = { lat: number; lng: number; postcode: string };
 
 /** Lives inside MapContainer — flies to result whenever lat/lng change */
@@ -353,49 +251,25 @@ export function CareProMap({
   return (
     <div className="absolute inset-0">
       <MapContainer center={center} zoom={10} style={{ height: '100%', width: '100%' }} scrollWheelZoom zoomControl={false}>
-        <TileLayer
-          url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
-          subdomains="abcd"
-        />
+        <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
 
         <SearchFlyTo result={searchResult} />
 
-        {/* Franchise territories — Dark Command Centre + focus mode.
-            All 19 always visible as luminous outlines on the dark basemap.
-            Ticked franchises glow bright with a tinted fill; the rest rest dim.
-            When nothing is ticked, all territories share the same resting glow. */}
+        {/* Franchise territory borders — all 19 territories, always visible, thick solid
+            lines. SUR = violet, Independent Franchise = red. Markers follow the picker. */}
         {visibleTerritories && (
-          <>
-            {/* Glow layer: wide, soft, low-opacity halo under each border */}
-            <GeoJSON
-              key={`territory-glow|${Array.from(selectedSlugs).sort().join(',')}`}
-              data={visibleTerritories}
-              style={(feature) => {
-                const focused = selectedSlugs.size === 0 || selectedSlugs.has(feature?.properties?.branch);
-                const c = territoryColor(feature?.properties?.branch);
-                return { color: c, weight: focused ? 8 : 5, opacity: focused ? 0.28 : 0.1, fill: false };
-              }}
-              interactive={false}
-            />
-            <GeoJSON
-              key={`all-territories|${Array.from(selectedSlugs).sort().join(',')}`}
-              data={visibleTerritories}
-              style={(feature) => {
-                const focused = selectedSlugs.size === 0 || selectedSlugs.has(feature?.properties?.branch);
-                const c = focused ? territoryColor(feature?.properties?.branch) : '#64748b';
-                return focused
-                  ? { color: c, weight: 2, opacity: 0.95, fillColor: c, fillOpacity: selectedSlugs.size === 0 ? 0.07 : 0.14 }
-                  : { color: c, weight: 1.25, opacity: 0.55, fillColor: c, fillOpacity: 0.03 };
-              }}
-              onEachFeature={(feature, layer) => {
-                const name = feature.properties?.realName;
-                const label = feature.properties?.group === 'independent' ? `${name} (Independent Franchise)` : name;
-                if (name) layer.bindTooltip(label, { sticky: true, className: 'font-bold text-xs' });
-              }}
-            />
-            <TerritoryLabels territories={visibleTerritories} selectedSlugs={selectedSlugs} />
-          </>
+          <GeoJSON
+            key="all-territories"
+            data={visibleTerritories}
+            style={(feature) => feature?.properties?.group === 'independent'
+              ? { color: '#dc2626', weight: 4, fillColor: '#dc2626', fillOpacity: 0.05 }
+              : { color: '#7c3aed', weight: 4, fillColor: '#7c3aed', fillOpacity: 0.06 }}
+            onEachFeature={(feature, layer) => {
+              const name = feature.properties?.realName;
+              const label = feature.properties?.group === 'independent' ? `${name} (Independent Franchise)` : name;
+              if (name) layer.bindTooltip(label, { sticky: true, className: 'font-bold text-xs' });
+            }}
+          />
         )}
 
         {showCPs && jitteredEmployees.map((loc) => (
