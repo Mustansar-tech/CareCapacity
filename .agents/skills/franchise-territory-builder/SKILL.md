@@ -92,3 +92,30 @@ Working scripts live in `reference/` next to this file. Steps:
 border (`#7c3aed`, weight 2.5, fillOpacity 0.08) plus a sticky tooltip from `properties.realName`, and a
 "Territory border" legend row. When independent (red) franchises are added, extend the style function to
 key off a `properties.group` field rather than adding a second layer.
+
+## Maintenance: editing a territory when its postcode sectors change
+
+All 19 territories are COMPLETE and shipped in `client/public/data/franchise-territories.geo.json`
+(10 SUR + 9 Independent). If the user changes the sector list for any territory (adds/removes
+postcode sectors, or the Smappen Excel is replaced):
+
+1. **Rebuild only the affected territory** with the exact same pipeline above — Voronoi over NRS
+   points, divide-and-conquer union, simplify 15 m, reproject, mandatory Scotland clip, part/hole
+   filter (keep ALL parts ≥ 1 km² — island territories like Inverclyde/N Ayrshire and
+   W Dunbartonshire/Argyll & Bute are MultiPolygons; never keep largest-only for them).
+2. **Replace, don't append**: filter out the old feature by `properties.branch` slug before
+   pushing the rebuilt one (the append snippets in this skill already do
+   `fc.features.filter(g => g.properties.branch !== slug).concat([f])`).
+3. Keep the same `properties`: `branch` (slug), `realName` (exact Territory name),
+   and `group: "independent"` for the 9 Independent Franchises.
+4. Re-run overlap checks against ALL other features (≤ ~0.02 km² tolerance). If sectors moved
+   between two territories, rebuild BOTH so the shared border stays gap/overlap-free.
+5. Existing slugs: glasgow-north, glasgow-south, north-lanarkshire, stirling-falkirk,
+   west-fife-kinross, east-lothian, perthshire, scottish-borders, south-ayrshire, aberdeen
+   (SUR); inverclyde-north-ayrshire, west-dunbartonshire-argyll-bute, dundee-south-angus,
+   east-fife, edinburgh, edinburgh-west, renfrewshire-barrhead, south-lanarkshire-hamilton,
+   south-lanarkshire-lanark (Independent).
+
+Map rendering rules (user-confirmed): ALL territory borders always visible, thick (weight 4)
+solid lines — violet for SUR, red for Independent; markers on the map follow the franchise
+picker selection, borders do not.

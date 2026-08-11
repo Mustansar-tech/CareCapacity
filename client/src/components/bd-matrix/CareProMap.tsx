@@ -206,17 +206,9 @@ export function CareProMap({
     setSearchOpen(false);
   }
 
-  // Territories to draw: when the picker is present, only those selected
-  const visibleTerritories = useMemo<FeatureCollection | null>(() => {
-    if (!territories) return null;
-    if (!hasFranchisePicker) return territories;
-    // Independent (non-SUR) franchise territories are always shown as context;
-    // SUR territories show only when their franchise is ticked in the picker.
-    const features = territories.features.filter(
-      f => f.properties?.group === 'independent' || selectedSlugs.has(f.properties?.branch),
-    );
-    return features.length > 0 ? { ...territories, features } : null;
-  }, [territories, hasFranchisePicker, selectedSlugs]);
+  // All 19 territory borders are always visible (markers, not borders, follow the
+  // franchise picker selection).
+  const visibleTerritories = territories ?? null;
 
   const hasData = validEmployees.length > 0 || validClients.length > 0;
 
@@ -263,16 +255,15 @@ export function CareProMap({
 
         <SearchFlyTo result={searchResult} />
 
-        {/* Franchise territory borders — all 19 territories are in the GeoJSON.
-            SUR territories (violet) show when their franchise is ticked in the picker;
-            Independent Franchise territories (red, dashed) always show as context. */}
+        {/* Franchise territory borders — all 19 territories, always visible, thick solid
+            lines. SUR = violet, Independent Franchise = red. Markers follow the picker. */}
         {visibleTerritories && (
           <GeoJSON
-            key={Array.from(selectedSlugs).sort().join('|')}
+            key="all-territories"
             data={visibleTerritories}
             style={(feature) => feature?.properties?.group === 'independent'
-              ? { color: '#dc2626', weight: 2, fillColor: '#dc2626', fillOpacity: 0.05, dashArray: '6 4' }
-              : { color: '#7c3aed', weight: 2.5, fillColor: '#7c3aed', fillOpacity: 0.08 }}
+              ? { color: '#dc2626', weight: 4, fillColor: '#dc2626', fillOpacity: 0.05 }
+              : { color: '#7c3aed', weight: 4, fillColor: '#7c3aed', fillOpacity: 0.06 }}
             onEachFeature={(feature, layer) => {
               const name = feature.properties?.realName;
               const label = feature.properties?.group === 'independent' ? `${name} (Independent Franchise)` : name;
