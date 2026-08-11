@@ -1,6 +1,9 @@
 [
  "Aberdeen City",
  "Aberdeenshire",
+ "Angus",
+ "Argyll and Bute",
+ "City of Edinburgh",
  "Clackmannanshire",
  "Dundee City",
  "East Ayrshire",
@@ -10,11 +13,15 @@
  "Falkirk",
  "Fife",
  "Glasgow City",
+ "Inverclyde",
  "Midlothian",
+ "North Ayrshire",
  "North Lanarkshire",
  "Perth and Kinross",
+ "Renfrewshire",
  "Scottish Borders",
  "South Ayrshire",
  "South Lanarkshire",
- "Stirling"
+ "Stirling",
+ "West Dunbartonshire"
 ]

@@ -1,52 +1,64 @@
 #!/usr/bin/env node
 /**
- * Regenerates client/public/data/franchise-territories.geo.json — the territory
- * polygons drawn on the Workforce & Client Map for each Scottish franchise.
+ * Regenerates the territory polygons drawn on the Workforce & Client Map:
+ *   - client/public/data/franchise-territories.geo.json — SUR Group's 10
+ *     franchises (the ones with real Branch records/access control in this
+ *     app; unchanged output shape/consumer contract).
+ *   - client/public/data/other-franchise-territories.geo.json — the other 9
+ *     independent Home Instead Scotland franchises, shown on the map purely
+ *     as read-only reference context (not real Branch records/tenants).
  *
- * Source of truth: scripts/data/territory-postcodes.json, extracted from the
- * franchise-supplied "Territory Postcodes" spreadsheet (one sheet per
- * franchise, each row a postcode sector + area name).
+ * Source of truth for BOTH: scripts/data/all-territory-postcodes.json — a
+ * flat { "<sector>": { territory, group } } map for all 19 Scotland
+ * franchises, built from scripts/data/all-scotland-franchise-postcodes.json
+ * (itself scraped consistently from every franchise's own official
+ * homeinstead.co.uk/<slug>/about-us "Areas and postcodes we cover" page).
+ * This superseded the older internal SUR spreadsheet
+ * (scripts/data/territory-postcodes.json, now unused) once real differences
+ * were found versus the live franchise websites (e.g. some Glasgow
+ * G31/G32/G33 sectors listed under a different franchise than in the old
+ * internal data) — the live franchise website is the more current source of
+ * truth since franchise boundaries can be renegotiated over time.
  *
  * There is no free, official UK postcode-sector *polygon* dataset (Royal
  * Mail's real delivery-area boundaries are a commercial product — OS
- * Code-Point with Polygons). So instead of guessing sector shapes, this
- * script uses every real, live UNIT postcode inside each of our 360
- * assigned sectors (~65k addresses across the served council areas),
- * fetched from the ONS Postcode Directory (the official, free, twice-yearly
- * dataset — NOT the defunct mysociety/parlvid Voronoi mirror, and NOT
- * postcodes.io's autocomplete, which silently mis-resolves single-digit
- * outward codes like "FK1 3" as the unrelated district "FK13" — see below).
- * Cached at scripts/data/territory-unit-postcodes.json, keyed by postal
- * district, as { pcds, lat, long } rows.
+ * Code-Point with Polygons), and no third-party postcode-territory mapping
+ * tool does better than this: every option, paid or free, ends up
+ * approximating from postcode *points* since that's all that's publicly
+ * available. So instead of guessing sector shapes, this script uses every
+ * real, live UNIT postcode inside each franchise's assigned sectors (~120k
+ * addresses across all 19 franchises), fetched from the ONS Postcode
+ * Directory (the official, free, twice-yearly dataset — NOT the defunct
+ * mysociety/parlvid Voronoi mirror, and NOT postcodes.io's autocomplete,
+ * which silently mis-resolves single-digit outward codes like "FK1 3" as the
+ * unrelated district "FK13" — see below). Cached at
+ * scripts/data/territory-unit-postcodes.json, keyed by postal district, as
+ * { pcds, lat, long } rows.
  *
  * Method: every unit postcode becomes a 2.5km circle (turf.circle); circles
  * are unioned (dissolved) per franchise, then clipped to the union of only
- * the council areas actually touched by a franchise's postcodes
+ * the council areas actually touched by ANY of the 19 franchises' postcodes
  * (scripts/data/territory-served-councils.json — NOT all of Scotland, which
  * would incorrectly extend territories into unserved areas like Highland or
- * the islands). Sub-1km2 fragments left over from the clip are dropped as
- * noise. This "buffer and dissolve" approach was chosen over a full-plane
- * Voronoi tessellation (tried first) because Voronoi cells are bounded by
- * dead-straight perpendicular-bisector lines between just a couple of
- * points, which produced ugly artifacts — e.g. a border spiking straight
- * across the Firth of Forth — and because Voronoi has to assign every scrap
- * of land to *some* territory, which is wrong wherever a franchise has no
- * real address data. Buffering real addresses only draws territory where
- * people actually are.
+ * the outer islands; this mask is derived automatically below from sector
+ * centroids, not hand-maintained). Sub-1km2 fragments left over from the
+ * clip are dropped as noise. This "buffer and dissolve" approach was chosen
+ * over a full-plane Voronoi tessellation (tried first) because Voronoi cells
+ * are bounded by dead-straight perpendicular-bisector lines between just a
+ * couple of points, which produced ugly artifacts — e.g. a border spiking
+ * straight across the Firth of Forth — and because Voronoi has to assign
+ * every scrap of land to *some* territory, which is wrong wherever a
+ * franchise has no real address data. Buffering real addresses only draws
+ * territory where people actually are.
  *
  * The 2.5km buffer radius was picked empirically: smaller radii (tried
  * 0.6km, 1.2km) leave rural sectors as "swiss cheese" — dozens of
  * disconnected islands around each village, since real address spacing in
- * rural Perthshire/Borders sectors is often >1km. 2.5km closes those gaps
- * into one contiguous shape per franchise while still hugging the real
+ * rural Perthshire/Borders/Argyll sectors is often >1km. 2.5km closes those
+ * gaps into one contiguous shape per franchise while still hugging the real
  * settlement pattern far more closely than a coarse per-sector centroid
  * Voronoi cell. Re-tune RADIUS_KM below and re-run if new territories look
  * too fragmented or too blobby.
- *
- * Validated against the source spreadsheet: 358/360 postcode sectors'
- * centroids fall inside their correct franchise polygon (the other 2 are
- * genuine coastal/border edge cases, e.g. Coldstream right on the England
- * border).
  *
  * postcodes.io ambiguity gotcha (if the geocoding step is ever re-run):
  * compacting "district + sector digit" (e.g. "FK1 3" -> "FK13") can collide
@@ -55,16 +67,20 @@
  * so sectors are parsed unambiguously with a regex instead of a compacted
  * string match.
  *
- * If Sur Group supplies an updated postcode spreadsheet in future:
- *   1. Re-extract scripts/data/territory-postcodes.json (one sheet per
- *      franchise; first postcode-shaped cell + next cell as area name).
- *   2. Re-derive scripts/data/territory-served-councils.json (union of
- *      council areas containing at least one sector centroid).
- *   3. Refresh scripts/data/territory-unit-postcodes.json for any new
+ * If any franchise supplies an updated postcode list in future:
+ *   1. Re-extract scripts/data/all-scotland-franchise-postcodes.json (or
+ *      re-scrape the relevant franchise's about-us page) and rebuild
+ *      scripts/data/all-territory-postcodes.json (flat sector -> {territory,
+ *      group} map; group is "sur" or "independent" per BRANCH_BY_REAL_NAME
+ *      membership below).
+ *   2. Refresh scripts/data/territory-unit-postcodes.json for any new
  *      postal districts via the ONS Postcode Directory ArcGIS FeatureServer
- *      (services1.arcgis.com/ESMARspQHYMw9BZ9/.../ONS_Postcode_Directory_*),
- *      querying `pcds LIKE '<district> %' AND doterm IS NULL`.
- *   4. Re-run this script.
+ *      (services1.arcgis.com/ESMARspQHYMw9BZ9/arcgis/rest/services/
+ *      Online_ONS_Postcode_Directory_Live/FeatureServer/1/query), querying
+ *      `PCDS LIKE '<district> %'` with outFields pcds,lat,long (paginate via
+ *      resultOffset while `exceededTransferLimit` is true).
+ *   3. Re-run this script — it derives the served-council mask and both
+ *      output files automatically.
  *
  * Run with: node scripts/generate-franchise-territories.mjs
  */
@@ -75,10 +91,11 @@ import * as turf from '@turf/turf';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const COUNCILS_PATH = path.join(__dirname, 'data', 'scotland-councils.geojson');
-const POSTCODES_PATH = path.join(__dirname, 'data', 'territory-postcodes.json');
+const TERRITORY_MAP_PATH = path.join(__dirname, 'data', 'all-territory-postcodes.json');
 const UNIT_POSTCODES_PATH = path.join(__dirname, 'data', 'territory-unit-postcodes.json');
 const SERVED_COUNCILS_PATH = path.join(__dirname, 'data', 'territory-served-councils.json');
-const OUT_PATH = path.join(__dirname, '..', 'client', 'public', 'data', 'franchise-territories.geo.json');
+const SUR_OUT_PATH = path.join(__dirname, '..', 'client', 'public', 'data', 'franchise-territories.geo.json');
+const OTHER_OUT_PATH = path.join(__dirname, '..', 'client', 'public', 'data', 'other-franchise-territories.geo.json');
 
 const RADIUS_KM = 2.5;
 // Circle smoothness: low step counts (e.g. 6) render each buffered postcode
@@ -89,7 +106,10 @@ const RADIUS_KM = 2.5;
 const CIRCLE_STEPS = 32;
 
 // Real franchise/territory name -> internal branch slug (must match
-// client/src/data/franchise-real-names.ts).
+// client/src/data/franchise-real-names.ts). Only SUR Group's 10 franchises
+// have real Branch records/access control in this app; the 9 independent
+// franchises get a display-only slug (slugified from their name) since
+// they're a reference layer, not a real tenant.
 const BRANCH_BY_REAL_NAME = {
   'Aberdeen': 'aberdeen',
   'South Ayrshire and Kilmarnock': 'south-ayrshire',
@@ -103,27 +123,54 @@ const BRANCH_BY_REAL_NAME = {
   'West Fife and Kinross': 'west-fife-kinross',
 };
 
-const territoryMap = JSON.parse(fs.readFileSync(POSTCODES_PATH, 'utf8'));
+function slugify(name) {
+  return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+}
+
+const territoryMap = JSON.parse(fs.readFileSync(TERRITORY_MAP_PATH, 'utf8'));
 const byDistrict = JSON.parse(fs.readFileSync(UNIT_POSTCODES_PATH, 'utf8'));
 const councils = JSON.parse(fs.readFileSync(COUNCILS_PATH, 'utf8'));
-const servedCouncilNames = new Set(JSON.parse(fs.readFileSync(SERVED_COUNCILS_PATH, 'utf8')));
 
-// Group every real unit postcode's [lon, lat] by the territory its sector belongs to.
+// Group every real unit postcode's [lon, lat] by the territory its sector
+// belongs to, and separately collect per-sector points to derive the
+// coverage mask below.
 const pointsByTerritory = {};
+const sectorPoints = {};
 let assigned = 0, skipped = 0;
 for (const rows of Object.values(byDistrict)) {
   for (const row of rows) {
     const m = row.pcds.match(/^([A-Z]{1,2}\d{1,2}[A-Z]?) (\d)/);
     if (!m) { skipped++; continue; }
-    const info = territoryMap[`${m[1]} ${m[2]}`];
+    const sector = `${m[1]} ${m[2]}`;
+    const info = territoryMap[sector];
     if (!info) { skipped++; continue; }
     const lon = parseFloat(row.long), lat = parseFloat(row.lat);
     if (!isFinite(lon) || !isFinite(lat)) { skipped++; continue; }
     (pointsByTerritory[info.territory] ??= []).push([lon, lat]);
+    (sectorPoints[sector] ??= []).push([lon, lat]);
     assigned++;
   }
 }
-console.log(`assigned ${assigned} unit postcodes to territories (${skipped} skipped: outside our 360 sectors)`);
+console.log(`assigned ${assigned} unit postcodes to territories (${skipped} skipped: outside our 19 franchises' sectors)`);
+
+// Derive the served-council mask automatically from sector centroids (one
+// point-in-polygon check per sector, not per unit postcode) instead of
+// hand-maintaining the list — this keeps the mask in sync whenever the
+// sector list changes.
+const servedCouncilNames = new Set();
+for (const [sector, pts] of Object.entries(sectorPoints)) {
+  const lon = pts.reduce((s, p) => s + p[0], 0) / pts.length;
+  const lat = pts.reduce((s, p) => s + p[1], 0) / pts.length;
+  const pt = turf.point([lon, lat]);
+  for (const f of councils.features) {
+    if (turf.booleanPointInPolygon(pt, f.geometry)) {
+      servedCouncilNames.add(f.properties.LAD23NM);
+      break;
+    }
+  }
+}
+fs.writeFileSync(SERVED_COUNCILS_PATH, JSON.stringify([...servedCouncilNames].sort(), null, 1) + '\n');
+console.log(`served councils (${servedCouncilNames.size}):`, [...servedCouncilNames].sort().join(', '));
 
 // Coverage mask = union of ONLY the council areas actually touched by a
 // franchise postcode (not all of Scotland).
@@ -158,13 +205,21 @@ async function reduceUnion(polys) {
   return layer[0];
 }
 
-const outFeatures = [];
-for (const [territory, pts] of Object.entries(pointsByTerritory)) {
+// This step (buffer + pairwise-union per territory) is the slow part with
+// all 19 franchises' ~120k addresses — slow enough to risk exceeding a
+// single shell command's timeout. So progress is cached to disk per
+// territory (PROGRESS_PATH) and this script is resumable: re-running it
+// picks up only the territories not yet computed. Delete PROGRESS_PATH to
+// force a full recompute (e.g. after changing RADIUS_KM or CIRCLE_STEPS).
+const PROGRESS_PATH = path.join(__dirname, 'data', '.territory-progress.json');
+const progress = fs.existsSync(PROGRESS_PATH) ? JSON.parse(fs.readFileSync(PROGRESS_PATH, 'utf8')) : {};
+
+const territoryNames = Object.keys(pointsByTerritory);
+for (const territory of territoryNames) {
+  if (progress[territory]) { console.log(`${territory}: already computed, skipping`); continue; }
+  const pts = pointsByTerritory[territory];
   const branch = BRANCH_BY_REAL_NAME[territory];
-  if (!branch) {
-    console.warn(`No branch slug mapped for territory "${territory}" — skipping.`);
-    continue;
-  }
+  const isSur = !!branch;
   const circles = pts.map(p => turf.circle(p, RADIUS_KM, { steps: CIRCLE_STEPS, units: 'kilometers' }));
   let merged = await reduceUnion(circles);
   try {
@@ -182,10 +237,31 @@ for (const [territory, pts] of Object.entries(pointsByTerritory)) {
   // trims redundant vertices from the pairwise-union process (keeps file size
   // sane without re-introducing the low-step-count jaggedness this replaces).
   merged = turf.simplify(merged, { tolerance: 0.0008, highQuality: true, mutate: true });
-  merged.properties = { branch, realName: territory };
-  outFeatures.push(merged);
-  console.log(`${territory}: ${pts.length} addresses -> territory polygon built`);
+  merged.properties = isSur
+    ? { branch, realName: territory }
+    : { slug: slugify(territory), realName: territory, group: 'independent' };
+  progress[territory] = merged;
+  fs.writeFileSync(PROGRESS_PATH, JSON.stringify(progress));
+  console.log(`${territory}: ${pts.length} addresses -> territory polygon built (${isSur ? 'SUR' : 'independent'})`);
 }
 
-fs.writeFileSync(OUT_PATH, JSON.stringify(turf.featureCollection(outFeatures)));
-console.log(`Wrote ${outFeatures.length} territory features to ${path.relative(process.cwd(), OUT_PATH)}`);
+const remaining = territoryNames.filter(t => !progress[t]);
+if (remaining.length > 0) {
+  console.log(`${remaining.length} territories still pending: ${remaining.join(', ')} — re-run this script to continue.`);
+  process.exit(0);
+}
+
+const surFeatures = [];
+const otherFeatures = [];
+for (const territory of territoryNames) {
+  const f = progress[territory];
+  (f.properties.branch ? surFeatures : otherFeatures).push(f);
+}
+
+fs.writeFileSync(SUR_OUT_PATH, JSON.stringify(turf.featureCollection(surFeatures)));
+console.log(`Wrote ${surFeatures.length} SUR Group territory features to ${path.relative(process.cwd(), SUR_OUT_PATH)}`);
+
+fs.writeFileSync(OTHER_OUT_PATH, JSON.stringify(turf.featureCollection(otherFeatures)));
+console.log(`Wrote ${otherFeatures.length} independent-franchise territory features to ${path.relative(process.cwd(), OTHER_OUT_PATH)}`);
+
+fs.rmSync(PROGRESS_PATH, { force: true });

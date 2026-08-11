@@ -159,6 +159,23 @@ export function CareProMap({
     };
   }, [territories, branches]);
 
+  // Other (non-SUR) Home Instead franchise territories — a read-only
+  // reference layer so the SUR team can see where neighbouring, independently
+  // owned franchises operate. These aren't real Branch records in this app,
+  // so they're always shown (no filter/access-control tie-in) whenever the
+  // SUR territory layer is shown, styled distinctly (transparent red) so
+  // they're never confused with SUR's own coloured territories.
+  const [otherTerritories, setOtherTerritories] = useState<FeatureCollection | null>(null);
+  useEffect(() => {
+    if (!multiFranchise) return;
+    let cancelled = false;
+    fetch('/data/other-franchise-territories.geo.json')
+      .then(res => res.ok ? res.json() : null)
+      .then(data => { if (!cancelled && data) setOtherTerritories(data); })
+      .catch(() => { /* borders are a visual extra — ignore fetch failures */ });
+    return () => { cancelled = true; };
+  }, [multiFranchise]);
+
   // Search state
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchInput, setSearchInput] = useState('');
@@ -348,6 +365,32 @@ export function CareProMap({
               layer.bindTooltip(
                 `<span style="display:inline-flex;align-items:center;gap:6px;"><span style="width:8px;height:8px;border-radius:9999px;background:${color};display:inline-block;"></span>${realName}</span>`,
                 { sticky: true, className: 'font-bold text-xs' },
+              );
+            }}
+          />
+        )}
+
+        {/* Non-SUR Home Instead franchise territories — always-on reference
+            layer, styled distinctly (transparent red) from SUR's own
+            territories above. Purely visual: no selection/filter tie-in. */}
+        {otherTerritories && (
+          <GeoJSON
+            data={otherTerritories as any}
+            style={() => ({
+              color: '#dc2626',
+              weight: 2,
+              opacity: 0.55,
+              fillColor: '#dc2626',
+              fillOpacity: 0.06,
+              dashArray: '6 4',
+              lineCap: 'round' as const,
+              lineJoin: 'round' as const,
+            })}
+            onEachFeature={(feature: any, layer: any) => {
+              const realName = feature?.properties?.realName ?? 'Other franchise';
+              layer.bindTooltip(
+                `<span style="display:inline-flex;align-items:center;gap:6px;color:#991b1b;"><span style="width:8px;height:8px;border-radius:9999px;background:#dc2626;display:inline-block;"></span>${realName}</span>`,
+                { permanent: true, direction: 'center', className: 'font-bold text-[10px] !bg-white/80 !border-red-200' },
               );
             }}
           />
