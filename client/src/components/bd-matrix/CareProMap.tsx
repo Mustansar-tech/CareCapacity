@@ -263,8 +263,9 @@ export function CareProMap({
 
         <SearchFlyTo result={searchResult} />
 
-        {/* Franchise territory borders (accurate boundaries added one franchise at a time).
-            When the franchise picker is active, only selected franchises' boundaries show. */}
+        {/* Franchise territory borders — all 19 territories are in the GeoJSON.
+            SUR territories (violet) show when their franchise is ticked in the picker;
+            Independent Franchise territories (red, dashed) always show as context. */}
         {visibleTerritories && (
           <GeoJSON
             key={Array.from(selectedSlugs).sort().join('|')}

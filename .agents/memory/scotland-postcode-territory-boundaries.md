@@ -35,3 +35,5 @@ Lanarkshire, etc.) — one at a time, per the user's preferred incremental workf
 at `client/public/data/franchise-territories.geo.json` (a `FeatureCollection`, currently containing only Glasgow
 North) and is rendered as a `GeoJSON` layer in `client/src/components/bd-matrix/CareProMap.tsx`, purely additive
 to the existing marker/filter logic.
+
+**Status: COMPLETE — all 19 territories built and shipped** (10 SUR + 9 Independent). Independents carry `properties.group: "independent"`, always visible on the map in red/dashed; SUR ones show when ticked in the picker. Island territories (Inverclyde/N Ayrshire, W Dunbartonshire/Argyll & Bute) are MultiPolygons — keep all parts ≥1 km², never largest-only. Every territory is clipped to the Scotland national boundary (mandatory, per user, for consistency).
