@@ -71,8 +71,9 @@ export function ClientEnquiryMatcher({ weekStartDate: weekStartDateProp }: { wee
       ['/api/client-enquiries'],
       (old) => old ? old.map(e => e.id === id ? { ...e, starredSelections: payload } : e) : old,
     );
-    return apiRequest('PATCH', `/api/client-enquiries/${id}/stars`, { starredSelections: payload }).catch(() => {});
-  }, []);
+    const qs = selectedBranchId ? `?branchId=${encodeURIComponent(selectedBranchId)}` : '';
+    return apiRequest('PATCH', `/api/client-enquiries/${id}/stars${qs}`, { starredSelections: payload }).catch(() => {});
+  }, [selectedBranchId]);
 
   // Debounced autosave: live stars → DB
   React.useEffect(() => {
@@ -164,7 +165,8 @@ export function ClientEnquiryMatcher({ weekStartDate: weekStartDateProp }: { wee
 
   const deleteEnquiryMutation = useMutation({
     mutationFn: async (id: string) => {
-      await apiRequest('DELETE', `/api/client-enquiries/${id}`);
+      const qs = selectedBranchId ? `?branchId=${encodeURIComponent(selectedBranchId)}` : '';
+      await apiRequest('DELETE', `/api/client-enquiries/${id}${qs}`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/client-enquiries', selectedBranchId] });
