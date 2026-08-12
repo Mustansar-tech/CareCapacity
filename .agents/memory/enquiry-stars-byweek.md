@@ -7,6 +7,6 @@ description: Storage format for client enquiry starred selections after the mult
 
 **Why:** The matcher runs the enquiry against the selected week plus all future processed weeks and stars per week; a flat map can't represent per-week choices, but old saved enquiries must keep rendering and stay editable.
 
-**Consistency definition (user-confirmed):** "consistency" means a PRIMARY carer covering EVERY required day of every week (like a primary carer in care practice), plus a consistent visit time close to the client's requested time — NOT a per-day-of-week winner. Fallbacks cascade down one ranked list so the same backup is reused.
+**Consistency definition (user-confirmed, iterated twice):** TIME comes first — pick ONE visit time (closest to the client's requested time, achievable in the most week×day cells), then cover the schedule with the FEWEST carers at that time via greedy set-cover (a stable split like carer A Mon–Wed / carer B Thu–Fri is acceptable and better than one carer at scattered times). Only fall back to a nearby time when no one can serve the chosen time, preferring carers already on the rota. NOT per-day-of-week winners; NOT one carer at varying times.
 
 **How to apply:** Any code reading `starredSelections` must handle both shapes. New writes always use the `{ byWeek }` wrapper. The multi-week results shape is `{ weeks: [{ weekStartDate, visitResults }], recommendedStars }` — detect with `isMultiWeekResult`. ORS reuse across weeks relies on `orsMatrixBatch` being cache-aware (it skips fully-cached batches, no sleep/API call).

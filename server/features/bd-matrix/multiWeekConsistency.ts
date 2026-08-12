@@ -3,26 +3,19 @@ import type { MultiVisitMatchResult, MatchedEmployee, MatchedSlot } from './bdMa
 /**
  * Multi-week consistency engine for the Client Enquiry Matcher.
  *
- * "Consistency" here mirrors real care practice — a PRIMARY CarePro:
- *  1. One carer should cover the visit on EVERY required day, EVERY week
- *     (not a different carer per day of the week).
- *  2. The visit TIME should be consistent and as close as possible to the
- *     time the client asked for, across all days and weeks.
+ * Priorities (mirrors real care practice):
+ *  1. TIME FIRST — the client's visit should happen at the SAME time every
+ *     day and every week, as close as possible to the time they asked for.
+ *     A consistent time is chosen for the whole visit before carers are picked.
+ *  2. FEWEST CARERS — holding that time fixed, cover the schedule with as few
+ *     carers as possible. One primary carer for everything is ideal; if that's
+ *     impossible at a consistent time, a stable split (e.g. one carer Mon–Wed,
+ *     another Thu–Fri) beats one carer at scattered times.
+ *  3. Only when nobody can serve the chosen time on a given day/week does it
+ *     fall back to the nearest time — preferring carers already on the rota.
  *
- * Ranking for the primary carer (per visit/CP):
- *  1. Most (week × day) cells covered — the carer who can do the most of the
- *     whole schedule wins.
- *  2. Time consistency — how many of their cells can be served at their most
- *     common time window.
- *  3. Closeness of their windows to the client's requested start time.
- *  4. Lowest average travel, then highest average match score.
- *
- * When the primary can't cover a specific day/week, the fallback cascades
- * down the same ranked list (so the same backup carer is reused wherever
- * possible) instead of picking an ad-hoc local best each time.
- *
- * Double-ups: CP2+ must overlap CP1's chosen window for the same cell, and be
- * a different person from CP1 in that cell.
+ * Double-ups: CP2+ must overlap CP1's chosen window in each cell and be a
+ * different person from CP1 in that cell.
  */
 
 export interface StarredEntry {
@@ -63,9 +56,9 @@ function normalizeDay(d: string): string {
   return map[low] || low;
 }
 
-function slotOnDay(match: MatchedEmployee, day: string): MatchedSlot | undefined {
+function slotsOnDay(match: MatchedEmployee, day: string): MatchedSlot[] {
   const target = normalizeDay(day);
-  return match.matchedSlots.find(s => {
+  return match.matchedSlots.filter(s => {
     const byDate = dateToDayAbbrev(s.day) === target;
     const byLabel = normalizeDay((s.dayLabel || '').split(' ')[0]) === target;
     return byDate || byLabel;
@@ -87,10 +80,21 @@ function toMinutes(hhmm: string | undefined): number | null {
   return parseInt(m[1]) * 60 + parseInt(m[2]);
 }
 
-/** Distance (minutes) between a window's start and the client's requested start */
-function windowDistance(window: string, requestedStartMins: number | null): number {
+function windowStart(window: string): number | null {
+  return toMinutes(window.split(/[-–]/)[0]);
+}
+
+/** Distance (minutes) between two windows' start times */
+function windowGap(a: string, b: string): number {
+  const sa = windowStart(a), sb = windowStart(b);
+  if (sa == null || sb == null) return a === b ? 0 : 9999;
+  return Math.abs(sa - sb);
+}
+
+/** Distance (minutes) between a window's start and the requested start */
+function distToRequested(window: string, requestedStartMins: number | null): number {
   if (requestedStartMins == null) return 0;
-  const start = toMinutes(window.split(/[-–]/)[0]);
+  const start = windowStart(window);
   if (start == null) return 0;
   return Math.abs(start - requestedStartMins);
 }
@@ -113,18 +117,20 @@ export function computeConsistentStars(
     // A "cell" is one (week, day) the visit must be covered on
     type CellKey = string; // `${weekStartDate}|${day}`
     const cellKey = (week: string, day: string): CellKey => `${week}|${day}`;
+    const allCells: Array<{ key: CellKey; week: string; day: string }> = [];
+    for (const w of weeks) for (const d of days) allCells.push({ key: cellKey(w.weekStartDate, d), week: w.weekStartDate, day: d });
 
     // Employees already starred per cell (across CP slots), for double-ups
     const usedByCell = new Map<CellKey, Set<string>>();
     // Window chosen by CP1 per cell — later CPs must overlap the same window
     const cp0WindowByCell = new Map<CellKey, string>();
-    for (const w of weeks) for (const d of days) usedByCell.set(cellKey(w.weekStartDate, d), new Set());
+    for (const c of allCells) usedByCell.set(c.key, new Set());
 
     for (let cpIdx = 0; cpIdx < visit.careProsRequired; cpIdx++) {
       const pref = visit.genderPreferences[cpIdx] || 'any';
 
-      // Eligible candidate per cell: employee -> { match, slot }
-      type Cand = { match: MatchedEmployee; slot: MatchedSlot };
+      // Eligible candidates per cell (ALL of a carer's slots on that day)
+      type Cand = { match: MatchedEmployee; slots: MatchedSlot[] };
       const cellCands = new Map<CellKey, Cand[]>();
       for (const w of weeks) {
         const vr = w.result.visitResults[visitIndex];
@@ -135,88 +141,125 @@ export function computeConsistentStars(
           for (const m of vr?.matches ?? []) {
             if (!genderOk(m, pref)) continue;
             if (used.has(m.employeeName)) continue;
-            const slot = slotOnDay(m, d);
-            if (!slot) continue;
-            cands.push({ match: m, slot });
+            const slots = slotsOnDay(m, d);
+            if (slots.length === 0) continue;
+            cands.push({ match: m, slots });
           }
           cellCands.set(key, cands);
         }
       }
 
-      // Aggregate stats across ALL cells (every day of every week) per employee
-      const stats = new Map<string, {
-        cells: number;
-        windowCounts: Map<string, number>;
-        distSum: number;
-        travelSum: number;
-        scoreSum: number;
-        cp0OverlapCells: number;
-      }>();
-      for (const [key, cands] of cellCands) {
+      // For double-ups, restrict each cell's pool to CP1's window when possible
+      const poolFor = (key: CellKey): Cand[] => {
+        const cands = cellCands.get(key) ?? [];
+        if (cpIdx === 0) return cands;
         const cp0Window = cp0WindowByCell.get(key);
-        for (const c of cands) {
-          const s = stats.get(c.match.employeeName) ?? {
-            cells: 0, windowCounts: new Map(), distSum: 0, travelSum: 0, scoreSum: 0, cp0OverlapCells: 0,
-          };
-          s.cells += 1;
-          s.windowCounts.set(c.slot.availableWindow, (s.windowCounts.get(c.slot.availableWindow) ?? 0) + 1);
-          s.distSum += windowDistance(c.slot.availableWindow, requestedStart);
-          s.travelSum += slotTravel(c.match, c.slot);
-          s.scoreSum += c.match.matchScore ?? 0;
-          if (cp0Window && c.slot.availableWindow === cp0Window) s.cp0OverlapCells += 1;
-          stats.set(c.match.employeeName, s);
+        if (!cp0Window) return cands;
+        const overlapping = cands
+          .filter(c => c.slots.some(s => s.availableWindow === cp0Window))
+          .map(c => ({ ...c, slots: c.slots.filter(s => s.availableWindow === cp0Window) }));
+        return overlapping.length > 0 ? overlapping : cands;
+      };
+
+      // ── STEP 1: choose ONE target time window for the whole visit ──
+      // Rank windows by: how many cells can be served at that exact window,
+      // then closeness to the client's requested time.
+      const windowCoverage = new Map<string, number>();
+      for (const c of allCells) {
+        const seen = new Set<string>();
+        for (const cand of poolFor(c.key)) for (const s of cand.slots) seen.add(s.availableWindow);
+        for (const wdw of seen) windowCoverage.set(wdw, (windowCoverage.get(wdw) ?? 0) + 1);
+      }
+      if (windowCoverage.size === 0) continue;
+      const targetWindow = [...windowCoverage.entries()].sort((a, b) => {
+        if (b[1] !== a[1]) return b[1] - a[1];
+        return distToRequested(a[0], requestedStart) - distToRequested(b[0], requestedStart);
+      })[0][0];
+
+      // ── STEP 2: cover cells at the target window with the FEWEST carers ──
+      // Greedy set-cover: repeatedly pick the carer who can serve the most
+      // still-uncovered cells at the target window.
+      type Assigned = { match: MatchedEmployee; slot: MatchedSlot };
+      const assignment = new Map<CellKey, Assigned>();
+      const uncoveredAtTarget = new Set<CellKey>(
+        allCells.filter(c => poolFor(c.key).some(x => x.slots.some(s => s.availableWindow === targetWindow))).map(c => c.key)
+      );
+      while (uncoveredAtTarget.size > 0) {
+        // carer -> cells they can take at the target window
+        const carerCells = new Map<string, Array<{ key: CellKey; cand: Assigned }>>();
+        for (const key of uncoveredAtTarget) {
+          for (const cand of poolFor(key)) {
+            const slot = cand.slots.find(s => s.availableWindow === targetWindow);
+            if (!slot) continue;
+            const arr = carerCells.get(cand.match.employeeName) ?? [];
+            arr.push({ key, cand: { match: cand.match, slot } });
+            carerCells.set(cand.match.employeeName, arr);
+          }
+        }
+        if (carerCells.size === 0) break;
+        const best = [...carerCells.entries()].sort((a, b) => {
+          if (b[1].length !== a[1].length) return b[1].length - a[1].length;
+          const avg = (arr: Array<{ cand: Assigned }>) =>
+            arr.reduce((s, x) => s + slotTravel(x.cand.match, x.cand.slot), 0) / arr.length;
+          const at = avg(a[1]), bt = avg(b[1]);
+          if (at !== bt) return at - bt;
+          const score = (arr: Array<{ cand: Assigned }>) =>
+            arr.reduce((s, x) => s + (x.cand.match.matchScore ?? 0), 0) / arr.length;
+          return score(b[1]) - score(a[1]);
+        })[0][1];
+        for (const { key, cand } of best) {
+          assignment.set(key, cand);
+          uncoveredAtTarget.delete(key);
         }
       }
-      if (stats.size === 0) continue;
 
-      // Rank candidates for PRIMARY carer across the whole schedule:
-      // coverage → (double-up) CP1 overlap → time consistency → closeness to
-      // requested time → travel → score
-      const modal = (s: { windowCounts: Map<string, number> }) => Math.max(...s.windowCounts.values());
-      const ranked = [...stats.entries()].sort((a, b) => {
-        if (b[1].cells !== a[1].cells) return b[1].cells - a[1].cells;
-        if (cpIdx > 0 && b[1].cp0OverlapCells !== a[1].cp0OverlapCells) return b[1].cp0OverlapCells - a[1].cp0OverlapCells;
-        const am = modal(a[1]) / a[1].cells, bm = modal(b[1]) / b[1].cells;
-        if (am !== bm) return bm - am;
-        const ad = a[1].distSum / a[1].cells, bd = b[1].distSum / b[1].cells;
-        if (ad !== bd) return ad - bd;
-        const at = a[1].travelSum / a[1].cells, bt = b[1].travelSum / b[1].cells;
-        if (at !== bt) return at - bt;
-        return b[1].scoreSum / b[1].cells - a[1].scoreSum / a[1].cells;
-      }).map(([name]) => name);
+      // ── STEP 3: cells nobody can serve at the target time ──
+      // Fall back to the nearest time to the target, preferring carers who are
+      // already on this visit's rota (fewest new faces).
+      const rosterCounts = new Map<string, number>();
+      for (const cand of assignment.values()) {
+        rosterCounts.set(cand.match.employeeName, (rosterCounts.get(cand.match.employeeName) ?? 0) + 1);
+      }
+      for (const c of allCells) {
+        if (assignment.has(c.key)) continue;
+        const pool = poolFor(c.key);
+        if (pool.length === 0) continue;
+        // For each candidate use their slot nearest the target time
+        const flattened = pool.map(cand => {
+          const slot = [...cand.slots].sort((x, y) =>
+            windowGap(x.availableWindow, targetWindow) - windowGap(y.availableWindow, targetWindow))[0];
+          return { match: cand.match, slot };
+        });
+        const chosen = flattened.sort((a, b) => {
+          const aKnown = rosterCounts.get(a.match.employeeName) ?? 0;
+          const bKnown = rosterCounts.get(b.match.employeeName) ?? 0;
+          // Time closeness first, then prefer a carer already on the rota
+          const ag = windowGap(a.slot.availableWindow, targetWindow);
+          const bg = windowGap(b.slot.availableWindow, targetWindow);
+          if (ag !== bg) return ag - bg;
+          if (bKnown !== aKnown) return bKnown - aKnown;
+          const at = slotTravel(a.match, a.slot), bt = slotTravel(b.match, b.slot);
+          if (at !== bt) return at - bt;
+          return (b.match.matchScore ?? 0) - (a.match.matchScore ?? 0);
+        })[0];
+        assignment.set(c.key, chosen);
+        rosterCounts.set(chosen.match.employeeName, (rosterCounts.get(chosen.match.employeeName) ?? 0) + 1);
+      }
 
-      // Star every cell: cascade down the ranked list so the primary carer is
-      // used wherever available and the SAME backup is reused when not.
-      for (const w of weeks) {
-        for (const d of days) {
-          const key = cellKey(w.weekStartDate, d);
-          const cands = cellCands.get(key)!;
-          if (cands.length === 0) continue;
-
-          const cp0Window = cp0WindowByCell.get(key);
-          const pool = cpIdx > 0 && cp0Window && cands.some(c => c.slot.availableWindow === cp0Window)
-            ? cands.filter(c => c.slot.availableWindow === cp0Window)
-            : cands;
-
-          let chosen: Cand | undefined;
-          for (const name of ranked) {
-            chosen = pool.find(c => c.match.employeeName === name);
-            if (chosen) break;
-          }
-          if (!chosen) chosen = pool[0];
-          if (!chosen) continue;
-
-          const starKey = `${visitIndex}-${cpIdx}-${d}`;
-          starsByWeek[w.weekStartDate][starKey] = {
-            employeeName: chosen.match.employeeName,
-            timeWindow: chosen.slot.availableWindow,
-            gender: chosen.match.gender,
-            transportMode: chosen.match.transportMode,
-            auto: true,
-          };
-          usedByCell.get(key)!.add(chosen.match.employeeName);
-          if (cpIdx === 0) cp0WindowByCell.set(key, chosen.slot.availableWindow);
-        }
+      // ── Write stars ──
+      for (const c of allCells) {
+        const chosen = assignment.get(c.key);
+        if (!chosen) continue;
+        const starKey = `${visitIndex}-${cpIdx}-${c.day}`;
+        starsByWeek[c.week][starKey] = {
+          employeeName: chosen.match.employeeName,
+          timeWindow: chosen.slot.availableWindow,
+          gender: chosen.match.gender,
+          transportMode: chosen.match.transportMode,
+          auto: true,
+        };
+        usedByCell.get(c.key)!.add(chosen.match.employeeName);
+        if (cpIdx === 0) cp0WindowByCell.set(c.key, chosen.slot.availableWindow);
       }
     }
   });
