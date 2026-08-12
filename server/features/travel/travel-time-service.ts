@@ -789,6 +789,21 @@ export class TravelTimeService {
     skipSameCoords = false
   ): Promise<number> {
     if (!this.ORS_API_KEY || sources.length === 0 || destinations.length === 0) return 0;
+
+    // Cache-aware: only include sources/destinations that still have at least one
+    // uncached pair. When a repeat request (e.g. the same enquiry matched across
+    // multiple weeks) is fully covered by the session cache, skip ORS entirely —
+    // no rate-limit sleep, no API call.
+    const pairUncached = (s: { lat: number; lng: number }, d: { lat: number; lng: number }) => {
+      if (skipSameCoords && s.lat === d.lat && s.lng === d.lng) return false;
+      const sk = this.sessionKey(s.lat.toString(), s.lng.toString(), d.lat.toString(), d.lng.toString(), 'car');
+      return !this._sessionCache.has(sk);
+    };
+    sources = sources.filter(s => destinations.some(d => pairUncached(s, d)));
+    if (sources.length === 0) return 0;
+    destinations = destinations.filter(d => sources.some(s => pairUncached(s, d)));
+    if (destinations.length === 0) return 0;
+
     let added = 0;
     try {
       const allLocations = [

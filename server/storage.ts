@@ -148,7 +148,7 @@ export interface IStorage {
 
   saveClientEnquiry(enquiry: InsertClientEnquiry): Promise<ClientEnquiry>;
   getClientEnquiries(branchId: string, limit?: number): Promise<ClientEnquiry[]>;
-  deleteClientEnquiry(id: string): Promise<void>;
+  deleteClientEnquiry(id: string): Promise<boolean>;
 
   // Feedback / bug reports
   createFeedback(data: InsertFeedback): Promise<Feedback>;
@@ -576,8 +576,8 @@ export class MemStorage implements IStorage {
       .slice(0, limit);
   }
 
-  async deleteClientEnquiry(id: string): Promise<void> {
-    this.clientEnquiriesMap.delete(id);
+  async deleteClientEnquiry(id: string): Promise<boolean> {
+    return this.clientEnquiriesMap.delete(id);
   }
 
   async createFeedback(data: InsertFeedback): Promise<Feedback> {

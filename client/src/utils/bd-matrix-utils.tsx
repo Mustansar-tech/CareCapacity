@@ -135,6 +135,39 @@ export interface VisitFormData {
   timeEnd: string;
 }
 
+/** Per-week stars: { [weekStartDate]: StarredMap } */
+export type StarredByWeek = Record<string, StarredMap>;
+
+/** Result of the multi-week matcher (current week + all future processed weeks) */
+export interface MultiWeekResult {
+  clientName: string;
+  postcode?: string;
+  totalVisits: number;
+  weeks: Array<{
+    weekStartDate: string;
+    visitResults: MultiVisitResult['visitResults'];
+    totalVisits: number;
+  }>;
+  recommendedStars?: StarredByWeek;
+}
+
+/** Wrapper stored in client_enquiries.starredSelections for multi-week records */
+export interface StarredSelectionsV2 {
+  byWeek: StarredByWeek;
+}
+
+export function isMultiWeekResult(r: unknown): r is MultiWeekResult {
+  return !!r && typeof r === 'object' && Array.isArray((r as MultiWeekResult).weeks);
+}
+
+export function isStarredByWeekWrapper(s: unknown): s is StarredSelectionsV2 {
+  return !!s && typeof s === 'object' && typeof (s as StarredSelectionsV2).byWeek === 'object' && (s as StarredSelectionsV2).byWeek !== null;
+}
+
+export function formatWeekLabel(weekStartDate: string): string {
+  return `w/c ${new Date(weekStartDate + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}`;
+}
+
 export interface MultiVisitResult {
   clientName: string;
   postcode?: string;

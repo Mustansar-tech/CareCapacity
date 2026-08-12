@@ -9,6 +9,7 @@ export async function createClientEnquiry(req: Request, res: Response): Promise<
   const {
     clientName, postcode, genderPreference,
     requiredDays, preferredTimeWindow, matchCount, topMatch, results, isMultiVisit,
+    visits, starredSelections,
   } = req.body;
 
   if (!clientName) {
@@ -32,6 +33,8 @@ export async function createClientEnquiry(req: Request, res: Response): Promise<
     topMatch: topMatch || null,
     results: results || null,
     isMultiVisit: isMultiVisit ? 1 : 0,
+    visits: visits ?? null,
+    starredSelections: starredSelections ?? null,
   });
 
   res.json(enquiry);
@@ -45,7 +48,9 @@ export async function listClientEnquiries(req: Request, res: Response): Promise<
 }
 
 export async function deleteClientEnquiry(req: Request, res: Response): Promise<void> {
-  await enquiryRepo.deleteClientEnquiry(req.params.id);
+  const branchId = await resolveBranch(req);
+  const deleted = await enquiryRepo.deleteClientEnquiry(req.params.id, branchId);
+  if (!deleted) { res.status(404).json({ message: 'Enquiry not found' }); return; }
   res.json({ success: true });
 }
 
@@ -53,7 +58,9 @@ export async function patchEnquiryStars(req: Request, res: Response): Promise<vo
   const { id } = req.params;
   const { starredSelections } = req.body;
   if (!id) { res.status(400).json({ error: 'id required' }); return; }
-  await enquiryRepo.updateStarredSelections(id, starredSelections ?? {});
+  const branchId = await resolveBranch(req);
+  const updated = await enquiryRepo.updateStarredSelections(id, starredSelections ?? {}, branchId);
+  if (!updated) { res.status(404).json({ message: 'Enquiry not found' }); return; }
   res.json({ success: true });
 }
 

@@ -79,20 +79,9 @@ function drawCpBadge(doc: jsPDF, x: number, y: number, num: number) {
   doc.text(String(num), x + bw / 2, y + bh * 0.73, { align: 'center' });
 }
 
-export function exportSchedulePdf(
-  starredMap: Record<string, StarredSelection>,
-  clientName: string,
-  postcode: string | undefined,
-  enquiryTimeStart: string | undefined,
-  enquiryTimeEnd: string | undefined,
-  allVisits: VisitInfo[],
-  selectedDays?: string[]
-) {
-  const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
-
-  // ── Header ─────────────────────────────────────────────────────────────────
+// Draws the standard page header; returns the Y where content should start
+function drawPageHeader(doc: jsPDF, clientName: string, postcode: string | undefined, weekLabel?: string): number {
   const title = [clientName, postcode].filter(Boolean).join('  –  ');
-  const subtitle = '';
 
   // Accent bar
   doc.setFillColor(20, 20, 30);
@@ -104,11 +93,11 @@ export function exportSchedulePdf(
   doc.text(title, 14, 15);
 
   let headerBottom = 19;
-  if (subtitle) {
-    doc.setFontSize(10);
-    doc.setFont('helvetica', 'normal');
-    doc.setTextColor(100, 100, 110);
-    doc.text(subtitle, 14, 22);
+  if (weekLabel) {
+    doc.setFontSize(11);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(80, 70, 190);
+    doc.text(weekLabel, 14, 22);
     headerBottom = 26;
   }
 
@@ -120,7 +109,70 @@ export function exportSchedulePdf(
   doc.text(`Generated: ${dateStr}`, 283, 8, { align: 'right' });
 
   doc.setTextColor(0, 0, 0);
+  return headerBottom;
+}
 
+function drawPageFooter(doc: jsPDF, pageNum: number, totalPages: number) {
+  const pageH = 210;
+  doc.setFontSize(7.5);
+  doc.setTextColor(160, 160, 170);
+  doc.text('Care Capacity Dashboard  ·  Proposed Weekly Schedule', 14, pageH - 4);
+  doc.text(totalPages > 1 ? `Page ${pageNum} of ${totalPages}` : 'Page 1', 283, pageH - 4, { align: 'right' });
+}
+
+/** Export the starred plan for all weeks — one page per week. */
+export function exportMultiWeekSchedulePdf(
+  weeks: Array<{ weekStartDate: string; starredMap: Record<string, StarredSelection> }>,
+  clientName: string,
+  postcode: string | undefined,
+  enquiryTimeStart: string | undefined,
+  enquiryTimeEnd: string | undefined,
+  allVisits: VisitInfo[],
+  selectedDays?: string[]
+) {
+  const withStars = weeks.filter(w => Object.keys(w.starredMap).length > 0);
+  const pages = withStars.length > 0 ? withStars : weeks.slice(0, 1);
+  if (pages.length === 0) return;
+
+  const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+  pages.forEach((w, i) => {
+    if (i > 0) doc.addPage();
+    const weekLabel = `Week commencing ${new Date(w.weekStartDate + 'T12:00:00').toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}`;
+    const headerBottom = drawPageHeader(doc, clientName, postcode, weekLabel);
+    renderWeekTable(doc, w.starredMap, allVisits, selectedDays, headerBottom);
+    drawPageFooter(doc, i + 1, pages.length);
+  });
+
+  const safeFilename = clientName.replace(/[^a-zA-Z0-9]/g, '_');
+  doc.save(`${safeFilename}_schedule.pdf`);
+}
+
+export function exportSchedulePdf(
+  starredMap: Record<string, StarredSelection>,
+  clientName: string,
+  postcode: string | undefined,
+  enquiryTimeStart: string | undefined,
+  enquiryTimeEnd: string | undefined,
+  allVisits: VisitInfo[],
+  selectedDays?: string[]
+) {
+  const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+  const headerBottom = drawPageHeader(doc, clientName, postcode);
+  renderWeekTable(doc, starredMap, allVisits, selectedDays, headerBottom);
+  drawPageFooter(doc, 1, 1);
+
+  const safeFilename = clientName.replace(/[^a-zA-Z0-9]/g, '_');
+  doc.save(`${safeFilename}_schedule.pdf`);
+}
+
+// Renders one week's starred schedule table starting below the header
+function renderWeekTable(
+  doc: jsPDF,
+  starredMap: Record<string, StarredSelection>,
+  allVisits: VisitInfo[],
+  selectedDays: string[] | undefined,
+  headerBottom: number,
+) {
   // ── Data prep ──────────────────────────────────────────────────────────────
   const allDays = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
   const allDayFullNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
@@ -382,14 +434,4 @@ export function exportSchedulePdf(
       doc.setLineWidth(0.3);
     },
   });
-
-  // ── Footer ─────────────────────────────────────────────────────────────────
-  const pageH = 210;
-  doc.setFontSize(7.5);
-  doc.setTextColor(160, 160, 170);
-  doc.text('Care Capacity Dashboard  ·  Proposed Weekly Schedule', 14, pageH - 4);
-  doc.text('Page 1', 283, pageH - 4, { align: 'right' });
-
-  const safeFilename = clientName.replace(/[^a-zA-Z0-9]/g, '_');
-  doc.save(`${safeFilename}_schedule.pdf`);
 }

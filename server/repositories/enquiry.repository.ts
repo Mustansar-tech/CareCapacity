@@ -4,7 +4,7 @@ import type {
   ClientEnquiry, InsertClientEnquiry,
   Feedback, InsertFeedback,
 } from '@shared/schema';
-import { eq, desc } from 'drizzle-orm';
+import { eq, desc, and } from 'drizzle-orm';
 
 export async function saveClientEnquiry(enquiry: InsertClientEnquiry): Promise<ClientEnquiry> {
   const [result] = await db.insert(clientEnquiries).values({
@@ -22,14 +22,23 @@ export async function getClientEnquiries(branchId: string, limit = 50): Promise<
     .limit(limit);
 }
 
-export async function deleteClientEnquiry(id: string): Promise<void> {
-  await db.delete(clientEnquiries).where(eq(clientEnquiries.id, id));
+export async function deleteClientEnquiry(id: string, branchId?: string): Promise<boolean> {
+  const result = await db.delete(clientEnquiries)
+    .where(branchId
+      ? and(eq(clientEnquiries.id, id), eq(clientEnquiries.branchId, branchId))
+      : eq(clientEnquiries.id, id))
+    .returning({ id: clientEnquiries.id });
+  return result.length > 0;
 }
 
-export async function updateStarredSelections(id: string, starredSelections: unknown): Promise<void> {
-  await db.update(clientEnquiries)
+export async function updateStarredSelections(id: string, starredSelections: unknown, branchId?: string): Promise<boolean> {
+  const result = await db.update(clientEnquiries)
     .set({ starredSelections })
-    .where(eq(clientEnquiries.id, id));
+    .where(branchId
+      ? and(eq(clientEnquiries.id, id), eq(clientEnquiries.branchId, branchId))
+      : eq(clientEnquiries.id, id))
+    .returning({ id: clientEnquiries.id });
+  return result.length > 0;
 }
 
 export async function createFeedback(data: InsertFeedback): Promise<Feedback> {

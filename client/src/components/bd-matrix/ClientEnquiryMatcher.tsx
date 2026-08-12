@@ -19,12 +19,18 @@ import { VisitForm } from "./VisitForm";
 import { MatchResultsGrid } from "./MatchResultsGrid";
 import {
   createEmptyVisit,
+  isMultiWeekResult,
+  isStarredByWeekWrapper,
+  formatWeekLabel,
   type VisitFormData,
   type MultiVisitResult,
+  type MultiWeekResult,
   type HistoryViewResult,
   type SavedVisitResult,
   type StarredMap,
+  type StarredByWeek,
 } from "@/utils/bd-matrix-utils";
+import { exportMultiWeekSchedulePdf } from "@/utils/export-schedule-pdf";
 import type { ClientEnquiry } from "@shared/schema";
 import { useBranch } from "@/contexts/BranchContext";
 import { useWeek } from "@/contexts/WeekContext";
@@ -42,27 +48,30 @@ export function ClientEnquiryMatcher({ weekStartDate: weekStartDateProp }: { wee
   const [postcode, setPostcode] = useState('');
   const [visits, setVisits] = useState<VisitFormData[]>([createEmptyVisit()]);
   const [activeVisitTab, setActiveVisitTab] = useState('0');
-  const [multiResults, setMultiResults] = useState<MultiVisitResult | null>(null);
+  const [multiResults, setMultiResults] = useState<MultiWeekResult | null>(null);
+  const [activeWeekIdx, setActiveWeekIdx] = useState(0);
   const [activeResultTab, setActiveResultTab] = useState('0');
   const [showHistory, setShowHistory] = useState(false);
   const [viewingHistoryResult, setViewingHistoryResult] = useState<HistoryViewResult | null>(null);
+  const [historyWeekIdx, setHistoryWeekIdx] = useState(0);
   const [sortByTravel, setSortByTravel] = useState(true);
   const [historyActiveTab, setHistoryActiveTab] = useState('0');
   const [historySortByTravel, setHistorySortByTravel] = useState(true);
-  const [liveStarredMap, setLiveStarredMap] = useState<StarredMap>({});
+  const [liveStarredByWeek, setLiveStarredByWeek] = useState<StarredByWeek>({});
   const [savedEnquiryId, setSavedEnquiryId] = useState<string | null>(null);
-  const [historyStarredMap, setHistoryStarredMap] = useState<StarredMap>({});
+  const [historyStarredByWeek, setHistoryStarredByWeek] = useState<StarredByWeek>({});
   const liveStarsTimer = React.useRef<ReturnType<typeof setTimeout>>();
   const historyStarsTimer = React.useRef<ReturnType<typeof setTimeout>>();
   const { toast } = useToast();
 
-  const patchStars = React.useCallback((id: string, stars: StarredMap) => {
+  const patchStars = React.useCallback((id: string, byWeek: StarredByWeek) => {
+    const payload = { byWeek };
     // Optimistically update the cache so the history list is immediately correct
     queryClient.setQueryData<import('@shared/schema').ClientEnquiry[]>(
       ['/api/client-enquiries'],
-      (old) => old ? old.map(e => e.id === id ? { ...e, starredSelections: stars } : e) : old,
+      (old) => old ? old.map(e => e.id === id ? { ...e, starredSelections: payload } : e) : old,
     );
-    return apiRequest('PATCH', `/api/client-enquiries/${id}/stars`, { starredSelections: stars }).catch(() => {});
+    return apiRequest('PATCH', `/api/client-enquiries/${id}/stars`, { starredSelections: payload }).catch(() => {});
   }, []);
 
   // Debounced autosave: live stars → DB
@@ -70,10 +79,10 @@ export function ClientEnquiryMatcher({ weekStartDate: weekStartDateProp }: { wee
     if (!savedEnquiryId) return;
     clearTimeout(liveStarsTimer.current);
     liveStarsTimer.current = setTimeout(() => {
-      patchStars(savedEnquiryId, liveStarredMap);
+      patchStars(savedEnquiryId, liveStarredByWeek);
     }, 800);
     return () => clearTimeout(liveStarsTimer.current);
-  }, [liveStarredMap, savedEnquiryId, patchStars]);
+  }, [liveStarredByWeek, savedEnquiryId, patchStars]);
 
   // Debounced autosave: history stars → DB
   React.useEffect(() => {
@@ -81,10 +90,10 @@ export function ClientEnquiryMatcher({ weekStartDate: weekStartDateProp }: { wee
     if (!histId) return;
     clearTimeout(historyStarsTimer.current);
     historyStarsTimer.current = setTimeout(() => {
-      patchStars(histId, historyStarredMap);
+      patchStars(histId, historyStarredByWeek);
     }, 800);
     return () => clearTimeout(historyStarsTimer.current);
-  }, [historyStarredMap, viewingHistoryResult?.id, patchStars]);
+  }, [historyStarredByWeek, viewingHistoryResult?.id, patchStars]);
 
   React.useEffect(() => {
     setHistoryActiveTab('0');
@@ -114,11 +123,12 @@ export function ClientEnquiryMatcher({ weekStartDate: weekStartDateProp }: { wee
   });
 
   const saveEnquiryMutation = useMutation({
-    mutationFn: async (data: { criteria: { clientName: string; postcode?: string; visits?: unknown[] }; matchResult: MultiVisitResult; isSingleVisit: boolean }) => {
-      const totalMatches = data.matchResult.visitResults
-        ? data.matchResult.visitResults.reduce((sum: number, vr) => sum + (vr.matches?.length || 0), 0)
+    mutationFn: async (data: { criteria: { clientName: string; postcode?: string; visits?: unknown[] }; matchResult: MultiWeekResult; isSingleVisit: boolean; initialStars?: StarredByWeek }) => {
+      const firstWeekVRs = data.matchResult.weeks?.[0]?.visitResults;
+      const totalMatches = firstWeekVRs
+        ? firstWeekVRs.reduce((sum: number, vr) => sum + (vr.matches?.length || 0), 0)
         : 0;
-      const topMatch = data.matchResult.visitResults?.[0]?.matches?.[0]?.employeeName || null;
+      const topMatch = firstWeekVRs?.[0]?.matches?.[0]?.employeeName || null;
 
       type CriteriaVisit = { preferredTimeWindow?: { start: string; end: string }; genderPreferences?: string[]; requiredDays?: string[] };
       const firstVisit = data.criteria.visits?.[0] as CriteriaVisit | undefined;
@@ -140,6 +150,7 @@ export function ClientEnquiryMatcher({ weekStartDate: weekStartDateProp }: { wee
         matchCount: totalMatches,
         topMatch,
         results: data.matchResult,
+        starredSelections: data.initialStars ? { byWeek: data.initialStars } : undefined,
         isMultiVisit: !data.isSingleVisit,
         visits: data.criteria.visits,
       });
@@ -185,33 +196,6 @@ export function ClientEnquiryMatcher({ weekStartDate: weekStartDateProp }: { wee
       }
 
       const activeVisits = visits.filter(v => v.selectedDays.length > 0);
-      if (activeVisits.length === 1 && activeVisits[0].careProsRequired === 1) {
-        const v = activeVisits[0];
-        const res = await apiRequest('POST', '/api/bd-matcher', {
-          clientName,
-          postcode: postcode || undefined,
-          genderPreference: v.genderPreferences[0] || 'any',
-          requiredDays: v.selectedDays,
-          preferredTimeWindow: { start: v.timeStart, end: v.timeEnd },
-          weekStartDate: effectiveWeekStartDate,
-          branchId: selectedBranchId,
-        });
-        const singleResult = await res.json();
-        return {
-          clientName,
-          postcode: postcode || undefined,
-          visitResults: [{
-            visitLabel: 'Visit 1',
-            visitIndex: 0,
-            careProsRequired: 1,
-            genderPreferences: v.genderPreferences,
-            matches: singleResult.matches,
-            totalEmployeesEvaluated: singleResult.totalEmployeesEvaluated,
-          }],
-          totalVisits: 1,
-        } as MultiVisitResult;
-      }
-
       const visitPayloads = activeVisits.map((v, i) => ({
         visitLabel: `Visit ${i + 1}`,
         careProsRequired: v.careProsRequired,
@@ -220,19 +204,23 @@ export function ClientEnquiryMatcher({ weekStartDate: weekStartDateProp }: { wee
         preferredTimeWindow: { start: v.timeStart, end: v.timeEnd },
       }));
 
-      const res = await apiRequest('POST', '/api/bd-matcher/multi-visit', {
+      // Multi-week matching: the server matches the selected week AND all
+      // future processed weeks, then recommends the most consistent CarePros
+      const res = await apiRequest('POST', '/api/bd-matcher/multi-week', {
         clientName,
         postcode: postcode || undefined,
         visits: visitPayloads,
         weekStartDate: effectiveWeekStartDate,
         branchId: selectedBranchId,
       });
-      return await res.json() as MultiVisitResult;
+      return await res.json() as MultiWeekResult;
     },
-    onSuccess: (data: MultiVisitResult) => {
+    onSuccess: (data: MultiWeekResult) => {
       setMultiResults(data);
+      setActiveWeekIdx(0);
       setActiveResultTab('0');
-      setLiveStarredMap({});
+      // Auto-star the system's recommended (most consistent) CarePros per week
+      setLiveStarredByWeek(data.recommendedStars ?? {});
       setSavedEnquiryId(null);
       const filledVisits = visits.filter(v => v.selectedDays.length > 0);
       const isSingle = filledVisits.length === 1 && filledVisits[0].careProsRequired === 1;
@@ -246,12 +234,17 @@ export function ClientEnquiryMatcher({ weekStartDate: weekStartDateProp }: { wee
             genderPreferences: v.genderPreferences,
             requiredDays: v.selectedDays,
             preferredTimeWindow: { start: v.timeStart, end: v.timeEnd },
+            selectedDays: v.selectedDays,
+            timeStart: v.timeStart,
+            timeEnd: v.timeEnd,
           })),
         },
         matchResult: data,
         isSingleVisit: isSingle,
+        initialStars: data.recommendedStars,
       });
-      toast({ title: "Matches Found", description: `Found matches for ${clientName} across ${data.totalVisits} visits.` });
+      const weekCount = data.weeks?.length ?? 1;
+      toast({ title: "Matches Found", description: `Matched ${clientName} across ${weekCount} week${weekCount !== 1 ? 's' : ''} — best consistent CarePros starred automatically.` });
     },
     onError: (err: Error) => {
       const msg = err.message;
@@ -421,38 +414,80 @@ export function ClientEnquiryMatcher({ weekStartDate: weekStartDateProp }: { wee
           {/* Content Area */}
           <div className={`flex-1 min-h-0 bg-[#fbfbfe] dark:bg-gray-950 ${multiResults || viewingHistoryResult ? 'flex flex-col overflow-hidden' : 'overflow-y-auto p-8'}`}>
             {multiResults ? (
-              <MatchResultsGrid
-                result={{
-                  ...multiResults,
-                  visitResults: (multiResults.visitResults[parseInt(activeResultTab)]
-                    ? [multiResults.visitResults[parseInt(activeResultTab)]]
-                    : []),
-                }}
-                requiredDays={visits[parseInt(activeResultTab)]?.selectedDays || []}
-                className="flex-1 min-h-0 animate-in fade-in slide-in-from-bottom-4 duration-500"
-                sortByTravel={sortByTravel}
-                onToggleSortByTravel={() => setSortByTravel(v => !v)}
-                enquiryPostcode={postcode}
-                enquiryTimeStart={visits[parseInt(activeResultTab)]?.timeStart}
-                enquiryTimeEnd={visits[parseInt(activeResultTab)]?.timeEnd}
-                visitTabs={multiResults.visitResults.filter(Boolean).map((vr, i) => ({ index: i, label: `Visit ${i + 1}`, careProsRequired: vr.careProsRequired, selectedDays: visits[i]?.selectedDays }))}
-                activeVisitTab={activeResultTab}
-                onVisitTabChange={setActiveResultTab}
-                historyCount={historyQuery.data?.length}
-                onHistory={() => {
-                  // Flush any pending live star save immediately before navigating away
-                  clearTimeout(liveStarsTimer.current);
-                  if (savedEnquiryId) patchStars(savedEnquiryId, liveStarredMap);
-                  setShowHistory(true); setMultiResults(null); setViewingHistoryResult(null);
-                }}
-                onBack={() => { setMultiResults(null); setLiveStarredMap({}); setSavedEnquiryId(null); }}
-                key={savedEnquiryId ?? 'live-pending'}
-                initialStarredMap={{}}
-                onStarredMapChange={setLiveStarredMap}
-              />
+              (() => {
+                const weeks = multiResults.weeks ?? [];
+                const weekIdx = Math.min(activeWeekIdx, Math.max(weeks.length - 1, 0));
+                const currentWeek = weeks[weekIdx];
+                const weekStart = currentWeek?.weekStartDate ?? 'unknown';
+                const weekVRs = currentWeek?.visitResults ?? [];
+                const activeVisits = visits.filter(v => v.selectedDays.length > 0);
+                const buildAllVisits = () => weekVRs.filter(Boolean).map((vr, i) => ({
+                  visitIndex: i,
+                  visitLabel: vr.visitLabel || `Visit ${i + 1}`,
+                  careProsRequired: vr.careProsRequired,
+                  selectedDays: activeVisits[i]?.selectedDays,
+                }));
+                return (
+                  <MatchResultsGrid
+                    result={{
+                      clientName: multiResults.clientName,
+                      postcode: multiResults.postcode,
+                      totalVisits: multiResults.totalVisits,
+                      visitResults: (weekVRs[parseInt(activeResultTab)]
+                        ? [weekVRs[parseInt(activeResultTab)]]
+                        : []),
+                    }}
+                    requiredDays={activeVisits[parseInt(activeResultTab)]?.selectedDays || []}
+                    className="flex-1 min-h-0 animate-in fade-in slide-in-from-bottom-4 duration-500"
+                    sortByTravel={sortByTravel}
+                    onToggleSortByTravel={() => setSortByTravel(v => !v)}
+                    enquiryPostcode={postcode}
+                    enquiryTimeStart={activeVisits[parseInt(activeResultTab)]?.timeStart}
+                    enquiryTimeEnd={activeVisits[parseInt(activeResultTab)]?.timeEnd}
+                    visitTabs={weekVRs.filter(Boolean).map((vr, i) => ({ index: i, label: `Visit ${i + 1}`, careProsRequired: vr.careProsRequired, selectedDays: activeVisits[i]?.selectedDays }))}
+                    activeVisitTab={activeResultTab}
+                    onVisitTabChange={setActiveResultTab}
+                    historyCount={historyQuery.data?.length}
+                    onHistory={() => {
+                      // Flush any pending live star save immediately before navigating away
+                      clearTimeout(liveStarsTimer.current);
+                      if (savedEnquiryId) patchStars(savedEnquiryId, liveStarredByWeek);
+                      setShowHistory(true); setMultiResults(null); setViewingHistoryResult(null);
+                    }}
+                    onBack={() => { setMultiResults(null); setLiveStarredByWeek({}); setSavedEnquiryId(null); }}
+                    key={`${savedEnquiryId ?? 'live-pending'}-${weekStart}`}
+                    initialStarredMap={liveStarredByWeek[weekStart] ?? {}}
+                    onStarredMapChange={(map) => setLiveStarredByWeek(prev => ({ ...prev, [weekStart]: map }))}
+                    weekNav={weeks.length > 0 ? {
+                      label: formatWeekLabel(weekStart),
+                      weekIndex: weekIdx,
+                      weekCount: weeks.length,
+                      onPrev: () => setActiveWeekIdx(i => Math.max(0, i - 1)),
+                      onNext: () => setActiveWeekIdx(i => Math.min(weeks.length - 1, i + 1)),
+                    } : undefined}
+                    hasStarsAnywhere={Object.values(liveStarredByWeek).some(m => Object.keys(m).length > 0)}
+                    onExportPdf={() => exportMultiWeekSchedulePdf(
+                      weeks.map(w => ({ weekStartDate: w.weekStartDate, starredMap: liveStarredByWeek[w.weekStartDate] ?? {} })),
+                      multiResults.clientName,
+                      multiResults.postcode,
+                      activeVisits[0]?.timeStart,
+                      activeVisits[0]?.timeEnd,
+                      buildAllVisits(),
+                      activeVisits[parseInt(activeResultTab)]?.selectedDays,
+                    )}
+                  />
+                );
+              })()
             ) : viewingHistoryResult ? (
               (() => {
-                const histVRs: MultiVisitResult['visitResults'] = viewingHistoryResult.visitResults
+                // Multi-week records store results as { weeks: [...] }
+                const mwResult = isMultiWeekResult(viewingHistoryResult.results) ? viewingHistoryResult.results : null;
+                const mwWeeks = mwResult?.weeks ?? [];
+                const histWeekIdx = Math.min(historyWeekIdx, Math.max(mwWeeks.length - 1, 0));
+                const histWeekStart = mwWeeks[histWeekIdx]?.weekStartDate ?? 'legacy';
+                const histVRs: MultiVisitResult['visitResults'] = mwResult
+                  ? (mwWeeks[histWeekIdx]?.visitResults ?? [])
+                  : viewingHistoryResult.visitResults
                   ? (viewingHistoryResult.visitResults as MultiVisitResult['visitResults'])
                   : viewingHistoryResult.matches
                     ? [{
@@ -461,7 +496,7 @@ export function ClientEnquiryMatcher({ weekStartDate: weekStartDateProp }: { wee
                         careProsRequired: 1,
                         genderPreferences: [viewingHistoryResult.genderPreference || 'any'],
                         matches: viewingHistoryResult.matches,
-                        totalEmployeesEvaluated: viewingHistoryResult.results?.totalEmployeesEvaluated || 0,
+                        totalEmployeesEvaluated: (viewingHistoryResult.results as { totalEmployeesEvaluated?: number } | null)?.totalEmployeesEvaluated || 0,
                       }]
                     : [];
                 const histIdx = Math.min(parseInt(historyActiveTab), Math.max(histVRs.length - 1, 0));
@@ -522,7 +557,7 @@ export function ClientEnquiryMatcher({ weekStartDate: weekStartDateProp }: { wee
                     </div>
                     {histActiveVR ? (
                       <MatchResultsGrid
-                        key={viewingHistoryResult.id}
+                        key={`${viewingHistoryResult.id}-${histWeekStart}`}
                         result={histFullResult}
                         requiredDays={reqDays}
                         className="flex-1 min-h-0 animate-in fade-in slide-in-from-bottom-4 duration-500"
@@ -545,8 +580,34 @@ export function ClientEnquiryMatcher({ weekStartDate: weekStartDateProp }: { wee
                         onVisitTabChange={setHistoryActiveTab}
                         historyCount={historyQuery.data?.length}
                         onHistory={() => { setViewingHistoryResult(null); historyQuery.refetch(); }}
-                        initialStarredMap={historyStarredMap}
-                        onStarredMapChange={setHistoryStarredMap}
+                        initialStarredMap={historyStarredByWeek[histWeekStart] ?? {}}
+                        onStarredMapChange={(map) => setHistoryStarredByWeek(prev => ({ ...prev, [histWeekStart]: map }))}
+                        weekNav={mwResult ? {
+                          label: formatWeekLabel(histWeekStart),
+                          weekIndex: histWeekIdx,
+                          weekCount: mwWeeks.length,
+                          onPrev: () => setHistoryWeekIdx(i => Math.max(0, i - 1)),
+                          onNext: () => setHistoryWeekIdx(i => Math.min(mwWeeks.length - 1, i + 1)),
+                        } : undefined}
+                        hasStarsAnywhere={Object.values(historyStarredByWeek).some(m => Object.keys(m).length > 0)}
+                        onExportPdf={mwResult ? () => exportMultiWeekSchedulePdf(
+                          mwWeeks.map(w => ({ weekStartDate: w.weekStartDate, starredMap: historyStarredByWeek[w.weekStartDate] ?? {} })),
+                          viewingHistoryResult.clientName,
+                          viewingHistoryResult.postcode ?? undefined,
+                          tStart,
+                          tEnd,
+                          histVRs.map((vr, i) => ({
+                            visitIndex: i,
+                            visitLabel: vr.visitLabel || `Visit ${i + 1}`,
+                            careProsRequired: vr.careProsRequired,
+                            selectedDays:
+                              viewingHistoryResult.criteria?.visits?.[i]?.selectedDays ||
+                              viewingHistoryResult.criteria?.visits?.[i]?.requiredDays ||
+                              viewingHistoryResult.visits?.[i]?.selectedDays ||
+                              viewingHistoryResult.visits?.[i]?.requiredDays,
+                          })),
+                          reqDays,
+                        ) : undefined}
                       />
                     ) : (
                       <div className="flex-1 flex items-center justify-center">
@@ -599,9 +660,14 @@ export function ClientEnquiryMatcher({ weekStartDate: weekStartDateProp }: { wee
                             onClick={() => {
                               const resultData = enquiry.results;
                               if (resultData) {
-                                const savedStars = (enquiry.starredSelections as StarredMap | null) ?? {};
-                                setHistoryStarredMap(savedStars);
-                                setViewingHistoryResult({ ...resultData, id: enquiry.id, createdAt: enquiry.createdAt, clientName: enquiry.clientName, postcode: enquiry.postcode, requiredDays: enquiry.requiredDays as string[], genderPreference: enquiry.genderPreference, starredSelections: savedStars } as HistoryViewResult);
+                                const savedStars = enquiry.starredSelections;
+                                // New records store stars per week; legacy records store a flat map
+                                const byWeek: StarredByWeek = isStarredByWeekWrapper(savedStars)
+                                  ? savedStars.byWeek
+                                  : { legacy: (savedStars as StarredMap | null) ?? {} };
+                                setHistoryStarredByWeek(byWeek);
+                                setHistoryWeekIdx(0);
+                                setViewingHistoryResult({ ...resultData, id: enquiry.id, createdAt: enquiry.createdAt, clientName: enquiry.clientName, postcode: enquiry.postcode, requiredDays: enquiry.requiredDays as string[], genderPreference: enquiry.genderPreference, visits: enquiry.visits ?? (resultData as { visits?: unknown }).visits, results: resultData } as HistoryViewResult);
                               }
                             }}
                           >

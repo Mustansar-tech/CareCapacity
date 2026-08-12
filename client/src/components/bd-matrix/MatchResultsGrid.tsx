@@ -38,6 +38,18 @@ interface MatchResultsGridProps {
   onBack?: () => void;
   initialStarredMap?: StarredMap;
   onStarredMapChange?: (map: StarredMap) => void;
+  /** Multi-week navigation: label + prev/next controls shown in the header */
+  weekNav?: {
+    label: string;
+    weekIndex: number;
+    weekCount: number;
+    onPrev: () => void;
+    onNext: () => void;
+  };
+  /** When set, the Export PDF button calls this (all-weeks export) instead of the single-week export */
+  onExportPdf?: () => void;
+  /** When set, Export PDF is always visible (stars may live in other weeks) */
+  hasStarsAnywhere?: boolean;
 }
 
 export function MatchResultsGrid({
@@ -57,6 +69,9 @@ export function MatchResultsGrid({
   onBack,
   initialStarredMap,
   onStarredMapChange,
+  weekNav,
+  onExportPdf,
+  hasStarsAnywhere,
 }: MatchResultsGridProps) {
   const days = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
   const dayLabels = ['Mon', 'Tue', 'Wed', 'Thur', 'Fri', 'Sat', 'Sun'];
@@ -131,6 +146,17 @@ export function MatchResultsGrid({
               Try widening the time window, adjusting the days, or removing gender preferences.
             </p>
           </div>
+          {weekNav && (
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" onClick={weekNav.onPrev} disabled={weekNav.weekIndex <= 0} className="h-8 w-8 p-0 rounded-xl">
+                <ArrowLeft className="w-4 h-4" />
+              </Button>
+              <span className="text-xs font-bold text-indigo-700 dark:text-indigo-300 px-2">{weekNav.label} · Week {weekNav.weekIndex + 1} of {weekNav.weekCount}</span>
+              <Button variant="outline" size="sm" onClick={weekNav.onNext} disabled={weekNav.weekIndex >= weekNav.weekCount - 1} className="h-8 w-8 p-0 rounded-xl">
+                <ArrowRight className="w-4 h-4" />
+              </Button>
+            </div>
+          )}
           {onBack && (
             <button
               onClick={onBack}
@@ -200,6 +226,31 @@ export function MatchResultsGrid({
 
         <div className="flex-1" />
 
+        {weekNav && (
+          <div className="flex items-center gap-1.5 flex-shrink-0 bg-white dark:bg-gray-800 border border-indigo-200 dark:border-indigo-800/50 rounded-xl px-1.5 py-1 shadow-sm">
+            <button
+              onClick={weekNav.onPrev}
+              disabled={weekNav.weekIndex <= 0}
+              className="p-1 rounded-lg text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+              aria-label="Previous week"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" />
+            </button>
+            <div className="flex flex-col items-center px-1">
+              <span className="text-[10px] font-black text-indigo-700 dark:text-indigo-300 leading-tight whitespace-nowrap">{weekNav.label}</span>
+              <span className="text-[8px] font-bold text-gray-400 leading-tight">Week {weekNav.weekIndex + 1} of {weekNav.weekCount}</span>
+            </div>
+            <button
+              onClick={weekNav.onNext}
+              disabled={weekNav.weekIndex >= weekNav.weekCount - 1}
+              className="p-1 rounded-lg text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+              aria-label="Next week"
+            >
+              <ArrowRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
+
         <div className="flex items-center gap-2 flex-shrink-0">
           {onBack && (
             <Button
@@ -223,12 +274,13 @@ export function MatchResultsGrid({
               History{historyCount ? ` (${historyCount})` : ''}
             </Button>
           )}
-          {hasAnyStars && (
+          {(hasAnyStars || hasStarsAnywhere) && (
             <>
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => {
+                  if (onExportPdf) { onExportPdf(); return; }
                   const allVisits = (visitTabs ?? []).map(vt => ({
                     visitIndex: vt.index,
                     visitLabel: vt.label,
