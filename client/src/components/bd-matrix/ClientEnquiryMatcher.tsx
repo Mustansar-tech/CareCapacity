@@ -351,19 +351,19 @@ export function ClientEnquiryMatcher({ weekStartDate: weekStartDateProp }: { wee
                     {/* Active branch + week context — always visible so team knows exactly what data they're searching */}
                     <div className="flex items-center gap-3 mt-1.5">
                       {selectedBranch ? (
-                        <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-purple-700 dark:text-purple-300 bg-purple-100/70 dark:bg-purple-900/30 px-2.5 py-0.5 rounded-full">
-                          <Building2 className="w-3 h-3" />
+                        <span className="inline-flex items-center gap-2 text-[14px] font-black text-purple-700 dark:text-purple-300 bg-purple-100 dark:bg-purple-900/40 border border-purple-200 dark:border-purple-700/50 px-4 py-1.5 rounded-full shadow-sm">
+                          <Building2 className="w-4 h-4" />
                           {selectedBranch.displayName}
                         </span>
                       ) : null}
                       {effectiveWeekStartDate ? (
-                        <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-indigo-700 dark:text-indigo-300 bg-indigo-100/70 dark:bg-indigo-900/30 px-2.5 py-0.5 rounded-full">
-                          <CalendarDays className="w-3 h-3" />
+                        <span className="inline-flex items-center gap-2 text-[14px] font-black text-indigo-700 dark:text-indigo-300 bg-indigo-100 dark:bg-indigo-900/40 border border-indigo-200 dark:border-indigo-700/50 px-4 py-1.5 rounded-full shadow-sm">
+                          <CalendarDays className="w-4 h-4" />
                           w/c {new Date(effectiveWeekStartDate + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
                         </span>
                       ) : (
-                        <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 px-2.5 py-0.5 rounded-full">
-                          <CalendarDays className="w-3 h-3" />
+                        <span className="inline-flex items-center gap-2 text-[14px] font-bold text-gray-600 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 px-4 py-1.5 rounded-full shadow-sm">
+                          <CalendarDays className="w-4 h-4" />
                           Latest available data
                         </span>
                       )}

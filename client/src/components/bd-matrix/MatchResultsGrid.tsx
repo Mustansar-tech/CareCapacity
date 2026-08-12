@@ -227,26 +227,26 @@ export function MatchResultsGrid({
         <div className="flex-1" />
 
         {weekNav && (
-          <div className="flex items-center gap-1.5 flex-shrink-0 bg-white dark:bg-gray-800 border border-indigo-200 dark:border-indigo-800/50 rounded-xl px-1.5 py-1 shadow-sm">
+          <div className="flex items-center gap-2 flex-shrink-0 bg-white dark:bg-gray-800 border-2 border-indigo-300 dark:border-indigo-700 rounded-2xl px-2 py-1.5 shadow-md">
             <button
               onClick={weekNav.onPrev}
               disabled={weekNav.weekIndex <= 0}
-              className="p-1 rounded-lg text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+              className="p-2 rounded-xl bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
               aria-label="Previous week"
             >
-              <ArrowLeft className="w-3.5 h-3.5" />
+              <ArrowLeft className="w-5 h-5" />
             </button>
-            <div className="flex flex-col items-center px-1">
-              <span className="text-[10px] font-black text-indigo-700 dark:text-indigo-300 leading-tight whitespace-nowrap">{weekNav.label}</span>
-              <span className="text-[8px] font-bold text-gray-400 leading-tight">Week {weekNav.weekIndex + 1} of {weekNav.weekCount}</span>
+            <div className="flex flex-col items-center px-2">
+              <span className="text-[15px] font-black text-indigo-700 dark:text-indigo-300 leading-tight whitespace-nowrap">{weekNav.label}</span>
+              <span className="text-[11px] font-bold text-gray-500 dark:text-gray-400 leading-tight">Week {weekNav.weekIndex + 1} of {weekNav.weekCount}</span>
             </div>
             <button
               onClick={weekNav.onNext}
               disabled={weekNav.weekIndex >= weekNav.weekCount - 1}
-              className="p-1 rounded-lg text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+              className="p-2 rounded-xl bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
               aria-label="Next week"
             >
-              <ArrowRight className="w-3.5 h-3.5" />
+              <ArrowRight className="w-5 h-5" />
             </button>
           </div>
         )}
