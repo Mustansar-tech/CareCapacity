@@ -3,14 +3,26 @@ import type { MultiVisitMatchResult, MatchedEmployee, MatchedSlot } from './bdMa
 /**
  * Multi-week consistency engine for the Client Enquiry Matcher.
  *
- * Given match results for the same enquiry across several consecutive weeks,
- * this picks the best *consistent* CarePro for every visit/CP/day slot and
- * produces a recommended star map per week (same key format the UI already
- * uses: `${visitIndex}-${cpIdx}-${day}`).
+ * "Consistency" here mirrors real care practice — a PRIMARY CarePro:
+ *  1. One carer should cover the visit on EVERY required day, EVERY week
+ *     (not a different carer per day of the week).
+ *  2. The visit TIME should be consistent and as close as possible to the
+ *     time the client asked for, across all days and weeks.
  *
- * Ranking: a carer who can cover the slot in MORE weeks always beats one who
- * can cover fewer (continuity of care first), then lower average travel time,
- * then higher average match score.
+ * Ranking for the primary carer (per visit/CP):
+ *  1. Most (week × day) cells covered — the carer who can do the most of the
+ *     whole schedule wins.
+ *  2. Time consistency — how many of their cells can be served at their most
+ *     common time window.
+ *  3. Closeness of their windows to the client's requested start time.
+ *  4. Lowest average travel, then highest average match score.
+ *
+ * When the primary can't cover a specific day/week, the fallback cascades
+ * down the same ranked list (so the same backup carer is reused wherever
+ * possible) instead of picking an ad-hoc local best each time.
+ *
+ * Double-ups: CP2+ must overlap CP1's chosen window for the same cell, and be
+ * a different person from CP1 in that cell.
  */
 
 export interface StarredEntry {
@@ -26,6 +38,14 @@ export type StarredMap = Record<string, StarredEntry>;
 export interface WeeklyMatchResult {
   weekStartDate: string;
   result: MultiVisitMatchResult;
+}
+
+export interface VisitCriteria {
+  requiredDays: string[];
+  careProsRequired: number;
+  genderPreferences: string[];
+  /** Client's requested time window, e.g. { start: "15:30", end: "16:30" } */
+  preferredTimeWindow?: { start?: string; end?: string };
 }
 
 const DAY_ABBREVS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
@@ -60,103 +80,142 @@ function slotTravel(match: MatchedEmployee, slot: MatchedSlot): number {
   return slot.travelMinutes ?? match.travelMinutes ?? 9999;
 }
 
+function toMinutes(hhmm: string | undefined): number | null {
+  if (!hhmm) return null;
+  const m = /^(\d{1,2}):(\d{2})/.exec(hhmm.trim());
+  if (!m) return null;
+  return parseInt(m[1]) * 60 + parseInt(m[2]);
+}
+
+/** Distance (minutes) between a window's start and the client's requested start */
+function windowDistance(window: string, requestedStartMins: number | null): number {
+  if (requestedStartMins == null) return 0;
+  const start = toMinutes(window.split(/[-–]/)[0]);
+  if (start == null) return 0;
+  return Math.abs(start - requestedStartMins);
+}
+
 /**
  * Compute recommended stars for every week.
  * Returns { [weekStartDate]: StarredMap }.
  */
 export function computeConsistentStars(
   weeks: WeeklyMatchResult[],
-  visitsCriteria: Array<{ requiredDays: string[]; careProsRequired: number; genderPreferences: string[] }>,
+  visitsCriteria: VisitCriteria[],
 ): Record<string, StarredMap> {
   const starsByWeek: Record<string, StarredMap> = {};
   for (const w of weeks) starsByWeek[w.weekStartDate] = {};
 
   visitsCriteria.forEach((visit, visitIndex) => {
-    for (const rawDay of visit.requiredDays) {
-      const day = normalizeDay(rawDay);
-      // usedByWeek: employees already starred on this visit+day in each week (across CP slots)
-      const usedByWeek = new Map<string, Set<string>>();
-      for (const w of weeks) usedByWeek.set(w.weekStartDate, new Set());
-      // Window chosen by CP1 per week — later CPs prefer the same window (double-up)
-      const cp0WindowByWeek = new Map<string, string>();
+    const days = visit.requiredDays.map(normalizeDay);
+    const requestedStart = toMinutes(visit.preferredTimeWindow?.start);
 
-      for (let cpIdx = 0; cpIdx < visit.careProsRequired; cpIdx++) {
-        const pref = visit.genderPreferences[cpIdx] || 'any';
+    // A "cell" is one (week, day) the visit must be covered on
+    type CellKey = string; // `${weekStartDate}|${day}`
+    const cellKey = (week: string, day: string): CellKey => `${week}|${day}`;
 
-        // Gather per-week eligible candidates
-        type Cand = { match: MatchedEmployee; slot: MatchedSlot };
-        const perWeek = new Map<string, Cand[]>();
-        for (const w of weeks) {
-          const vr = w.result.visitResults[visitIndex];
-          const used = usedByWeek.get(w.weekStartDate)!;
+    // Employees already starred per cell (across CP slots), for double-ups
+    const usedByCell = new Map<CellKey, Set<string>>();
+    // Window chosen by CP1 per cell — later CPs must overlap the same window
+    const cp0WindowByCell = new Map<CellKey, string>();
+    for (const w of weeks) for (const d of days) usedByCell.set(cellKey(w.weekStartDate, d), new Set());
+
+    for (let cpIdx = 0; cpIdx < visit.careProsRequired; cpIdx++) {
+      const pref = visit.genderPreferences[cpIdx] || 'any';
+
+      // Eligible candidate per cell: employee -> { match, slot }
+      type Cand = { match: MatchedEmployee; slot: MatchedSlot };
+      const cellCands = new Map<CellKey, Cand[]>();
+      for (const w of weeks) {
+        const vr = w.result.visitResults[visitIndex];
+        for (const d of days) {
+          const key = cellKey(w.weekStartDate, d);
+          const used = usedByCell.get(key)!;
           const cands: Cand[] = [];
           for (const m of vr?.matches ?? []) {
             if (!genderOk(m, pref)) continue;
             if (used.has(m.employeeName)) continue;
-            const slot = slotOnDay(m, day);
+            const slot = slotOnDay(m, d);
             if (!slot) continue;
             cands.push({ match: m, slot });
           }
-          perWeek.set(w.weekStartDate, cands);
+          cellCands.set(key, cands);
         }
+      }
 
-        // Aggregate stats across weeks per employee
-        const stats = new Map<string, { weeks: number; travelSum: number; scoreSum: number; windowMatchWeeks: number }>();
-        for (const w of weeks) {
-          const cp0Window = cp0WindowByWeek.get(w.weekStartDate);
-          for (const c of perWeek.get(w.weekStartDate)!) {
-            const s = stats.get(c.match.employeeName) ?? { weeks: 0, travelSum: 0, scoreSum: 0, windowMatchWeeks: 0 };
-            s.weeks += 1;
-            s.travelSum += slotTravel(c.match, c.slot);
-            s.scoreSum += c.match.matchScore ?? 0;
-            if (cp0Window && c.slot.availableWindow === cp0Window) s.windowMatchWeeks += 1;
-            stats.set(c.match.employeeName, s);
-          }
+      // Aggregate stats across ALL cells (every day of every week) per employee
+      const stats = new Map<string, {
+        cells: number;
+        windowCounts: Map<string, number>;
+        distSum: number;
+        travelSum: number;
+        scoreSum: number;
+        cp0OverlapCells: number;
+      }>();
+      for (const [key, cands] of cellCands) {
+        const cp0Window = cp0WindowByCell.get(key);
+        for (const c of cands) {
+          const s = stats.get(c.match.employeeName) ?? {
+            cells: 0, windowCounts: new Map(), distSum: 0, travelSum: 0, scoreSum: 0, cp0OverlapCells: 0,
+          };
+          s.cells += 1;
+          s.windowCounts.set(c.slot.availableWindow, (s.windowCounts.get(c.slot.availableWindow) ?? 0) + 1);
+          s.distSum += windowDistance(c.slot.availableWindow, requestedStart);
+          s.travelSum += slotTravel(c.match, c.slot);
+          s.scoreSum += c.match.matchScore ?? 0;
+          if (cp0Window && c.slot.availableWindow === cp0Window) s.cp0OverlapCells += 1;
+          stats.set(c.match.employeeName, s);
         }
-        if (stats.size === 0) continue;
+      }
+      if (stats.size === 0) continue;
 
-        // Pick the overall winner: most weeks covered, (for double-ups) most weeks
-        // overlapping CP1's window, then lowest avg travel, then highest avg score
-        const ranked = [...stats.entries()].sort((a, b) => {
-          if (b[1].weeks !== a[1].weeks) return b[1].weeks - a[1].weeks;
-          if (cpIdx > 0 && b[1].windowMatchWeeks !== a[1].windowMatchWeeks) return b[1].windowMatchWeeks - a[1].windowMatchWeeks;
-          const aT = a[1].travelSum / a[1].weeks, bT = b[1].travelSum / b[1].weeks;
-          if (aT !== bT) return aT - bT;
-          return b[1].scoreSum / b[1].weeks - a[1].scoreSum / a[1].weeks;
-        });
-        const winner = ranked[0][0];
+      // Rank candidates for PRIMARY carer across the whole schedule:
+      // coverage → (double-up) CP1 overlap → time consistency → closeness to
+      // requested time → travel → score
+      const modal = (s: { windowCounts: Map<string, number> }) => Math.max(...s.windowCounts.values());
+      const ranked = [...stats.entries()].sort((a, b) => {
+        if (b[1].cells !== a[1].cells) return b[1].cells - a[1].cells;
+        if (cpIdx > 0 && b[1].cp0OverlapCells !== a[1].cp0OverlapCells) return b[1].cp0OverlapCells - a[1].cp0OverlapCells;
+        const am = modal(a[1]) / a[1].cells, bm = modal(b[1]) / b[1].cells;
+        if (am !== bm) return bm - am;
+        const ad = a[1].distSum / a[1].cells, bd = b[1].distSum / b[1].cells;
+        if (ad !== bd) return ad - bd;
+        const at = a[1].travelSum / a[1].cells, bt = b[1].travelSum / b[1].cells;
+        if (at !== bt) return at - bt;
+        return b[1].scoreSum / b[1].cells - a[1].scoreSum / a[1].cells;
+      }).map(([name]) => name);
 
-        // Star per week: winner when available, otherwise the best local alternative
-        for (const w of weeks) {
-          const cands = perWeek.get(w.weekStartDate)!;
+      // Star every cell: cascade down the ranked list so the primary carer is
+      // used wherever available and the SAME backup is reused when not.
+      for (const w of weeks) {
+        for (const d of days) {
+          const key = cellKey(w.weekStartDate, d);
+          const cands = cellCands.get(key)!;
           if (cands.length === 0) continue;
-          let chosen = cands.find(c => c.match.employeeName === winner);
-          if (!chosen) {
-            const cp0Window = cp0WindowByWeek.get(w.weekStartDate);
-            const pool = cpIdx > 0 && cp0Window && cands.some(c => c.slot.availableWindow === cp0Window)
-              ? cands.filter(c => c.slot.availableWindow === cp0Window)
-              : cands;
-            chosen = [...pool].sort((a, b) => {
-              // Prefer candidates that cover more weeks overall, then travel, then score
-              const aw = stats.get(a.match.employeeName)?.weeks ?? 0;
-              const bw = stats.get(b.match.employeeName)?.weeks ?? 0;
-              if (bw !== aw) return bw - aw;
-              const at = slotTravel(a.match, a.slot), bt = slotTravel(b.match, b.slot);
-              if (at !== bt) return at - bt;
-              return (b.match.matchScore ?? 0) - (a.match.matchScore ?? 0);
-            })[0];
+
+          const cp0Window = cp0WindowByCell.get(key);
+          const pool = cpIdx > 0 && cp0Window && cands.some(c => c.slot.availableWindow === cp0Window)
+            ? cands.filter(c => c.slot.availableWindow === cp0Window)
+            : cands;
+
+          let chosen: Cand | undefined;
+          for (const name of ranked) {
+            chosen = pool.find(c => c.match.employeeName === name);
+            if (chosen) break;
           }
+          if (!chosen) chosen = pool[0];
           if (!chosen) continue;
-          const key = `${visitIndex}-${cpIdx}-${day}`;
-          starsByWeek[w.weekStartDate][key] = {
+
+          const starKey = `${visitIndex}-${cpIdx}-${d}`;
+          starsByWeek[w.weekStartDate][starKey] = {
             employeeName: chosen.match.employeeName,
             timeWindow: chosen.slot.availableWindow,
             gender: chosen.match.gender,
             transportMode: chosen.match.transportMode,
             auto: true,
           };
-          usedByWeek.get(w.weekStartDate)!.add(chosen.match.employeeName);
-          if (cpIdx === 0) cp0WindowByWeek.set(w.weekStartDate, chosen.slot.availableWindow);
+          usedByCell.get(key)!.add(chosen.match.employeeName);
+          if (cpIdx === 0) cp0WindowByCell.set(key, chosen.slot.availableWindow);
         }
       }
     }

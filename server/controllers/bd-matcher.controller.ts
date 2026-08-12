@@ -155,6 +155,7 @@ export async function bdMatchMultiWeek(req: Request, res: Response): Promise<voi
       requiredDays: v.requiredDays,
       careProsRequired: v.careProsRequired,
       genderPreferences: v.genderPreferences,
+      preferredTimeWindow: v.preferredTimeWindow,
     })),
   );
 
