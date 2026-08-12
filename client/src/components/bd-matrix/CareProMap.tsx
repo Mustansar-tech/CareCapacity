@@ -12,22 +12,22 @@ import { normalizeGender } from "@/utils/bd-matrix-utils";
 function makeIcon(gender: string) {
   const g = normalizeGender(gender);
   const color = g === 'female' ? '#ec4899' : g === 'male' ? '#3b82f6' : '#9ca3af';
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="22" height="28" viewBox="0 0 32 40">
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="17" height="21" viewBox="0 0 32 40">
     <path d="M16 0C7.163 0 0 7.163 0 16c0 10 16 24 16 24S32 26 32 16C32 7.163 24.837 0 16 0z" fill="${color}" stroke="white" stroke-width="2"/>
     <circle cx="16" cy="16" r="7" fill="white" opacity="0.9"/>
     <circle cx="16" cy="16" r="4" fill="${color}"/>
   </svg>`;
-  return L.divIcon({ html: svg, className: '', iconSize: [22, 28], iconAnchor: [11, 28], popupAnchor: [0, -28] });
+  return L.divIcon({ html: svg, className: '', iconSize: [17, 21], iconAnchor: [8.5, 21], popupAnchor: [0, -21] });
 }
 
 function makeClientIcon() {
   const color = '#1f2937';
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="22" height="28" viewBox="0 0 32 40">
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="17" height="21" viewBox="0 0 32 40">
     <path d="M16 0C7.163 0 0 7.163 0 16c0 10 16 24 16 24S32 26 32 16C32 7.163 24.837 0 16 0z" fill="${color}" stroke="white" stroke-width="2"/>
     <circle cx="16" cy="16" r="7" fill="white" opacity="0.9"/>
     <circle cx="16" cy="16" r="4" fill="${color}"/>
   </svg>`;
-  return L.divIcon({ html: svg, className: '', iconSize: [22, 28], iconAnchor: [11, 28], popupAnchor: [0, -28] });
+  return L.divIcon({ html: svg, className: '', iconSize: [17, 21], iconAnchor: [8.5, 21], popupAnchor: [0, -21] });
 }
 
 // Yellow search pin — memoised so the icon object is stable
