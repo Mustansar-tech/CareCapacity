@@ -24,3 +24,10 @@ id = "rrWIM-fbnm8IXvjZT_j_Z"
 uri = "file://email-platform-update.txt"
 type = "text"
 title = "Updated Email — Before & After Dashboard Redesign"
+
+[[outputs]]
+id = "yH6RR0Rkwy73EWTQ42jrr"
+uri = "file://attached_assets/Postcodes_Only_Smappen_Import_1786452402272.xlsx"
+type = "table"
+title = "Postcodes_Only_Smappen_Import.xlsx"
+description = "Updated territory postcode list including the new West Lothian territory (20 territories, 693 rows)."
