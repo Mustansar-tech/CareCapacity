@@ -1278,6 +1278,13 @@ async function runPipelineSession(
     }
 
     try {
+      const { persistCarerHomeBranchesFromCgData } = await import("../../repositories/schedule.repository");
+      await persistCarerHomeBranchesFromCgData(parsedData.cgData, branchId);
+    } catch (mapErr) {
+      logger.warn("Failed to persist carer home-branch mapping (non-fatal)", { mapErr });
+    }
+
+    try {
       const { extractEmployeeVisitsFromGHExcel } = await import("../../features/imports/excel-visit-extractor");
       const weekDates = result.dailySummary?.map(d => d.date) ?? [];
       if (weekDates.length > 0) {
@@ -1527,6 +1534,13 @@ async function runMultiWeekPipelineSession(
           });
         } catch (err) {
           logger.warn("Failed to persist GH buffer to DB (non-fatal)", { weekStartDate, err });
+        }
+
+        try {
+          const { persistCarerHomeBranchesFromCgData } = await import("../../repositories/schedule.repository");
+          await persistCarerHomeBranchesFromCgData(parsedData.cgData, branchId);
+        } catch (mapErr) {
+          logger.warn("Failed to persist carer home-branch mapping (non-fatal)", { weekStartDate, mapErr });
         }
 
         // NOTE: Do NOT call clearAllVisits between weeks — that would wipe data

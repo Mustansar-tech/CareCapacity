@@ -73,6 +73,44 @@ export async function getCpScheduledVisitsByBranch(branchId: string, dates: stri
     .where(and(eq(cpScheduledVisits.branchId, branchId), inArray(cpScheduledVisits.date, dates)));
 }
 
+/**
+ * Build and persist carer → home branch mappings from a parsed CG Data array.
+ * Shared by every upload path (manual upload, People Planner automation) so
+ * they all stay in sync. Resolves each row's "Branch" text against the known
+ * branch list; falls back to the uploading branch if no match is found.
+ */
+export async function persistCarerHomeBranchesFromCgData(
+  cgData: Array<Record<string, any>>,
+  fallbackBranchId: string,
+): Promise<void> {
+  const { normalizeName } = await import('../features/imports/pipeline-utils');
+  const allBranches = await db.select().from(branches);
+  const canon = (s: string) => s.toLowerCase().replace(/[^a-z]/g, '');
+  const branchLookup = new Map<string, string>();
+  for (const b of allBranches) {
+    branchLookup.set(canon(b.displayName ?? ''), b.id);
+    branchLookup.set(canon(b.name ?? ''), b.id);
+  }
+  const mappingRows: InsertCarerHomeBranch[] = [];
+  const seen = new Set<string>();
+  for (const row of cgData) {
+    const name = row['CAREGiver Name'];
+    if (!name) continue;
+    const norm = normalizeName(String(name));
+    if (!norm || seen.has(norm)) continue;
+    seen.add(norm);
+    const label = String(row['Branch'] ?? '').trim();
+    const resolvedBranchId = (label && branchLookup.get(canon(label))) || fallbackBranchId;
+    mappingRows.push({
+      normalizedName: norm,
+      displayName: String(name),
+      branchId: resolvedBranchId,
+      sourceBranchLabel: label || null,
+    });
+  }
+  await upsertCarerHomeBranches(mappingRows);
+}
+
 /** Upsert carer → home branch mappings (from CG Data uploads). */
 export async function upsertCarerHomeBranches(rows: InsertCarerHomeBranch[]): Promise<void> {
   if (rows.length === 0) return;
