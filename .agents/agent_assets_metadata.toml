@@ -31,3 +31,10 @@ uri = "file://attached_assets/Postcodes_Only_Smappen_Import_1786452402272.xlsx"
 type = "table"
 title = "Postcodes_Only_Smappen_Import.xlsx"
 description = "Updated territory postcode list including the new West Lothian territory (20 territories, 693 rows)."
+
+[[outputs]]
+id = "ESi3rqFynt5ZxHbkv68Ll"
+uri = "file://attached_assets/West_Lothian_Territory_Postcodes.xlsx"
+type = "table"
+title = "West_Lothian_Territory_Postcodes.xlsx"
+description = "New Excel sheet listing West Lothian's 25 postcode sectors (Independent Franchise territory)."
