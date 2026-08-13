@@ -1,5 +1,6 @@
 import { db } from '../infrastructure/db';
-import { weeklySchedules, cpScheduledVisits, ghClientVisits, branches } from '@shared/schema';
+import { weeklySchedules, cpScheduledVisits, ghClientVisits, branches, carerHomeBranches } from '@shared/schema';
+import type { InsertCarerHomeBranch } from '@shared/schema';
 import type {
   WeeklySchedule, InsertWeeklySchedule,
   CpScheduledVisit, InsertCpScheduledVisit,
@@ -70,6 +71,35 @@ export async function getCpScheduledVisitsByBranch(branchId: string, dates: stri
     .select()
     .from(cpScheduledVisits)
     .where(and(eq(cpScheduledVisits.branchId, branchId), inArray(cpScheduledVisits.date, dates)));
+}
+
+/** Upsert carer → home branch mappings (from CG Data uploads). */
+export async function upsertCarerHomeBranches(rows: InsertCarerHomeBranch[]): Promise<void> {
+  if (rows.length === 0) return;
+  const BATCH = 200;
+  for (let i = 0; i < rows.length; i += BATCH) {
+    await db.insert(carerHomeBranches)
+      .values(rows.slice(i, i + BATCH))
+      .onConflictDoUpdate({
+        target: carerHomeBranches.normalizedName,
+        set: {
+          displayName: sql`excluded.display_name`,
+          branchId: sql`excluded.branch_id`,
+          sourceBranchLabel: sql`excluded.source_branch_label`,
+          updatedAt: sql`now()`,
+        },
+      });
+  }
+}
+
+/** Home-branch id per normalized carer name, for the given names. */
+export async function getCarerHomeBranchMap(names: string[]): Promise<Record<string, string>> {
+  if (names.length === 0) return {};
+  const rows = await db
+    .select({ normalizedName: carerHomeBranches.normalizedName, branchId: carerHomeBranches.branchId })
+    .from(carerHomeBranches)
+    .where(inArray(carerHomeBranches.normalizedName, names));
+  return Object.fromEntries(rows.map(r => [r.normalizedName, r.branchId]));
 }
 
 /**

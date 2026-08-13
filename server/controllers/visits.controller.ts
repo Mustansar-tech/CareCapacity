@@ -93,5 +93,17 @@ export async function getCrossBranchGhHours(req: Request, res: Response): Promis
     allowedBranchIds = assigned.map(b => b.id);
   }
   const extra = await scheduleRepo.getCrossBranchCpHours(branchId, dates, allowedBranchIds);
+
+  // Only credit hours to carers whose recorded home branch is the requesting
+  // branch (from the CG Data "Branch" column). Carers with no recorded home
+  // branch are kept (legacy behaviour before the mapping existed).
+  const names = Object.keys(extra);
+  if (names.length > 0) {
+    const homeMap = await scheduleRepo.getCarerHomeBranchMap(names);
+    for (const name of names) {
+      const home = homeMap[name];
+      if (home && home !== branchId) delete extra[name];
+    }
+  }
   res.json({ extraScheduled: extra });
 }

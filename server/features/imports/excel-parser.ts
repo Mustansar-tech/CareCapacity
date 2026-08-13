@@ -295,6 +295,8 @@ export async function parseExcelFiles(
       const postCode =
         pickCol(row, ["Post Code", "PostCode", "Postal Code", "ZIP Code", "Zip Code"]) || "";
 
+      const branch = pickCol(row, ["Branch", "Branch Name"]) || "";
+
       const gender = (() => {
         const titleLower = title.toLowerCase().trim();
         if (titleLower === "mr") return "male";
@@ -310,6 +312,7 @@ export async function parseExcelFiles(
         Title: title,
         Gender: gender,
         PostCode: postCode,
+        Branch: branch,
       };
     })
     .filter((r) => r["CAREGiver Name"] && r["Weekly Hours"] > 0);

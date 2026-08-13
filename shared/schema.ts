@@ -703,6 +703,26 @@ export const insertClientEnquirySchema = createInsertSchema(clientEnquiries).omi
 export type InsertClientEnquiry = z.infer<typeof insertClientEnquirySchema>;
 export type ClientEnquiry = typeof clientEnquiries.$inferSelect;
 
+// Carer Home Branches - persisted from the CG Data "Branch" column on each upload.
+// Records which branch each carer belongs to, so cross-branch cover can be
+// credited to the right home branch (e.g. GH loss calculation).
+export const carerHomeBranches = pgTable("carer_home_branches", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  normalizedName: text("normalized_name").notNull().unique(), // lowercase, sorted words (normalizeName)
+  displayName: text("display_name").notNull(),                // as it appears in CG Data
+  branchId: varchar("branch_id").notNull().references(() => branches.id),
+  sourceBranchLabel: text("source_branch_label"),             // raw CG Data "Branch" text
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertCarerHomeBranchSchema = createInsertSchema(carerHomeBranches).omit({
+  id: true,
+  updatedAt: true,
+});
+
+export type InsertCarerHomeBranch = z.infer<typeof insertCarerHomeBranchSchema>;
+export type CarerHomeBranch = typeof carerHomeBranches.$inferSelect;
+
 // CP Scheduled Visits - persisted from Guaranteed Hours Excel on each upload
 // Used by BD Matcher to determine realistic departure points (90-min gap rule)
 export const cpScheduledVisits = pgTable("cp_scheduled_visits", {

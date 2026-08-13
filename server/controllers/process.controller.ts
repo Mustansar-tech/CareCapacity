@@ -140,6 +140,40 @@ export async function processCapacity(req: Request, res: Response): Promise<void
   const exportPath = path.join(process.cwd(), 'capacity_dashboard.xlsx');
   fs.writeFileSync(exportPath, exportBuffer);
 
+  // ── Persist carer → home branch mapping from CG Data "Branch" column ──
+  try {
+    const { normalizeName } = await import('../features/imports/pipeline-utils');
+    const allBranches = await branchRepo.getAllBranches();
+    const canon = (s: string) => s.toLowerCase().replace(/[^a-z]/g, '');
+    const branchLookup = new Map<string, string>();
+    for (const b of allBranches) {
+      branchLookup.set(canon(b.displayName ?? ''), b.id);
+      branchLookup.set(canon(b.name ?? ''), b.id);
+    }
+    const mappingRows = [];
+    const seen = new Set<string>();
+    for (const row of parsedData.cgData) {
+      const name = row['CAREGiver Name'];
+      if (!name) continue;
+      const norm = normalizeName(String(name));
+      if (!norm || seen.has(norm)) continue;
+      seen.add(norm);
+      const label = String((row as any)['Branch'] ?? '').trim();
+      // Resolve the CG "Branch" text to a known branch; fall back to the uploading branch.
+      const resolvedBranchId = (label && branchLookup.get(canon(label))) || requestedBranchId;
+      mappingRows.push({
+        normalizedName: norm,
+        displayName: String(name),
+        branchId: resolvedBranchId,
+        sourceBranchLabel: label || null,
+      });
+    }
+    await scheduleRepo.upsertCarerHomeBranches(mappingRows);
+    logger.info('Persisted carer home-branch mapping from CG Data', { branchId: requestedBranchId, carers: mappingRows.length });
+  } catch (mapErr) {
+    logger.warn('Failed to persist carer home-branch mapping (non-fatal):', mapErr);
+  }
+
   logger.info('Clearing old visits data', { displayName: branch.displayName });
   await geoRepo.clearAllVisits(requestedBranchId);
 
