@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { resolveBranch } from '../utils/helpers';
 import * as scheduleRepo from '../repositories/schedule.repository';
+import { getUserBranches } from '../repositories/user.repository';
 import * as geoRepo from '../repositories/geo.repository';
 import { getCanonicalWeekBoundaries } from '@shared/schema';
 import { logger } from '../infrastructure/logger';
@@ -66,4 +67,31 @@ export async function listVisitsBetween(req: Request, res: Response): Promise<vo
 
   const visits = await geoRepo.listVisitsBetween(branchId, String(startDate), String(endDate));
   res.json(visits);
+}
+
+/**
+ * GET /api/gh-loss/cross-branch?branchId=&dates=yyyy-MM-dd,yyyy-MM-dd,...
+ * Hours a carer works in OTHER branches during the given dates, keyed by
+ * normalized carer name. Used to credit cross-branch cover back to the
+ * carer's home-branch GH loss calculation.
+ */
+export async function getCrossBranchGhHours(req: Request, res: Response): Promise<void> {
+  const branchId = await resolveBranch(req);
+  const datesParam = String(req.query.dates ?? '');
+  const dates = datesParam.split(',').map(d => d.trim()).filter(d => /^\d{4}-\d{2}-\d{2}$/.test(d));
+  if (dates.length === 0 || dates.length > 14) {
+    res.status(400).json({ message: 'dates query param required (1-14 yyyy-MM-dd values, comma-separated)' });
+    return;
+  }
+  // Non-admin users only see hours from branches they are assigned to —
+  // prevents cross-branch schedule disclosure.
+  let allowedBranchIds: string[] | undefined;
+  const userId = req.session?.userId;
+  const userRole = req.session?.userRole;
+  if (userId && userRole !== 'admin') {
+    const assigned = await getUserBranches(userId);
+    allowedBranchIds = assigned.map(b => b.id);
+  }
+  const extra = await scheduleRepo.getCrossBranchCpHours(branchId, dates, allowedBranchIds);
+  res.json({ extraScheduled: extra });
 }

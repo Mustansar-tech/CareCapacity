@@ -17,7 +17,8 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { MetricCardSkeleton } from "@/components/loading-skeleton";
 import type { ProcessingResult, CapacityAnalysisSummary } from "@shared/schema";
-import { computeGhLoss, type GhLossResult } from "@/utils/dashboard-utils";
+import { computeGhLoss, type GhLossResult, type CrossBranchGhHours } from "@/utils/dashboard-utils";
+import { useQuery } from "@tanstack/react-query";
 
 interface FilesState {
   availability: File | null;
@@ -77,6 +78,19 @@ export function OverviewTab({
   const [otherScheduledModalOpen, setOtherScheduledModalOpen] = useState(false);
   const [capacityAfterModalOpen, setCapacityAfterModalOpen] = useState(false);
   const [desiredHoursModalOpen, setDesiredHoursModalOpen] = useState(false);
+  // Cross-branch cover: hours a GH carer works in OTHER branches this week.
+  // Credited back to her home branch so GH loss isn't overstated.
+  const weekDates = useMemo(() => {
+    if (!data?.employeeSummaryByDate) return [];
+    return Object.keys(data.employeeSummaryByDate).filter(d => /^\d{4}-\d{2}-\d{2}$/.test(d)).sort();
+  }, [data]);
+
+  const { data: crossBranchData } = useQuery<{ extraScheduled: CrossBranchGhHours }>({
+    queryKey: [`/api/gh-loss/cross-branch?dates=${weekDates.join(',')}`],
+    enabled: weekDates.length > 0,
+    staleTime: 5 * 60 * 1000,
+  });
+
   const ghLossData = useMemo<GhLossResult>(() => {
     if (!data?.employeeSummaryByDate) return { totalLoss: 0, items: [] };
     return computeGhLoss(
@@ -88,8 +102,9 @@ export function OverviewTab({
         availability?: number;
       }>>,
       (data as any).ghLossRawSummary ?? undefined,
+      crossBranchData?.extraScheduled,
     );
-  }, [data]);
+  }, [data, crossBranchData]);
 
   const dayBreakdown = useMemo(() => {
     if (!data?.dailySummary) return { sickness: 0, unavailability: 0 };
@@ -691,6 +706,11 @@ export function OverviewTab({
                       )}
                       <span>Scheduled: <span className="font-medium text-gray-700 dark:text-gray-300">{item.weeklyScheduled}h</span></span>
                     </div>
+                    {item.otherBranchHours != null && item.otherBranches && (
+                      <div className="text-[11px] text-blue-600 dark:text-blue-400 mt-0.5">
+                        incl. {Object.entries(item.otherBranches).map(([b, h]) => `${h}h in ${b}`).join(', ')}
+                      </div>
+                    )}
                   </div>
                   <div className="shrink-0 text-right">
                     <span className="inline-block px-2 py-0.5 rounded-full bg-rose-100 dark:bg-rose-900/40 text-rose-700 dark:text-rose-300 text-xs font-bold whitespace-nowrap">

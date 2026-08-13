@@ -20,6 +20,7 @@ function normalizeGhKey(name: string): string {
     .toLowerCase()
     .replace(/\(.*?\)/g, '')     // remove anything in parentheses
     .replace(/[^a-z\s]/g, ' ')  // remove commas, hyphens, etc.
+    .replace(/\b(mr|mrs|miss|ms|dr)\b/g, ' ')  // strip titles (matches server normalizeName)
     .replace(/\s+/g, ' ')
     .trim()
     .split(' ')
@@ -43,7 +44,14 @@ export interface GhLossItem {
   weeklyScheduled: number;
   weeklyUnavailability: number;
   loss: number;
+  /** Hours worked covering visits in other branches (already included in weeklyScheduled) */
+  otherBranchHours?: number;
+  /** Per-branch breakdown of otherBranchHours, e.g. { "Scottish Borders": 26.5 } */
+  otherBranches?: Record<string, number>;
 }
+
+/** Cross-branch hours per normalized carer name, from GET /api/gh-loss/cross-branch */
+export type CrossBranchGhHours = Record<string, { hours: number; branches: Record<string, number> }>;
 
 export interface GhLossResult {
   totalLoss: number;
@@ -75,6 +83,7 @@ export function computeGhLoss(
     availability?: number;
   }>>,
   ghLossRawSummary?: GhLossRawSummary,
+  crossBranchHours?: CrossBranchGhHours,
 ): GhLossResult {
   // ── PATH A: raw summary available (new uploads) ───────────────────────────────
   if (ghLossRawSummary) {
@@ -103,7 +112,9 @@ export function computeGhLoss(
 
     const items = Object.entries(targets)
       .map(([normKey, { hours: ghHours, displayName }]) => {
-        const weeklyScheduled = Math.round((scheduled[normKey] ?? 0) * 100) / 100;
+        const extra = crossBranchHours?.[normKey];
+        const otherBranchHours = extra ? Math.round(extra.hours * 100) / 100 : 0;
+        const weeklyScheduled = Math.round(((scheduled[normKey] ?? 0) + otherBranchHours) * 100) / 100;
         const unavail = unavailTotals.get(normKey) ?? { weeklyUnavailability: 0, weeklyAvailability: 0 };
 
         const ghUnavailability = unavail.weeklyAvailability > 0
@@ -111,7 +122,11 @@ export function computeGhLoss(
           : Math.round(unavail.weeklyUnavailability * 100) / 100;
 
         const loss = Math.round((ghHours - ghUnavailability - weeklyScheduled) * 100) / 100;
-        return { name: displayName, ghHours, weeklyScheduled, weeklyUnavailability: ghUnavailability, loss };
+        return {
+          name: displayName, ghHours, weeklyScheduled, weeklyUnavailability: ghUnavailability, loss,
+          otherBranchHours: otherBranchHours > 0 ? otherBranchHours : undefined,
+          otherBranches: otherBranchHours > 0 ? extra?.branches : undefined,
+        };
       })
       .filter((item) => item.loss > 0)
       .sort((a, b) => b.loss - a.loss);
@@ -181,10 +196,16 @@ export function computeGhLoss(
         ? Math.round((totals.weeklyUnavailability * (ghHours / totals.weeklyAvailability)) * 100) / 100
         : Math.round(totals.weeklyUnavailability * 100) / 100;
 
-      const weeklyScheduled = Math.round(totals.weeklyScheduled * 100) / 100;
+      const extra = crossBranchHours?.[normKey];
+      const otherBranchHours = extra ? Math.round(extra.hours * 100) / 100 : 0;
+      const weeklyScheduled = Math.round((totals.weeklyScheduled + otherBranchHours) * 100) / 100;
       const loss = Math.round((ghHours - ghUnavailability - weeklyScheduled) * 100) / 100;
 
-      return { name: displayName, ghHours, weeklyScheduled, weeklyUnavailability: ghUnavailability, loss };
+      return {
+        name: displayName, ghHours, weeklyScheduled, weeklyUnavailability: ghUnavailability, loss,
+        otherBranchHours: otherBranchHours > 0 ? otherBranchHours : undefined,
+        otherBranches: otherBranchHours > 0 ? extra?.branches : undefined,
+      };
     })
     .filter((item) => item.loss > 0)
     .sort((a, b) => b.loss - a.loss);

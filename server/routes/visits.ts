@@ -8,6 +8,7 @@ const router = Router();
 router.get('/visits/week/:weekStart', asyncHandler(visitsController.getVisitsByWeek));
 router.get('/visits/:date', asyncHandler(visitsController.getVisitsByDate));
 router.get('/visits', asyncHandler(visitsController.listVisitsBetween));
+router.get('/gh-loss/cross-branch', asyncHandler(visitsController.getCrossBranchGhHours));
 
 export function registerVisitsRoutes(app: { use: Function }): void {
   app.use('/api', router);

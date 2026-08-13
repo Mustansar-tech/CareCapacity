@@ -1,11 +1,11 @@
 import { db } from '../infrastructure/db';
-import { weeklySchedules, cpScheduledVisits, ghClientVisits } from '@shared/schema';
+import { weeklySchedules, cpScheduledVisits, ghClientVisits, branches } from '@shared/schema';
 import type {
   WeeklySchedule, InsertWeeklySchedule,
   CpScheduledVisit, InsertCpScheduledVisit,
   GhClientVisit, InsertGhClientVisit,
 } from '@shared/schema';
-import { eq, and, lt, gte, lte, desc, inArray, sql } from 'drizzle-orm';
+import { eq, ne, and, lt, gte, lte, desc, inArray, sql } from 'drizzle-orm';
 
 export async function saveWeeklySchedule(schedule: InsertWeeklySchedule): Promise<WeeklySchedule> {
   const [result] = await db
@@ -70,6 +70,63 @@ export async function getCpScheduledVisitsByBranch(branchId: string, dates: stri
     .select()
     .from(cpScheduledVisits)
     .where(and(eq(cpScheduledVisits.branchId, branchId), inArray(cpScheduledVisits.date, dates)));
+}
+
+/**
+ * Cross-branch GH hours: for the given dates, sum visit hours per carer in every
+ * branch EXCEPT the given one. Used to credit hours a GH carer works while
+ * covering visits in another branch back to her home branch's GH loss calc.
+ * Returns: { [cpName]: { hours, branches: { [branchDisplayName]: hours } } }
+ */
+export async function getCrossBranchCpHours(
+  excludeBranchId: string,
+  dates: string[],
+  allowedBranchIds?: string[],
+): Promise<Record<string, { hours: number; branches: Record<string, number> }>> {
+  if (dates.length === 0) return {};
+  if (allowedBranchIds && allowedBranchIds.length === 0) return {};
+  const conditions = [
+    ne(cpScheduledVisits.branchId, excludeBranchId),
+    inArray(cpScheduledVisits.date, dates),
+  ];
+  if (allowedBranchIds) {
+    conditions.push(inArray(cpScheduledVisits.branchId, allowedBranchIds));
+  }
+  const rows = await db
+    .select({
+      cpName: cpScheduledVisits.cpName,
+      startTime: cpScheduledVisits.startTime,
+      endTime: cpScheduledVisits.endTime,
+      branchName: branches.displayName,
+    })
+    .from(cpScheduledVisits)
+    .innerJoin(branches, eq(branches.id, cpScheduledVisits.branchId))
+    .where(and(...conditions));
+
+  const toMinutes = (t: string): number => {
+    const [h, m] = t.split(':').map(Number);
+    return (h || 0) * 60 + (m || 0);
+  };
+
+  const result: Record<string, { hours: number; branches: Record<string, number> }> = {};
+  for (const row of rows) {
+    let mins = toMinutes(row.endTime) - toMinutes(row.startTime);
+    if (mins < 0) mins += 24 * 60; // overnight visit
+    if (mins <= 0) continue;
+    const hours = mins / 60;
+    const entry = result[row.cpName] ?? (result[row.cpName] = { hours: 0, branches: {} });
+    entry.hours += hours;
+    const bn = row.branchName ?? 'Other branch';
+    entry.branches[bn] = (entry.branches[bn] ?? 0) + hours;
+  }
+  // Round for clean display
+  for (const entry of Object.values(result)) {
+    entry.hours = Math.round(entry.hours * 100) / 100;
+    for (const k of Object.keys(entry.branches)) {
+      entry.branches[k] = Math.round(entry.branches[k] * 100) / 100;
+    }
+  }
+  return result;
 }
 
 export async function deleteCpScheduledVisitsByBranch(branchId: string): Promise<void> {
