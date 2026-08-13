@@ -84,7 +84,11 @@ export function computeGhLoss(
   }>>,
   ghLossRawSummary?: GhLossRawSummary,
   crossBranchHours?: CrossBranchGhHours,
+  foreignCarers?: string[],
 ): GhLossResult {
+  // Carers whose recorded home branch is another branch: skip them entirely —
+  // they appear (with their cross-branch credit) in their own branch's list.
+  const foreignSet = new Set(foreignCarers ?? []);
   // ── PATH A: raw summary available (new uploads) ───────────────────────────────
   if (ghLossRawSummary) {
     const { targets, scheduled } = ghLossRawSummary;
@@ -111,6 +115,7 @@ export function computeGhLoss(
     }
 
     const items = Object.entries(targets)
+      .filter(([normKey]) => !foreignSet.has(normKey))
       .map(([normKey, { hours: ghHours, displayName }]) => {
         const extra = crossBranchHours?.[normKey];
         const otherBranchHours = extra ? Math.round(extra.hours * 100) / 100 : 0;
@@ -185,6 +190,7 @@ export function computeGhLoss(
 
   // Step 3: Build loss items.
   const items = Array.from(ghTargets.entries())
+    .filter(([normKey]) => !foreignSet.has(normKey))
     .map(([normKey, { hours: ghHours, displayName }]) => {
       const totals = empTotals.get(normKey) ?? {
         weeklyScheduled: 0,

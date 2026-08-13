@@ -105,5 +105,9 @@ export async function getCrossBranchGhHours(req: Request, res: Response): Promis
       if (home && home !== branchId) delete extra[name];
     }
   }
-  res.json({ extraScheduled: extra });
+  // Carers recorded as belonging to ANOTHER branch — the client uses this to
+  // drop them from this branch's GH Loss list entirely (they show up in their
+  // own branch's list instead).
+  const foreignCarers = await scheduleRepo.getForeignCarerNames(branchId);
+  res.json({ extraScheduled: extra, foreignCarers });
 }

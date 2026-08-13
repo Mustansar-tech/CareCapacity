@@ -92,6 +92,15 @@ export async function upsertCarerHomeBranches(rows: InsertCarerHomeBranch[]): Pr
   }
 }
 
+/** Normalized names of carers whose recorded home branch is NOT the given branch. */
+export async function getForeignCarerNames(branchId: string): Promise<string[]> {
+  const rows = await db
+    .select({ normalizedName: carerHomeBranches.normalizedName })
+    .from(carerHomeBranches)
+    .where(ne(carerHomeBranches.branchId, branchId));
+  return rows.map(r => r.normalizedName);
+}
+
 /** Home-branch id per normalized carer name, for the given names. */
 export async function getCarerHomeBranchMap(names: string[]): Promise<Record<string, string>> {
   if (names.length === 0) return {};

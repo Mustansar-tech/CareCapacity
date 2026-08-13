@@ -85,7 +85,7 @@ export function OverviewTab({
     return Object.keys(data.employeeSummaryByDate).filter(d => /^\d{4}-\d{2}-\d{2}$/.test(d)).sort();
   }, [data]);
 
-  const { data: crossBranchData } = useQuery<{ extraScheduled: CrossBranchGhHours }>({
+  const { data: crossBranchData } = useQuery<{ extraScheduled: CrossBranchGhHours; foreignCarers?: string[] }>({
     queryKey: [`/api/gh-loss/cross-branch?dates=${weekDates.join(',')}`],
     enabled: weekDates.length > 0,
     staleTime: 5 * 60 * 1000,
@@ -103,6 +103,7 @@ export function OverviewTab({
       }>>,
       (data as any).ghLossRawSummary ?? undefined,
       crossBranchData?.extraScheduled,
+      crossBranchData?.foreignCarers,
     );
   }, [data, crossBranchData]);
 
