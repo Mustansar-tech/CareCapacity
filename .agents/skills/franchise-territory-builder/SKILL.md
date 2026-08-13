@@ -95,9 +95,10 @@ key off a `properties.group` field rather than adding a second layer.
 
 ## Maintenance: editing a territory when its postcode sectors change
 
-All 19 territories are COMPLETE and shipped in `client/public/data/franchise-territories.geo.json`
-(10 SUR + 9 Independent). If the user changes the sector list for any territory (adds/removes
-postcode sectors, or the Smappen Excel is replaced):
+All 20 territories are COMPLETE and shipped in `client/public/data/franchise-territories.geo.json`
+(10 SUR + 10 Independent, incl. West Lothian added Aug 2026 — it was missing from the original
+19-territory Smappen Excel and has since been appended there too). If the user changes the sector
+list for any territory (adds/removes postcode sectors, or the Smappen Excel is replaced):
 
 1. **Rebuild only the affected territory** with the exact same pipeline above — Voronoi over NRS
    points, divide-and-conquer union, simplify 15 m, reproject, mandatory Scotland clip, part/hole
@@ -114,7 +115,7 @@ postcode sectors, or the Smappen Excel is replaced):
    west-fife-kinross, east-lothian, perthshire, scottish-borders, south-ayrshire, aberdeen
    (SUR); inverclyde-north-ayrshire, west-dunbartonshire-argyll-bute, dundee-south-angus,
    east-fife, edinburgh, edinburgh-west, renfrewshire-barrhead, south-lanarkshire-hamilton,
-   south-lanarkshire-lanark (Independent).
+   south-lanarkshire-lanark, west-lothian (branch: null — Independent, no `branches` DB row).
 
 Map rendering rules (user-confirmed): ALL territory borders always visible, thick (weight 3)
 lines — violet solid for SUR, red dashed for Independent; markers on the map follow the franchise
