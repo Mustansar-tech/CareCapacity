@@ -45,3 +45,10 @@ uri = "file://attached_assets/Scotland_Territories_Summary_and_Full.xlsx"
 type = "table"
 title = "Scotland_Territories_Summary_and_Full.xlsx"
 description = "Sheet 1 'Summary': all 20 territories with their franchise group and postcode-sector count (incl. West Lothian, 25 sectors). Sheet 2 'All Postcode Sectors': the full 693-row list of every sector for every territory."
+
+[[outputs]]
+id = "v1fyFGeB4LBz-557LFIH6"
+uri = "file://attached_assets/announcement-email.html"
+type = "text"
+title = "Care Capacity — Product Update (announcement email)"
+description = "Ready-to-use HTML for today's announcement email: full Scotland territory map, LIC leaver KPI fix, cross-branch GH Loss fix, and multi-week enquiry matcher."
