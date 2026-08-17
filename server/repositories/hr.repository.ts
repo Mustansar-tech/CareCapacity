@@ -2,6 +2,7 @@ import { db } from '../infrastructure/db';
 import { employeeHrCalendar } from '@shared/schema';
 import type { HrCalendar, InsertHrCalendar } from '@shared/schema';
 import { and, eq, gte, lte, desc, sql, notInArray } from 'drizzle-orm';
+import { normalizeName } from '../features/imports/pipeline-utils';
 
 function monthBounds(year: number, month: number): { start: string; end: string } {
   const start = `${year}-${String(month).padStart(2, '0')}-01`;
@@ -171,13 +172,12 @@ export async function syncHrCalendarFromResult(
   for (const [date, employees] of Object.entries(result.employeesByDate)) {
     if (!weekDates.includes(date)) continue;
     for (const emp of employees) {
-      const key = emp.employeeName
-        .toLowerCase()
-        .replace(/\b(mr|mrs|ms|miss|dr|prof)\b\.?\s*/gi, '')
-        .trim()
-        .split(/\s+/)
-        .sort()
-        .join(' ');
+      // Use the same normalization as everywhere else names are matched
+      // (strips GH annotations, punctuation, titles) so the same person
+      // always resolves to the same key regardless of how their name is
+      // formatted in a given week's source data.
+      const key = normalizeName(emp.employeeName);
+      if (!key) continue;
       hrRows.push({
         branchId,
         employeeKey: key,
