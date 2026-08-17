@@ -88,6 +88,14 @@ export async function extractAndStoreGeographicalData(
 
     logger.debug(`Extracting client locations from raw GH Excel workbook`);
 
+    // Preload all existing client locations for this branch once, instead of
+    // querying per-row inside the loop below (that per-row lookup was the
+    // dominant source of database round trips/egress on large uploads).
+    const existingClientLocations = await storage.getAllClientLocations(branchId);
+    const existingClientLocationByName = new Map(
+      existingClientLocations.map(loc => [loc.clientName, loc]),
+    );
+
     const clientLocationsMap = new Map<string, {
       branchId: string;
       clientName: string;
@@ -207,7 +215,7 @@ export async function extractAndStoreGeographicalData(
           logger.debug(`Client "${clientKey}" has no address or postcode - will save without geocoding`);
         }
 
-        const existingClient = await storage.getClientLocationByName(branchId, clientKey);
+        const existingClient = existingClientLocationByName.get(clientKey);
 
         if (!clientLocationsMap.has(clientKey)) {
           const clientData = {

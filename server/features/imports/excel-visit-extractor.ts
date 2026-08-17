@@ -218,6 +218,13 @@ export async function extractClientVisitsFromGHExcel(
   const visits: ExcelClientVisit[] = [];
   const visitsMap: Map<string, ExcelClientVisit> = new Map(); // Use a map to avoid duplicates
 
+  // Preload all client locations for this branch once, instead of querying
+  // per-row inside the loop below (that per-row lookup was the dominant
+  // source of database round trips/egress on large uploads).
+  const clientLocationByName = new Map<string, any>(
+    (await storage.getAllClientLocations(branchId)).map((loc: any) => [loc.clientName, loc]),
+  );
+
   // Log detected columns for debugging (case-insensitive)
   const firstRow = data[0];
   if (firstRow) {
@@ -349,8 +356,8 @@ export async function extractClientVisitsFromGHExcel(
             counter++;
           }
 
-          // Get client location for this visit using the provided storage and branchId
-          const clientLocation = await storage.getClientLocationByName(branchId, clientName);
+          // Get client location for this visit from the preloaded branch map
+          const clientLocation = clientLocationByName.get(clientName);
 
           // Store the actual clock times (HH:mm format)
           const startTimeStr = format(startDateTime, "HH:mm");
@@ -433,6 +440,13 @@ export async function extractAllClientVisitsFromGHExcel(
     weekDates.map(d => [d, new Map()]),
   );
 
+  // Preload all client locations for this branch once, instead of querying
+  // per-row inside the loop below (that per-row lookup was the dominant
+  // source of database round trips/egress on large uploads).
+  const clientLocationByName = new Map<string, any>(
+    (await storage.getAllClientLocations(branchId)).map((loc: any) => [loc.clientName, loc]),
+  );
+
   for (const row of data) {
     const cancelRaw = pickCol(row, [CANCEL_COL]);
     if (String(cancelRaw ?? '').toLowerCase().includes('cancel')) continue;
@@ -498,7 +512,7 @@ export async function extractAllClientVisitsFromGHExcel(
     while (dateMap.has(visitKey)) { visitKey = `${baseKey}-CP${counter}`; counter++; }
 
     let clientLocation: any = null;
-    try { clientLocation = await storage.getClientLocationByName(branchId, clientName); } catch { /* no coords */ }
+    try { clientLocation = clientLocationByName.get(clientName) ?? null; } catch { /* no coords */ }
 
     const serviceType = String(serviceTypeRaw ?? '').trim() || undefined;
 
@@ -584,6 +598,13 @@ export async function extractEmployeeVisitsFromGHExcel(
     const weekDatesSet = new Set(weekDates);
     const clientLocationCache = new Map<string, { lat?: string; lng?: string; postcode?: string }>();
 
+    // Preload all client locations for this branch once, instead of querying
+    // per-unique-client inside the loop below (that per-lookup pattern was a
+    // significant source of database round trips/egress on large uploads).
+    const clientLocationByName = new Map<string, any>(
+      (await storage.getAllClientLocations(branchId)).map((loc: any) => [loc.clientName, loc]),
+    );
+
     for (const row of data) {
       // Skip cancelled visits
       const cancelRaw = pickCol(row, [CANCEL_COL]);
@@ -653,7 +674,7 @@ export async function extractEmployeeVisitsFromGHExcel(
       // Lookup client location with in-memory cache
       if (!clientLocationCache.has(clientName)) {
         try {
-          const loc = await storage.getClientLocationByName(branchId, clientName);
+          const loc = clientLocationByName.get(clientName);
 
           let resolvedLat: string | undefined = loc?.lat ?? undefined;
           let resolvedLng: string | undefined = loc?.lng ?? undefined;
