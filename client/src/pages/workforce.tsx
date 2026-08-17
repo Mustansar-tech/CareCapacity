@@ -324,7 +324,7 @@ export default function WorkforcePage() {
 
       {/* ── Employee Detail Panel ── */}
       <Sheet open={!!detailEmployee} onOpenChange={open => { if (!open) { setDetailEmployee(null); setHistoryPage(0); } }}>
-        <SheetContent className="w-full sm:max-w-lg overflow-y-auto">
+        <SheetContent className="w-full sm:max-w-lg md:max-w-2xl overflow-y-auto">
           <SheetHeader>
             <SheetTitle className="flex items-center gap-2">
               <User className="w-5 h-5 text-violet-600" />
@@ -394,8 +394,8 @@ export default function WorkforcePage() {
                         <div key={r.id} className="flex items-center gap-3 px-3 py-2 border-b border-border last:border-b-0 text-xs">
                           <div className={`w-2 h-2 rounded-full shrink-0 ${cfg.bgClass}`} />
                           <span className="text-muted-foreground w-24 shrink-0">{r.date}</span>
-                          <span className="font-medium flex-1">{r.status}</span>
-                          {r.notes && <span className="text-muted-foreground italic truncate max-w-[100px]">{r.notes}</span>}
+                          <span className="font-medium w-40 shrink-0">{r.status}</span>
+                          {r.notes && <span className="text-muted-foreground italic truncate flex-1 min-w-0 text-right" title={r.notes}>{r.notes}</span>}
                         </div>
                       );
                     })
