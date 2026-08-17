@@ -7,12 +7,18 @@ import type { MultiVisitMatchResult, MatchedEmployee, MatchedSlot } from './bdMa
  *  1. TIME FIRST — the client's visit should happen at the SAME time every
  *     day and every week, as close as possible to the time they asked for.
  *     A consistent time is chosen for the whole visit before carers are picked.
- *  2. FEWEST CARERS — holding that time fixed, cover the schedule with as few
- *     carers as possible. One primary carer for everything is ideal; if that's
- *     impossible at a consistent time, a stable split (e.g. one carer Mon–Wed,
- *     another Thu–Fri) beats one carer at scattered times.
- *  3. Only when nobody can serve the chosen time on a given day/week does it
- *     fall back to the nearest time — preferring carers already on the rota.
+ *  2. BEST TRAVEL TIME + CONTINUITY PER DAY — holding that time fixed, carers
+ *     are assigned one day-of-week at a time (e.g. every Monday across all
+ *     weeks together). For each day, the carer with the best (lowest) average
+ *     travel time wins; ties are broken by who can cover that same day across
+ *     the most weeks (continuity per day — the same carer every Monday).
+ *  3. CONTINUITY PER WEEK (secondary) — only when travel time and per-day
+ *     continuity are still tied does the engine prefer a carer who is already
+ *     covering other days within the same week, to minimise the number of
+ *     distinct carers a client sees in one week.
+ *  4. Only when nobody can serve the chosen time on a given day/week does it
+ *     fall back to the nearest time — preferring the closest travel time,
+ *     then carers already on the rota.
  *
  * Double-ups: CP2+ must overlap CP1's chosen window in each cell and be a
  * different person from CP1 in that cell.
@@ -176,46 +182,66 @@ export function computeConsistentStars(
         return distToRequested(a[0], requestedStart) - distToRequested(b[0], requestedStart);
       })[0][0];
 
-      // ── STEP 2: cover cells at the target window with the FEWEST carers ──
-      // Greedy set-cover: repeatedly pick the carer who can serve the most
-      // still-uncovered cells at the target window.
+      // ── STEP 2: cover cells at the target window ──
+      // Assign carers one day-of-week at a time (e.g. every Monday across all
+      // weeks together), so a single greedy pick settles both the day's best
+      // travel time AND that day's continuity across weeks in one go. Ranking
+      // per day-of-week group: (1) best average travel time, (2) continuity
+      // per day — covers this same day across the most weeks, (3) continuity
+      // per week — already covering other days within the same week(s),
+      // (4) match score.
       type Assigned = { match: MatchedEmployee; slot: MatchedSlot };
       const assignment = new Map<CellKey, Assigned>();
-      const uncoveredAtTarget = new Set<CellKey>(
-        allCells.filter(c => poolFor(c.key).some(x => x.slots.some(s => s.availableWindow === targetWindow))).map(c => c.key)
-      );
-      while (uncoveredAtTarget.size > 0) {
-        // carer -> cells they can take at the target window
-        const carerCells = new Map<string, Array<{ key: CellKey; cand: Assigned }>>();
-        for (const key of uncoveredAtTarget) {
-          for (const cand of poolFor(key)) {
-            const slot = cand.slots.find(s => s.availableWindow === targetWindow);
-            if (!slot) continue;
-            const arr = carerCells.get(cand.match.employeeName) ?? [];
-            arr.push({ key, cand: { match: cand.match, slot } });
-            carerCells.set(cand.match.employeeName, arr);
+      // week -> carerName -> number of days already assigned to them this week
+      const weekRosterCount = new Map<string, Map<string, number>>();
+      for (const w of weeks) weekRosterCount.set(w.weekStartDate, new Map());
+      const weekRosterFor = (name: string, weeksList: string[]): number =>
+        weeksList.reduce((sum, wk) => sum + (weekRosterCount.get(wk)?.get(name) ?? 0), 0);
+
+      for (const day of days) {
+        const dayCells = allCells.filter(c => c.day === day);
+        const uncovered = new Set<CellKey>(
+          dayCells.filter(c => poolFor(c.key).some(x => x.slots.some(s => s.availableWindow === targetWindow))).map(c => c.key)
+        );
+        while (uncovered.size > 0) {
+          // carer -> cells (with their week) they can take at the target window
+          const carerCells = new Map<string, Array<{ key: CellKey; week: string; cand: Assigned }>>();
+          for (const key of uncovered) {
+            const cell = dayCells.find(x => x.key === key)!;
+            for (const cand of poolFor(key)) {
+              const slot = cand.slots.find(s => s.availableWindow === targetWindow);
+              if (!slot) continue;
+              const arr = carerCells.get(cand.match.employeeName) ?? [];
+              arr.push({ key, week: cell.week, cand: { match: cand.match, slot } });
+              carerCells.set(cand.match.employeeName, arr);
+            }
           }
-        }
-        if (carerCells.size === 0) break;
-        const best = [...carerCells.entries()].sort((a, b) => {
-          if (b[1].length !== a[1].length) return b[1].length - a[1].length;
-          const avg = (arr: Array<{ cand: Assigned }>) =>
-            arr.reduce((s, x) => s + slotTravel(x.cand.match, x.cand.slot), 0) / arr.length;
-          const at = avg(a[1]), bt = avg(b[1]);
-          if (at !== bt) return at - bt;
-          const score = (arr: Array<{ cand: Assigned }>) =>
-            arr.reduce((s, x) => s + (x.cand.match.matchScore ?? 0), 0) / arr.length;
-          return score(b[1]) - score(a[1]);
-        })[0][1];
-        for (const { key, cand } of best) {
-          assignment.set(key, cand);
-          uncoveredAtTarget.delete(key);
+          if (carerCells.size === 0) break;
+          const [bestName, bestCells] = [...carerCells.entries()].sort((a, b) => {
+            const avgTravel = (arr: typeof a[1]) =>
+              arr.reduce((s, x) => s + slotTravel(x.cand.match, x.cand.slot), 0) / arr.length;
+            const at = avgTravel(a[1]), bt = avgTravel(b[1]);
+            if (at !== bt) return at - bt; // 1) best travel time
+            if (b[1].length !== a[1].length) return b[1].length - a[1].length; // 2) continuity per day (weeks of this day covered)
+            const aRoster = weekRosterFor(a[0], a[1].map(x => x.week));
+            const bRoster = weekRosterFor(b[0], b[1].map(x => x.week));
+            if (bRoster !== aRoster) return bRoster - aRoster; // 3) continuity per week
+            const score = (arr: typeof a[1]) =>
+              arr.reduce((s, x) => s + (x.cand.match.matchScore ?? 0), 0) / arr.length;
+            return score(b[1]) - score(a[1]); // 4) match score
+          })[0];
+          for (const { key, week, cand } of bestCells) {
+            assignment.set(key, cand);
+            uncovered.delete(key);
+            const m = weekRosterCount.get(week)!;
+            m.set(bestName, (m.get(bestName) ?? 0) + 1);
+          }
         }
       }
 
       // ── STEP 3: cells nobody can serve at the target time ──
-      // Fall back to the nearest time to the target, preferring carers who are
-      // already on this visit's rota (fewest new faces).
+      // Fall back to the nearest time to the target, then the best travel
+      // time, then a carer already on this visit's rota (fewest new faces).
       const rosterCounts = new Map<string, number>();
       for (const cand of assignment.values()) {
         rosterCounts.set(cand.match.employeeName, (rosterCounts.get(cand.match.employeeName) ?? 0) + 1);
@@ -231,15 +257,15 @@ export function computeConsistentStars(
           return { match: cand.match, slot };
         });
         const chosen = flattened.sort((a, b) => {
-          const aKnown = rosterCounts.get(a.match.employeeName) ?? 0;
-          const bKnown = rosterCounts.get(b.match.employeeName) ?? 0;
-          // Time closeness first, then prefer a carer already on the rota
+          // Time closeness first (this is a fallback for an unmet target time)
           const ag = windowGap(a.slot.availableWindow, targetWindow);
           const bg = windowGap(b.slot.availableWindow, targetWindow);
           if (ag !== bg) return ag - bg;
-          if (bKnown !== aKnown) return bKnown - aKnown;
           const at = slotTravel(a.match, a.slot), bt = slotTravel(b.match, b.slot);
-          if (at !== bt) return at - bt;
+          if (at !== bt) return at - bt; // best travel time
+          const aKnown = rosterCounts.get(a.match.employeeName) ?? 0;
+          const bKnown = rosterCounts.get(b.match.employeeName) ?? 0;
+          if (bKnown !== aKnown) return bKnown - aKnown; // continuity (already on rota)
           return (b.match.matchScore ?? 0) - (a.match.matchScore ?? 0);
         })[0];
         assignment.set(c.key, chosen);
