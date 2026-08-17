@@ -391,11 +391,15 @@ export default function WorkforcePage() {
                     historyRecords.map(r => {
                       const cfg = getStatusConfig(r.status);
                       return (
-                        <div key={r.id} className="flex items-center gap-3 px-3 py-2 border-b border-border last:border-b-0 text-xs">
-                          <div className={`w-2 h-2 rounded-full shrink-0 ${cfg.bgClass}`} />
-                          <span className="text-muted-foreground w-24 shrink-0">{r.date}</span>
-                          <span className="font-medium w-40 shrink-0">{r.status}</span>
-                          {r.notes && <span className="text-muted-foreground italic truncate flex-1 min-w-0 text-right" title={r.notes}>{r.notes}</span>}
+                        <div key={r.id} className="flex flex-col gap-1 px-3 py-2 border-b border-border last:border-b-0 text-xs">
+                          <div className="flex items-center gap-3">
+                            <div className={`w-2 h-2 rounded-full shrink-0 ${cfg.bgClass}`} />
+                            <span className="text-muted-foreground w-24 shrink-0">{r.date}</span>
+                            <span className="font-medium">{r.status}</span>
+                          </div>
+                          {r.notes && (
+                            <span className="text-muted-foreground italic pl-5 whitespace-pre-wrap break-words">{r.notes}</span>
+                          )}
                         </div>
                       );
                     })
