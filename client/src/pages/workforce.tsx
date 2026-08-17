@@ -324,7 +324,7 @@ export default function WorkforcePage() {
 
       {/* ── Employee Detail Panel ── */}
       <Sheet open={!!detailEmployee} onOpenChange={open => { if (!open) { setDetailEmployee(null); setHistoryPage(0); } }}>
-        <SheetContent className="w-full sm:max-w-lg md:max-w-2xl overflow-y-auto">
+        <SheetContent className="w-full sm:max-w-2xl md:max-w-4xl overflow-y-auto">
           <SheetHeader>
             <SheetTitle className="flex items-center gap-2">
               <User className="w-5 h-5 text-violet-600" />
