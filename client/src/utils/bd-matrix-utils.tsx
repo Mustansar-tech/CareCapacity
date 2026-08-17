@@ -164,6 +164,54 @@ export function isStarredByWeekWrapper(s: unknown): s is StarredSelectionsV2 {
   return !!s && typeof s === 'object' && typeof (s as StarredSelectionsV2).byWeek === 'object' && (s as StarredSelectionsV2).byWeek !== null;
 }
 
+function normalizeDayAbbrev(d: string): string {
+  const mapped: Record<string, string> = {
+    thu: 'thu', thur: 'thu', thurs: 'thu',
+    sat: 'sat', sun: 'sun', mon: 'mon',
+    tue: 'tue', tues: 'tue', wed: 'wed', fri: 'fri',
+  };
+  return mapped[d] || d;
+}
+
+/**
+ * Remove starred selections that no longer correspond to a real available
+ * match in this week's visitResults. A star can go stale between when it was
+ * set and when it's displayed/exported — the underlying data can be
+ * reprocessed, or the starred CarePro can lose their availability on that
+ * day. Without this check, PDF export blindly renders whatever is in the
+ * starred map even when the live matcher grid shows "No Availability" for
+ * that same day/slot.
+ */
+export function pruneStaleStars(
+  starredMap: StarredMap,
+  visitResults: MultiVisitResult['visitResults'] | undefined,
+): StarredMap {
+  if (!visitResults) return {};
+  const pruned: StarredMap = {};
+  for (const [key, star] of Object.entries(starredMap)) {
+    const parts = key.split('-');
+    if (parts.length < 3) continue;
+    const visitIndex = parseInt(parts[0], 10);
+    const day = normalizeDayAbbrev(parts[2].toLowerCase());
+    const vr = visitResults[visitIndex];
+    if (!vr) continue;
+
+    const stillAvailable = vr.matches?.some(m => {
+      if (m.employeeName !== star.employeeName) return false;
+      return m.matchedSlots?.some(s => {
+        const dateAbbrev = normalizeDayAbbrev(
+          new Date(s.day + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short' }).toLowerCase(),
+        );
+        const labelAbbrev = normalizeDayAbbrev((s.dayLabel || '').toLowerCase().split(' ')[0]);
+        return dateAbbrev === day || labelAbbrev === day;
+      });
+    });
+
+    if (stillAvailable) pruned[key] = star;
+  }
+  return pruned;
+}
+
 export function formatWeekLabel(weekStartDate: string): string {
   return `w/c ${new Date(weekStartDate + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}`;
 }

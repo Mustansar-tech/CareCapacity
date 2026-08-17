@@ -21,6 +21,7 @@ import {
   createEmptyVisit,
   isMultiWeekResult,
   isStarredByWeekWrapper,
+  pruneStaleStars,
   formatWeekLabel,
   type VisitFormData,
   type MultiVisitResult,
@@ -469,7 +470,10 @@ export function ClientEnquiryMatcher({ weekStartDate: weekStartDateProp }: { wee
                     } : undefined}
                     hasStarsAnywhere={Object.values(liveStarredByWeek).some(m => Object.keys(m).length > 0)}
                     onExportPdf={() => exportMultiWeekSchedulePdf(
-                      weeks.map(w => ({ weekStartDate: w.weekStartDate, starredMap: liveStarredByWeek[w.weekStartDate] ?? {} })),
+                      weeks.map(w => ({
+                        weekStartDate: w.weekStartDate,
+                        starredMap: pruneStaleStars(liveStarredByWeek[w.weekStartDate] ?? {}, w.visitResults),
+                      })),
                       multiResults.clientName,
                       multiResults.postcode,
                       activeVisits[0]?.timeStart,
@@ -593,7 +597,10 @@ export function ClientEnquiryMatcher({ weekStartDate: weekStartDateProp }: { wee
                         } : undefined}
                         hasStarsAnywhere={Object.values(historyStarredByWeek).some(m => Object.keys(m).length > 0)}
                         onExportPdf={mwResult ? () => exportMultiWeekSchedulePdf(
-                          mwWeeks.map(w => ({ weekStartDate: w.weekStartDate, starredMap: historyStarredByWeek[w.weekStartDate] ?? {} })),
+                          mwWeeks.map(w => ({
+                            weekStartDate: w.weekStartDate,
+                            starredMap: pruneStaleStars(historyStarredByWeek[w.weekStartDate] ?? {}, w.visitResults),
+                          })),
                           viewingHistoryResult.clientName,
                           viewingHistoryResult.postcode ?? undefined,
                           tStart,
