@@ -4,10 +4,12 @@ import { Zap } from "lucide-react";
 export const fmtH = (hours: number): string => `${Math.round(hours * 100) / 100}h`;
 export const fmtSignedH = (hours: number): string => `${hours >= 0 ? '+' : ''}${Math.round(hours * 100) / 100}h`;
 
-export const GH_REGEX = /(\d+(?:\.\d+)?)\s*GH/i;
+// Matches either order of GH annotation: "(30GH)" / "(37.5 GH)" AND the
+// reversed "(GH12)" / "(GH 37.5)" form — both appear across real CG exports.
+export const GH_REGEX = /(?:(\d+(?:\.\d+)?)\s*GH\b|\bGH\s*(\d+(?:\.\d+)?))/i;
 
 export const stripGhAnnotation = (name: string): string =>
-  name.replace(/\s*\(?\d+(?:\.\d+)?\s*GH\)?\s*$/i, '').trim();
+  name.replace(/\s*\(?\s*(?:\d+(?:\.\d+)?\s*GH|GH\s*\d+(?:\.\d+)?)\)?\s*$/i, '').trim();
 
 /**
  * Canonical key that matches the server-side normalizeName logic:
@@ -32,7 +34,7 @@ function normalizeGhKey(name: string): string {
 /** Strip GH annotation wherever it appears in the name (not just at the end). */
 function cleanDisplayName(name: string): string {
   return name
-    .replace(/\s*\(\d+(?:\.\d+)?\s*GH\)\s*/gi, ' ')  // remove (XGH) mid-name or end
+    .replace(/\s*\(\s*(?:\d+(?:\.\d+)?\s*GH|GH\s*\d+(?:\.\d+)?)\s*\)\s*/gi, ' ')  // remove (XGH)/(GHX) mid-name or end
     .replace(/\s+/g, ' ')
     .trim()
     .replace(/,\s*$/, '');  // no trailing comma
@@ -154,7 +156,7 @@ export function computeGhLoss(
       const normKey = normalizeGhKey(rec.employeeName);
       if (!ghTargets.has(normKey)) {
         ghTargets.set(normKey, {
-          hours: parseFloat(match[1]),
+          hours: parseFloat(match[1] ?? match[2]),
           displayName: cleanDisplayName(rec.employeeName),
         });
       }

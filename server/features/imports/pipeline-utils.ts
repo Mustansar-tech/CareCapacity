@@ -726,7 +726,9 @@ export function getScheduledHoursForEmployeeAndDate(
  * Only excluded: secondary/multiple care, live-in care, and unpaid cancellations.
  */
 export function buildGhLossWeeklyRawSummary(guaranteed: any[]): GhLossRawSummary {
-  const GH_REGEX_LOCAL = /(\d+(?:\.\d+)?)\s*GH/i;
+  // Matches either order of GH annotation: "(30GH)" / "(37.5 GH)" AND the
+  // reversed "(GH12)" / "(GH 37.5)" form — both appear across real CG exports.
+  const GH_REGEX_LOCAL = /(?:(\d+(?:\.\d+)?)\s*GH\b|\bGH\s*(\d+(?:\.\d+)?))/i;
 
   const targets: Record<string, { hours: number; displayName: string }> = {};
   const scheduled: Record<string, number> = {};
@@ -741,11 +743,11 @@ export function buildGhLossWeeklyRawSummary(guaranteed: any[]): GhLossRawSummary
     const normKey = normalizeName(nameStr);
     if (normKey && !targets[normKey]) {
       const displayName = nameStr
-        .replace(/\s*\(\d+(?:\.\d+)?\s*GH\)\s*/gi, ' ')
+        .replace(/\s*\(\s*(?:\d+(?:\.\d+)?\s*GH|GH\s*\d+(?:\.\d+)?)\s*\)\s*/gi, ' ')
         .replace(/\s+/g, ' ')
         .trim()
         .replace(/,\s*$/, '');
-      targets[normKey] = { hours: parseFloat(match[1]), displayName };
+      targets[normKey] = { hours: parseFloat(match[1] ?? match[2]), displayName };
     }
   }
 
