@@ -5,9 +5,18 @@ import { matchClientEnquiry, matchMultiVisitEnquiry, type ClientEnquiryCriteria,
 import { computeConsistentStars, type WeeklyMatchResult } from '../features/bd-matrix/multiWeekConsistency';
 import * as capacityRepo from '../repositories/capacity.repository';
 import { refineForwardTravelWithORS, refineReturnHomeTravelWithORS, buildScheduleMap } from '../services/bd-matcher.service';
+import { travelTimeService } from '../features/travel/travel-time-service';
 import { logger } from '../infrastructure/logger';
 
 export async function bdMatch(req: Request, res: Response): Promise<void> {
+  // The shared travel service caches ORS results in memory for the lifetime of
+  // the server process (deliberately, so repeat coordinate pairs within one
+  // multi-week match don't re-hit ORS). Without a reset here, a fresh "Match"
+  // click would keep serving whatever was cached from a previous, unrelated
+  // run — including stale numbers from before an employee's address was
+  // corrected. Clear it at the start of every top-level match request so each
+  // run always reflects live ORS data.
+  travelTimeService.resetSourceStats();
   const branchId = await resolveBranch(req);
   const { clientName, postcode, genderPreference, requiredDays, preferredTimeWindow, weekStartDate } = req.body;
   const { storage } = await import('../storage');
@@ -73,6 +82,8 @@ export async function bdMatch(req: Request, res: Response): Promise<void> {
  * across weeks, so ORS is only hit once per unique coordinate pair.
  */
 export async function bdMatchMultiWeek(req: Request, res: Response): Promise<void> {
+  // Fresh ORS data for every top-level match request — see note in bdMatch().
+  travelTimeService.resetSourceStats();
   const branchId = await resolveBranch(req);
   const { clientName, postcode, visits, weekStartDate } = req.body;
   const { storage } = await import('../storage');
@@ -173,6 +184,8 @@ export async function bdMatchMultiWeek(req: Request, res: Response): Promise<voi
 }
 
 export async function bdMatchMultiVisit(req: Request, res: Response): Promise<void> {
+  // Fresh ORS data for every top-level match request — see note in bdMatch().
+  travelTimeService.resetSourceStats();
   const branchId = await resolveBranch(req);
   const { clientName, postcode, visits, weekStartDate } = req.body;
   const { storage } = await import('../storage');
