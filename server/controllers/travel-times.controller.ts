@@ -15,6 +15,10 @@ export async function pairsTravelTimes(req: Request, res: Response): Promise<voi
     res.json({ results: [] });
     return;
   }
+  // Clear the in-memory session cache before this request so every lookup
+  // reflects a live ORS call rather than a value left over from an earlier,
+  // unrelated request in this server process (see bdMatch for the same pattern).
+  travelTimeService.resetSourceStats();
   const results = await Promise.all(pairs.map(async p => {
     try {
       const mode = TravelTimeService.normalizeMode(p.mode);
@@ -139,6 +143,9 @@ export async function debugSingleTravelTime(req: Request, res: Response): Promis
       properties: ['travel_time'],
     }],
   };
+
+  // Same reasoning as pairsTravelTimes/bdMatch — always hit ORS/TravelTime live for a debug lookup.
+  travelTimeService.resetSourceStats();
 
   const [result, compare] = await Promise.all([
     travelTimeService.calculateTravelTime(branchId, from, to, normalizedMode, arrivalTime),
