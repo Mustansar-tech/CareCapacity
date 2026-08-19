@@ -11,7 +11,7 @@ import {
   Home, Clock, UserCheck, XCircle, Info, History, FileDown, ArrowLeft,
 } from "lucide-react";
 import { TransportModeIcon } from "./TransportModeIcon";
-import { roundContractedHours, type MultiVisitResult, type MatchedSlot, type StarredMap } from "@/utils/bd-matrix-utils";
+import { roundContractedHours, isFullyAvailableInTimeBlock, type MultiVisitResult, type MatchedSlot, type StarredMap } from "@/utils/bd-matrix-utils";
 import { exportSchedulePdf } from "@/utils/export-schedule-pdf";
 
 interface VisitTabDef {
@@ -401,9 +401,18 @@ export function MatchResultsGrid({
                         });
 
                         if (anyOtherStar) {
+                          const [otherStart, otherEnd] = anyOtherStar.timeWindow.split('-').map(s => s.trim());
                           allVisibleMatches = allVisibleMatches.filter(m => {
                             const slot = m.matchedSlots.find(s => matchesDay(s, day));
-                            return slot && slot.availableWindow === anyOtherStar!.timeWindow;
+                            if (!slot) return false;
+                            if (slot.availableWindow === anyOtherStar!.timeWindow) return true;
+                            // This CP's own precomputed slot (nearest to the ORIGINAL requested time)
+                            // doesn't match the joint window another CP is already starred for — but
+                            // they may still genuinely be free during that window. Check their raw
+                            // free-time windows for the day instead of hiding them as "no availability".
+                            return isFullyAvailableInTimeBlock(slot.rawFreeWindows || '', {
+                              start: otherStart, end: otherEnd, label: anyOtherStar!.timeWindow,
+                            });
                           });
                         }
 
@@ -429,8 +438,15 @@ export function MatchResultsGrid({
                             <div className="h-full overflow-y-auto pr-1 space-y-2"  style={{ maxHeight: cellHeight }}>
                               {matchesToShow.length > 0 ? (
                                 matchesToShow.map((employeeMatch, matchIdx) => {
-                                  const slotOnDay = employeeMatch.matchedSlots.find(s => matchesDay(s, day));
-                                  if (!slotOnDay) return null;
+                                  const rawSlotOnDay = employeeMatch.matchedSlots.find(s => matchesDay(s, day));
+                                  if (!rawSlotOnDay) return null;
+
+                                  // If this CP only qualifies because their raw free windows cover the
+                                  // joint (starred) time — not their own precomputed slot — display the
+                                  // actual joint window they'll work, flagged as adjusted.
+                                  const slotOnDay = (anyOtherStar && rawSlotOnDay.availableWindow !== anyOtherStar.timeWindow)
+                                    ? { ...rawSlotOnDay, availableWindow: anyOtherStar.timeWindow, matchType: 'adjusted-time' as const }
+                                    : rawSlotOnDay;
 
                                   const isExact = slotOnDay.matchType === 'exact';
                                   const roundedDesired = roundContractedHours(employeeMatch.contractedWeeklyHours);

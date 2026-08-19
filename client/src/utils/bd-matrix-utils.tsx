@@ -67,6 +67,7 @@ export interface MatchedSlot {
   departureSummary?: string;
   departureSource?: 'home' | 'last-client';
   travelMinutes?: number;
+  rawFreeWindows?: string;
   nextVisit?: { startTime: string; endTime: string; postcode?: string } | null;
   forwardTravelWarning?: boolean;
   forwardTravelMinutes?: number;

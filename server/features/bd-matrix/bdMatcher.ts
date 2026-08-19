@@ -63,6 +63,11 @@ export interface MatchedSlot {
   forwardTravelMinutes?: number;
   // Estimated travel time (minutes) from enquiry postcode back to home (shown when no next visit)
   returnHomeMins?: number;
+  // This employee's raw free-time windows on this specific day (e.g. "08:00-12:00, 14:00-18:00").
+  // Lets the frontend check whether this CP can ALSO cover a different, already-selected
+  // (starred) time window on a multi-CP visit, instead of requiring their own precomputed
+  // slot to exactly equal it — which otherwise hides valid adjusted-time candidates.
+  rawFreeWindows?: string;
 }
 
 export interface MatchResult {
@@ -669,6 +674,7 @@ function matchEmployeesForVisit(
               availableWindow: `${minutesToTime(effectiveReqStart)}-${minutesToTime(effectiveReqEnd)}`,
               matchType: mType,
               cancelledVisits: cancelledVisitsStr,
+              rawFreeWindows: empSummary.freeWindows,
               ...depInfo,
             };
             bestScoreForDay = score;
@@ -693,6 +699,7 @@ function matchEmployeesForVisit(
                   availableWindow: closestSlot.window,
                   matchType: 'adjusted-time',
                   cancelledVisits: cancelledVisitsStr,
+                  rawFreeWindows: empSummary.freeWindows,
                   ...depInfo,
                 };
                 bestScoreForDay = score;
@@ -836,6 +843,7 @@ function matchEmployeesForVisit(
             forwardTravelWarning: altFwdWarning || undefined,
             forwardTravelMinutes: altFwdMins,
             returnHomeMins: altReturnHomeMins2,
+            rawFreeWindows: empSummary.freeWindows,
             ...depInfo,
           });
           alternativeDayMatches++;
@@ -888,6 +896,7 @@ function matchEmployeesForVisit(
               forwardTravelWarning: altAdjFwdWarning || undefined,
               forwardTravelMinutes: altAdjFwdMins,
               returnHomeMins: altReturnHomeMins3,
+              rawFreeWindows: empSummary.freeWindows,
               ...depInfo,
             });
             alternativeDayMatches++;
