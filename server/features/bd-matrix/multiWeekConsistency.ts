@@ -1,4 +1,5 @@
 import type { MultiVisitMatchResult, MatchedEmployee, MatchedSlot } from './bdMatcher';
+import { isFullyAvailableInTimeBlock, timeToMinutes } from './bdMatcher';
 
 /**
  * Multi-week consistency engine for the Client Enquiry Matcher.
@@ -106,6 +107,20 @@ function distToRequested(window: string, requestedStartMins: number | null): num
 }
 
 /**
+ * True when a candidate's raw free-time windows for the day can cover the given
+ * "HH:MM-HH:MM" window in full — even if their own precomputed slot (nearest to
+ * the ORIGINAL requested time) points at a different window. This is what lets a
+ * second/third CP on a joint visit line up with the first CP's actual chosen
+ * time instead of only their own independently-guessed nearest slot.
+ */
+function canCoverWindow(rawFreeWindows: string | undefined, window: string): boolean {
+  if (!rawFreeWindows) return false;
+  const [startStr, endStr] = window.split(/[-–]/).map(s => s.trim());
+  if (!startStr || !endStr) return false;
+  return isFullyAvailableInTimeBlock(rawFreeWindows, timeToMinutes(startStr), timeToMinutes(endStr));
+}
+
+/**
  * Compute recommended stars for every week.
  * Returns { [weekStartDate]: StarredMap }.
  */
@@ -155,15 +170,27 @@ export function computeConsistentStars(
         }
       }
 
-      // For double-ups, restrict each cell's pool to CP1's window when possible
+      // For double-ups, restrict each cell's pool to CP1's window when possible.
+      // A candidate counts as available at CP1's window either because their own
+      // precomputed slot already lands there, or because their raw free-time
+      // windows for the day can genuinely cover it (even though their own
+      // independently-guessed nearest slot points elsewhere) — otherwise a
+      // perfectly free CP gets excluded just because two people's fallback
+      // slots were computed relative to the original request, not each other.
       const poolFor = (key: CellKey): Cand[] => {
         const cands = cellCands.get(key) ?? [];
         if (cpIdx === 0) return cands;
         const cp0Window = cp0WindowByCell.get(key);
         if (!cp0Window) return cands;
         const overlapping = cands
-          .filter(c => c.slots.some(s => s.availableWindow === cp0Window))
-          .map(c => ({ ...c, slots: c.slots.filter(s => s.availableWindow === cp0Window) }));
+          .map(c => {
+            const exact = c.slots.find(s => s.availableWindow === cp0Window);
+            if (exact) return { ...c, slots: [exact] };
+            const covering = c.slots.find(s => canCoverWindow(s.rawFreeWindows, cp0Window));
+            if (covering) return { ...c, slots: [{ ...covering, availableWindow: cp0Window, matchType: 'adjusted-time' as const }] };
+            return null;
+          })
+          .filter((c): c is Cand => c !== null);
         return overlapping.length > 0 ? overlapping : cands;
       };
 
@@ -250,16 +277,20 @@ export function computeConsistentStars(
         if (assignment.has(c.key)) continue;
         const pool = poolFor(c.key);
         if (pool.length === 0) continue;
+        // For CP2+, line up with CP1's actual chosen time for THIS cell (which may
+        // itself be a fallback, not the visit-wide target) — not the global target —
+        // so the two CPs on a joint visit end up at the same time on the same day.
+        const cellTarget = (cpIdx > 0 && cp0WindowByCell.get(c.key)) || targetWindow;
         // For each candidate use their slot nearest the target time
         const flattened = pool.map(cand => {
           const slot = [...cand.slots].sort((x, y) =>
-            windowGap(x.availableWindow, targetWindow) - windowGap(y.availableWindow, targetWindow))[0];
+            windowGap(x.availableWindow, cellTarget) - windowGap(y.availableWindow, cellTarget))[0];
           return { match: cand.match, slot };
         });
         const chosen = flattened.sort((a, b) => {
           // Time closeness first (this is a fallback for an unmet target time)
-          const ag = windowGap(a.slot.availableWindow, targetWindow);
-          const bg = windowGap(b.slot.availableWindow, targetWindow);
+          const ag = windowGap(a.slot.availableWindow, cellTarget);
+          const bg = windowGap(b.slot.availableWindow, cellTarget);
           if (ag !== bg) return ag - bg;
           const at = slotTravel(a.match, a.slot), bt = slotTravel(b.match, b.slot);
           if (at !== bt) return at - bt; // best travel time

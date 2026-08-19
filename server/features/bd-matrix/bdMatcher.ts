@@ -102,7 +102,7 @@ interface TravelResult {
   travelMinutesByDay?: Map<string, number>;
 }
 
-function timeToMinutes(timeStr: string): number {
+export function timeToMinutes(timeStr: string): number {
   const parts = timeStr.split(':').map(Number);
   return parts[0] * 60 + (parts[1] || 0);
 }
@@ -492,7 +492,7 @@ async function buildEmployeeWeeklyData(
   return { allEmployeeNames, employeeWeeklyData };
 }
 
-function isFullyAvailableInTimeBlock(freeWindows: string, reqStart: number, reqEnd: number): boolean {
+export function isFullyAvailableInTimeBlock(freeWindows: string, reqStart: number, reqEnd: number): boolean {
   if (!freeWindows || freeWindows === '-' || freeWindows === '') return false;
   
   // Use the exact same logic as client/src/pages/bd-matrix.tsx (isFullyAvailableInTimeBlock)
