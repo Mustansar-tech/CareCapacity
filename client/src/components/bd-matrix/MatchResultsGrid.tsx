@@ -383,11 +383,22 @@ export function MatchResultsGrid({
                           if (otherStar) takenByStarred.push(otherStar.employeeName);
                         }
 
+                        // A star's saved timeWindow is a snapshot from whenever it was clicked. If the
+                        // data was later recomputed (re-run search, week switch, etc.) that saved value
+                        // can go stale relative to what the starred CP is actually showing now. Always
+                        // prefer their live, current-day slot when one exists so the joint-visit
+                        // constraint reflects reality, not a stale snapshot.
+                        const resolveStarWindow = (star: { employeeName: string; timeWindow: string }): string => {
+                          const liveMatch = vr.matches.find(m => m.employeeName === star.employeeName);
+                          const liveSlot = liveMatch?.matchedSlots.find(s => matchesDay(s, day));
+                          return liveSlot?.availableWindow || star.timeWindow;
+                        };
+
                         let anyOtherStar: { employeeName: string; timeWindow: string } | undefined;
                         for (let i = 0; i < vr.careProsRequired; i++) {
                           if (i === cpIdx) continue;
                           const otherStar = getStarred(vr.visitIndex, i, day);
-                          if (otherStar) { anyOtherStar = otherStar; break; }
+                          if (otherStar) { anyOtherStar = { employeeName: otherStar.employeeName, timeWindow: resolveStarWindow(otherStar) }; break; }
                         }
 
                         const currentStar = getStarred(vr.visitIndex, cpIdx, day);
@@ -429,8 +440,12 @@ export function MatchResultsGrid({
                           return b.matchScore - a.matchScore;
                         });
 
+                        // A star is an explicit user decision — it must always render for its cell,
+                        // even if this CP's normal filters (gender pref, the other CP's joint-window
+                        // constraint, etc.) would otherwise have excluded them. Look them up directly
+                        // in this visit's full match list rather than the already-filtered `sorted`.
                         const matchesToShow = currentStar
-                          ? sorted.filter(m => m.employeeName === currentStar.employeeName)
+                          ? [vr.matches.find(m => m.employeeName === currentStar.employeeName) ?? sorted.find(m => m.employeeName === currentStar.employeeName)].filter((m): m is typeof vr.matches[number] => !!m)
                           : sorted;
 
                         return (
