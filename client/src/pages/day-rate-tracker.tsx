@@ -1,10 +1,7 @@
-import { useState, useMemo, useEffect, Fragment } from "react";
+import { useMemo, Fragment } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { toAbsoluteUrl } from "@/lib/queryClient";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { PoundSterling, Home, AlertTriangle, CheckCircle2 } from "lucide-react";
 
@@ -91,54 +88,36 @@ function formatDateHeader(date: string): { day: string; weekday: string } {
   };
 }
 
-// ── Page ───────────────────────────────────────────────────────────────────────
+/**
+ * Always compares "this calendar month" vs "next calendar month" — computed from
+ * today's date rather than stored, so once the calendar rolls into September this
+ * automatically becomes Sep vs Oct without anyone re-selecting anything.
+ */
+function getComparisonMonths(now: Date): [string, string] {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const fmt = (y: number, m: number) => `${y}-${pad(m + 1)}`;
+  const year = now.getUTCFullYear();
+  const month = now.getUTCMonth();
+  return [fmt(year, month), fmt(year, month + 1)];
+}
 
-export default function DayRateTrackerPage() {
-  const [selectedMonth, setSelectedMonth] = useState<string | null>(null);
+// ── Month grid (one full daily breakdown for a single reporting month) ────────
 
-  const monthsQuery = useQuery<string[]>({
-    queryKey: ["/api/day-rate/months"],
-    queryFn: async () => {
-      const res = await fetch(toAbsoluteUrl("/api/day-rate/months"), { credentials: "include" });
-      if (!res.ok) throw new Error("Failed to load reporting months");
-      return res.json();
-    },
-    staleTime: 60_000,
-  });
-
-  useEffect(() => {
-    if (!selectedMonth && monthsQuery.data && monthsQuery.data.length > 0) {
-      setSelectedMonth(monthsQuery.data[monthsQuery.data.length - 1]);
-    }
-  }, [monthsQuery.data, selectedMonth]);
-
+function MonthGrid({ month }: { month: string }) {
   const gridQuery = useQuery<DayRateGrid>({
-    queryKey: ["/api/day-rate/grid", selectedMonth],
+    queryKey: ["/api/day-rate/grid", month],
     queryFn: async () => {
       const res = await fetch(
-        toAbsoluteUrl(`/api/day-rate/grid?month=${selectedMonth}`),
+        toAbsoluteUrl(`/api/day-rate/grid?month=${month}`),
         { credentials: "include" },
       );
       if (!res.ok) throw new Error("Failed to load day rate grid");
       return res.json();
     },
-    enabled: !!selectedMonth,
     staleTime: 30_000,
   });
 
   const grid = gridQuery.data;
-
-  const automationStatusQuery = useQuery<DayRateAutomationStatus>({
-    queryKey: ["/api/day-rate/automation/status"],
-    queryFn: async () => {
-      const res = await fetch(toAbsoluteUrl("/api/day-rate/automation/status"), { credentials: "include" });
-      if (!res.ok) throw new Error("Failed to load automation status");
-      return res.json();
-    },
-    staleTime: 30_000,
-    retry: false,
-  });
-  const automationStatus = automationStatusQuery.data;
 
   const grandTotal = useMemo(() => {
     if (!grid || grid.dates.length === 0) return null;
@@ -157,63 +136,8 @@ export default function DayRateTrackerPage() {
   }, [grid]);
 
   return (
-    <div className="p-6 space-y-6" data-testid="page-day-rate-tracker">
-      <div className="flex items-center justify-between flex-wrap gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight flex items-center gap-2">
-            <PoundSterling className="h-6 w-6 text-primary" />
-            Day Rate Tracker
-          </h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Cumulative month-to-date revenue and day rate, per franchise, from the People Planner Financial Summary.
-          </p>
-        </div>
-
-        <Select
-          value={selectedMonth ?? undefined}
-          onValueChange={setSelectedMonth}
-          disabled={!monthsQuery.data || monthsQuery.data.length === 0}
-        >
-          <SelectTrigger className="w-56" data-testid="select-reporting-month">
-            <SelectValue placeholder="Select reporting month" />
-          </SelectTrigger>
-          <SelectContent>
-            {monthsQuery.data?.slice().reverse().map((m) => (
-              <SelectItem key={m} value={m}>{formatMonthLabel(m)}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-
-      {automationStatus && (
-        <Card data-testid="card-automation-status">
-          <CardContent className="py-3 flex items-center gap-3 flex-wrap text-sm">
-            {automationStatus.lastRunSummary && automationStatus.lastRunSummary.failed > 0 ? (
-              <AlertTriangle className="h-4 w-4 text-destructive shrink-0" />
-            ) : (
-              <CheckCircle2 className="h-4 w-4 text-green-600 shrink-0" />
-            )}
-            <span className="text-muted-foreground">
-              Financial Summary automation last ran{" "}
-              {automationStatus.lastRunAt
-                ? new Date(automationStatus.lastRunAt).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" })
-                : "— not yet run"}
-              {automationStatus.lastRunSummary && (
-                <>
-                  {" · "}
-                  {automationStatus.lastRunSummary.completed}/{automationStatus.lastRunSummary.total} succeeded
-                </>
-              )}
-            </span>
-            {automationStatus.lastErrors.length > 0 && (
-              <span className="text-destructive">
-                {automationStatus.lastErrors.length} failure{automationStatus.lastErrors.length === 1 ? "" : "s"}:{" "}
-                {automationStatus.lastErrors.slice(0, 3).map(e => `${e.franchiseName} (${e.reportingMonth})`).join(", ")}
-              </span>
-            )}
-          </CardContent>
-        </Card>
-      )}
+    <div className="space-y-4">
+      <h2 className="text-lg font-semibold tracking-tight">{formatMonthLabel(month)}</h2>
 
       {gridQuery.isLoading && (
         <Card><CardContent className="py-10 text-center text-muted-foreground">Loading…</CardContent></Card>
@@ -224,18 +148,12 @@ export default function DayRateTrackerPage() {
       )}
 
       {grid && grid.dates.length === 0 && !gridQuery.isLoading && (
-        <Card><CardContent className="py-10 text-center text-muted-foreground">No data for this reporting month yet.</CardContent></Card>
+        <Card><CardContent className="py-10 text-center text-muted-foreground">No data for {formatMonthLabel(month)} yet.</CardContent></Card>
       )}
 
       {grid && grid.dates.length > 0 && (
         <>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">Reporting Month</CardTitle>
-              </CardHeader>
-              <CardContent className="text-2xl font-semibold">{formatMonthLabel(grid.reportingMonth)}</CardContent>
-            </Card>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Card>
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-medium text-muted-foreground">Days in Month</CardTitle>
@@ -260,7 +178,7 @@ export default function DayRateTrackerPage() {
           <Card>
             <CardContent className="p-0">
               <div className="overflow-x-auto">
-                <table className="border-collapse text-sm w-full" data-testid="table-day-rate-grid">
+                <table className="border-collapse text-sm w-full" data-testid={`table-day-rate-grid-${month}`}>
                   <thead>
                     <tr>
                       <th className="sticky left-0 z-10 bg-background border-b border-r px-3 py-2 text-left font-medium min-w-[220px]">
@@ -344,6 +262,75 @@ export default function DayRateTrackerPage() {
           </Card>
         </>
       )}
+    </div>
+  );
+}
+
+// ── Page ───────────────────────────────────────────────────────────────────────
+
+export default function DayRateTrackerPage() {
+  const [currentMonth, nextMonth] = useMemo(() => getComparisonMonths(new Date()), []);
+
+  const automationStatusQuery = useQuery<DayRateAutomationStatus>({
+    queryKey: ["/api/day-rate/automation/status"],
+    queryFn: async () => {
+      const res = await fetch(toAbsoluteUrl("/api/day-rate/automation/status"), { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to load automation status");
+      return res.json();
+    },
+    staleTime: 30_000,
+    retry: false,
+  });
+  const automationStatus = automationStatusQuery.data;
+
+  return (
+    <div className="p-6 space-y-6" data-testid="page-day-rate-tracker">
+      <div>
+        <h1 className="text-2xl font-semibold tracking-tight flex items-center gap-2">
+          <PoundSterling className="h-6 w-6 text-primary" />
+          Day Rate Tracker
+        </h1>
+        <p className="text-sm text-muted-foreground mt-1">
+          {formatMonthLabel(currentMonth)} vs {formatMonthLabel(nextMonth)} — cumulative revenue and day rate per
+          franchise, from the People Planner Financial Summary. This comparison always tracks the current and next
+          calendar month, so it rolls forward automatically each month.
+        </p>
+      </div>
+
+      {automationStatus && (
+        <Card data-testid="card-automation-status">
+          <CardContent className="py-3 flex items-center gap-3 flex-wrap text-sm">
+            {automationStatus.lastRunSummary && automationStatus.lastRunSummary.failed > 0 ? (
+              <AlertTriangle className="h-4 w-4 text-destructive shrink-0" />
+            ) : (
+              <CheckCircle2 className="h-4 w-4 text-green-600 shrink-0" />
+            )}
+            <span className="text-muted-foreground">
+              Financial Summary automation last ran{" "}
+              {automationStatus.lastRunAt
+                ? new Date(automationStatus.lastRunAt).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" })
+                : "— not yet run"}
+              {automationStatus.lastRunSummary && (
+                <>
+                  {" · "}
+                  {automationStatus.lastRunSummary.completed}/{automationStatus.lastRunSummary.total} succeeded
+                </>
+              )}
+            </span>
+            {automationStatus.lastErrors.length > 0 && (
+              <span className="text-destructive">
+                {automationStatus.lastErrors.length} failure{automationStatus.lastErrors.length === 1 ? "" : "s"}:{" "}
+                {automationStatus.lastErrors.slice(0, 3).map(e => `${e.franchiseName} (${e.reportingMonth})`).join(", ")}
+              </span>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      <div className="grid grid-cols-1 2xl:grid-cols-2 gap-8">
+        <MonthGrid month={currentMonth} />
+        <MonthGrid month={nextMonth} />
+      </div>
     </div>
   );
 }
