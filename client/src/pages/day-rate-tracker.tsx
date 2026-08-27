@@ -2,6 +2,7 @@ import { useMemo, Fragment } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { toAbsoluteUrl } from "@/lib/queryClient";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { PoundSterling, Home, AlertTriangle, CheckCircle2 } from "lucide-react";
 
@@ -103,7 +104,7 @@ function getComparisonMonths(now: Date): [string, string] {
 
 // ── Month grid (one full daily breakdown for a single reporting month) ────────
 
-function MonthGrid({ month }: { month: string }) {
+function MonthGrid({ month, showTitle = true }: { month: string; showTitle?: boolean }) {
   const gridQuery = useQuery<DayRateGrid>({
     queryKey: ["/api/day-rate/grid", month],
     queryFn: async () => {
@@ -137,7 +138,7 @@ function MonthGrid({ month }: { month: string }) {
 
   return (
     <div className="space-y-4">
-      <h2 className="text-lg font-semibold tracking-tight">{formatMonthLabel(month)}</h2>
+      {showTitle && <h2 className="text-lg font-semibold tracking-tight">{formatMonthLabel(month)}</h2>}
 
       {gridQuery.isLoading && (
         <Card><CardContent className="py-10 text-center text-muted-foreground">Loading…</CardContent></Card>
@@ -327,10 +328,22 @@ export default function DayRateTrackerPage() {
         </Card>
       )}
 
-      <div className="grid grid-cols-1 2xl:grid-cols-2 gap-8">
-        <MonthGrid month={currentMonth} />
-        <MonthGrid month={nextMonth} />
-      </div>
+      <Tabs defaultValue={currentMonth} className="space-y-4">
+        <TabsList>
+          <TabsTrigger value={currentMonth} data-testid={`tab-${currentMonth}`}>
+            {formatMonthLabel(currentMonth)}
+          </TabsTrigger>
+          <TabsTrigger value={nextMonth} data-testid={`tab-${nextMonth}`}>
+            {formatMonthLabel(nextMonth)}
+          </TabsTrigger>
+        </TabsList>
+        <TabsContent value={currentMonth}>
+          <MonthGrid month={currentMonth} showTitle={false} />
+        </TabsContent>
+        <TabsContent value={nextMonth}>
+          <MonthGrid month={nextMonth} showTitle={false} />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
