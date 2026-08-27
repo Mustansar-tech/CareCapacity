@@ -1,10 +1,12 @@
 import { useMemo, Fragment } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toAbsoluteUrl } from "@/lib/queryClient";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { PoundSterling, Home, AlertTriangle, CheckCircle2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { useToast } from "@/hooks/use-toast";
+import { PoundSterling, Home, AlertTriangle, CheckCircle2, PlayCircle, Loader2 } from "lucide-react";
 
 // ── Types (mirrors server/repositories/day-rate.repository.ts) ───────────────
 
@@ -284,6 +286,36 @@ export default function DayRateTrackerPage() {
   });
   const automationStatus = automationStatusQuery.data;
 
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  const runNowMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch(toAbsoluteUrl("/api/day-rate/automation/run"), {
+        method: "POST",
+        credentials: "include",
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || "Failed to start automation run");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Financial Summary run started",
+        description: "Downloading and processing exports for every franchise — this can take several minutes. Refresh the status below to check progress.",
+      });
+      // Give the background session a moment to register before polling status.
+      setTimeout(() => {
+        queryClient.invalidateQueries({ queryKey: ["/api/day-rate/automation/status"] });
+      }, 3000);
+    },
+    onError: (err: Error) => {
+      toast({ title: "Failed to start run", description: err.message, variant: "destructive" });
+    },
+  });
+
   return (
     <div className="p-6 space-y-6" data-testid="page-day-rate-tracker">
       <div>
@@ -324,6 +356,55 @@ export default function DayRateTrackerPage() {
                 {automationStatus.lastErrors.slice(0, 3).map(e => `${e.franchiseName} (${e.reportingMonth})`).join(", ")}
               </span>
             )}
+            <div className="ml-auto flex items-center gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => automationStatusQuery.refetch()}
+                data-testid="button-refresh-automation-status"
+              >
+                Refresh status
+              </Button>
+              <Button
+                size="sm"
+                onClick={() => runNowMutation.mutate()}
+                disabled={runNowMutation.isPending}
+                data-testid="button-run-automation-now"
+              >
+                {runNowMutation.isPending ? (
+                  <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+                ) : (
+                  <PlayCircle className="h-4 w-4 mr-1.5" />
+                )}
+                Run now
+              </Button>
+            </div>
+          </CardContent>
+          {automationStatus.recentSessions.length > 0 && (
+            <CardContent className="pt-0 pb-3 text-xs text-muted-foreground space-y-1">
+              {automationStatus.recentSessions.slice(0, 5).map((s) => (
+                <div key={s.sessionId} className="flex items-center gap-2 flex-wrap">
+                  <Badge
+                    variant={s.status === "failed" ? "destructive" : s.status === "completed" ? "outline" : "secondary"}
+                    className="text-[10px] px-1.5 py-0"
+                  >
+                    {s.status}
+                  </Badge>
+                  <span>Branch session {s.sessionId}</span>
+                  <span>
+                    {s.jobResults.filter(j => j.status === "completed").length}/{s.jobResults.length} jobs done
+                  </span>
+                  <span>{new Date(s.startedAt).toLocaleTimeString("en-GB")}</span>
+                </div>
+              ))}
+            </CardContent>
+          )}
+        </Card>
+      )}
+      {!automationStatus && !automationStatusQuery.isLoading && (
+        <Card>
+          <CardContent className="py-3 text-sm text-muted-foreground">
+            You need admin access to view or trigger the Financial Summary automation.
           </CardContent>
         </Card>
       )}
