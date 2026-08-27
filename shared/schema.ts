@@ -1107,3 +1107,59 @@ export const insertLeaverReportRecipientSchema = createInsertSchema(leaverReport
 
 export type InsertLeaverReportRecipient = z.infer<typeof insertLeaverReportRecipientSchema>;
 export type LeaverReportRecipient = typeof leaverReportRecipients.$inferSelect;
+
+// ── Business Intelligence — Day Rate Tracker ─────────────────────────────────
+// A "franchise row" is more granular than `branches` (e.g. an office and its
+// separate Live-In Care sub-entity are two rows here, one branch there), so it
+// gets its own reference table rather than reusing `branches`. Kept standalone
+// (not FK'd to branches) since names/groupings in the People Planner exports
+// don't line up 1:1 with the app's operational branch list.
+export const dayRateFranchises = pgTable("day_rate_franchises", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  groupName: text("group_name").notNull(), // e.g. "SUR Group"
+  area: text("area"), // e.g. "Megan", "Yvette" — area/regional manager grouping
+  office: text("office").notNull(), // e.g. "Glasgow North"
+  franchiseName: text("franchise_name").notNull().unique(), // e.g. "Glasgow North Live-In Care"
+  isLiveInCare: boolean("is_live_in_care").notNull().default(false),
+  displayOrder: integer("display_order").notNull().default(0),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertDayRateFranchiseSchema = createInsertSchema(dayRateFranchises).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertDayRateFranchise = z.infer<typeof insertDayRateFranchiseSchema>;
+export type DayRateFranchise = typeof dayRateFranchises.$inferSelect;
+
+// Cumulative revenue + day rate for one franchise row, on one calendar date,
+// as reported under one reporting month. The same calendar date can appear
+// twice for the same franchise (once under the "current" reporting month,
+// once under the "forward" reporting month), each with its own days-in-month
+// denominator — mirroring the workbook's one-sheet-per-reporting-month layout.
+export const dayRateEntries = pgTable("day_rate_entries", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  franchiseId: varchar("franchise_id").notNull().references(() => dayRateFranchises.id, { onDelete: 'cascade' }),
+  date: text("date").notNull(), // YYYY-MM-DD calendar date being reported
+  reportingMonth: text("reporting_month").notNull(), // YYYY-MM the reporting period this figure belongs to
+  daysInMonth: integer("days_in_month").notNull(), // denominator for day rate, per reportingMonth
+  revenue: real("revenue").notNull().default(0), // cumulative month-to-date revenue (Financial Summary I+J totals)
+  dayRate: real("day_rate").notNull().default(0), // revenue / daysInMonth
+  source: text("source").notNull().default('import'), // 'import' (historical seed) | 'automation' (People Planner)
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  uniqueEntry: unique("unique_day_rate_entry").on(table.franchiseId, table.date, table.reportingMonth),
+  franchiseIdx: index("day_rate_franchise_idx").on(table.franchiseId),
+  reportingMonthIdx: index("day_rate_reporting_month_idx").on(table.reportingMonth),
+}));
+
+export const insertDayRateEntrySchema = createInsertSchema(dayRateEntries).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertDayRateEntry = z.infer<typeof insertDayRateEntrySchema>;
+export type DayRateEntry = typeof dayRateEntries.$inferSelect;

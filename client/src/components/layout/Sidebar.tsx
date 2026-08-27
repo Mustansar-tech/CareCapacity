@@ -8,7 +8,7 @@ import homeInsteadLogo from "@/assets/logo.png";
 import {
   LayoutDashboard, CalendarDays, Users, TrendingUp, UserCheck,
   Star, Search, PanelLeftClose, PanelLeftOpen, LogOut, Shield,
-  BookOpen, HelpCircle, Calendar, X, ChevronDown,
+  BookOpen, HelpCircle, Calendar, X, ChevronDown, PoundSterling,
 } from "lucide-react";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem,
@@ -53,6 +53,12 @@ const NAV_GROUPS: NavGroup[] = [
     label: "RECRUITMENT",
     items: [
       { id: "outlook", label: "Outlook", path: "/app/capacity-outlook", icon: TrendingUp },
+    ],
+  },
+  {
+    label: "BUSINESS INTELLIGENCE",
+    items: [
+      { id: "day-rate-tracker", label: "Day Rate Tracker", path: "/app/day-rate-tracker", icon: PoundSterling },
     ],
   },
 ];

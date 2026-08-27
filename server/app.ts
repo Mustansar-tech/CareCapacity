@@ -21,6 +21,7 @@ import { registerLeaverReportRoutes } from './routes/leaver-report';
 import { registerBroadcastRoutes } from './features/communications/broadcast.routes';
 import { registerHrRoutes } from './routes/hr.routes';
 import { registerDataRequestRoutes } from './routes/data-requests';
+import { registerDayRateRoutes } from './routes/day-rate';
 
 const PUBLIC_API_PATHS = ['/auth/', '/branches', '/cron/sync', '/auth/microsoft'];
 
@@ -92,6 +93,7 @@ export async function configureApp(app: Express): Promise<Server> {
   registerHrRoutes(app);
   registerBroadcastRoutes(app);
   registerDataRequestRoutes(app);
+  registerDayRateRoutes(app);
 
   return createServer(app);
 }

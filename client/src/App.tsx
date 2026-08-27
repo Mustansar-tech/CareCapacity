@@ -52,6 +52,7 @@ const ScheduleModule = lazy(() => import("@/pages/schedule"));
 const PeoplePlannerModule = lazy(() => import("@/pages/people-planner"));
 const DocsModule = lazy(() => import("@/pages/docs"));
 const WorkforceModule = lazy(() => import("@/pages/workforce"));
+const DayRateTrackerModule = lazy(() => import("@/pages/day-rate-tracker"));
 
 // ─── Shared utilities ─────────────────────────────────────────────────────────
 
@@ -418,6 +419,9 @@ function Router() {
               </Route>
               <Route path="/app/workforce">
                 <AppLayout><PageSuspense><WorkforceModule /></PageSuspense></AppLayout>
+              </Route>
+              <Route path="/app/day-rate-tracker">
+                <AppLayout><PageSuspense><DayRateTrackerModule /></PageSuspense></AppLayout>
               </Route>
               <Route path="/app/docs">
                 <PageSuspense><DocsModule /></PageSuspense>
