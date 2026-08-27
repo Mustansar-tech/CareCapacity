@@ -21,6 +21,12 @@ export interface JobConfig {
   careGiverType?: string;
   careGiverStatus?: string;
   branchId?: string;
+  /**
+   * Exact Financial Summary "Franchise" dropdown label to select — may be a
+   * Live-In Care sub-entity (e.g. "Glasgow North Live-In Care"). Unlike
+   * plannerArea, this is matched WITHOUT excluding live-in-care options.
+   */
+  financeFranchiseName?: string;
 }
 
 export interface AutomationJob {
@@ -756,6 +762,22 @@ async function navigateToExport(plannerPage: Page, config: JobConfig): Promise<v
     await plannerPage.goto(targetUrl, { waitUntil: "domcontentloaded", timeout: 30000 });
     await plannerPage.waitForLoadState("networkidle", { timeout: 20000 }).catch(() => {});
     await plannerPage.waitForTimeout(2000);
+  } else if (config.reportType === "financialSummaryExport") {
+    // Finance/Financial/Export lives behind a two-level tab bar rather than a
+    // hover flyout: "Finance" is a top-level tab that must be CLICKED to load
+    // the Finance page, "Financial" is a second-level tab whose child links
+    // reveal on hover, and "Export" is one of those child links.
+    logger.info("Navigating to financialSummaryExport via Finance tab bar");
+    await plannerPage.locator("text=Finance").first().click({ force: true });
+    await plannerPage.waitForLoadState("networkidle", { timeout: 20000 }).catch(() => {});
+    await plannerPage.waitForTimeout(1000);
+
+    await plannerPage.locator("text=Financial").first().hover({ force: true });
+    await plannerPage.waitForTimeout(800);
+
+    await plannerPage.getByText(/^Export$/).last().click({ force: true });
+    await plannerPage.waitForLoadState("networkidle", { timeout: 20000 }).catch(() => {});
+    await plannerPage.waitForTimeout(1500);
   } else {
     for (const step of reportConfig.menuPath) {
       const loc = plannerPage.locator(`text=${step}`);
@@ -796,7 +818,13 @@ async function configureExportForm(plannerPage: Page, config: JobConfig): Promis
   const normalize = (text: string): string =>
     text.toLowerCase().replace(/- uk -/g, "").replace(/[^a-z0-9 ]/g, "").replace(/\s+/g, " ").trim();
 
-  const selectBest = async (sel: ReturnType<Page["locator"]>, value: string, name: string) => {
+  const selectBest = async (
+    sel: ReturnType<Page["locator"]>,
+    value: string,
+    name: string,
+    options2: { excludeLiveInCare?: boolean } = {}
+  ) => {
+    const excludeLiveInCare = options2.excludeLiveInCare !== false;
     const options = await sel.evaluate((s: HTMLSelectElement) =>
       Array.from(s.options).map((o, i) => ({ text: o.text.trim(), val: o.value, index: i }))
     ).catch(() => [] as { text: string; val: string; index: number }[]);
@@ -813,7 +841,11 @@ async function configureExportForm(plannerPage: Page, config: JobConfig): Promis
     const targetOccurrence = duplicateMatch ? parseInt(duplicateMatch[2]) : null;
 
     // Exclude "live in care" variants — we always want the main area option
-    const filtered = uniqueOpts.filter(o => !o.text.toLowerCase().includes("live in care"));
+    // (unless the caller explicitly needs to target a live-in-care sub-entity,
+    // e.g. the Financial Summary export's Franchise dropdown).
+    const filtered = excludeLiveInCare
+      ? uniqueOpts.filter(o => !o.text.toLowerCase().includes("live in care"))
+      : uniqueOpts;
 
     // Priority 1: exact normalize match (prevents "Glasgow North" matching "North Lanarkshire & Glasgow East")
     const exactMatches = filtered.filter(o => normalize(o.text) === target);
@@ -886,7 +918,11 @@ async function configureExportForm(plannerPage: Page, config: JobConfig): Promis
   if (reportConfig.fields.franchise && selectCount > si) {
     const franchiseSelect = selects.nth(si);
 
-    if (config.plannerArea) {
+    if (config.financeFranchiseName) {
+      // Financial Summary export — select the exact Franchise row, which may
+      // be a Live-In Care sub-entity, so do NOT exclude live-in-care options.
+      await selectBest(franchiseSelect, config.financeFranchiseName, "Franchise", { excludeLiveInCare: false });
+    } else if (config.plannerArea) {
       // Shared-PP branch — use the exact configured Franchise name
       await selectBest(franchiseSelect, config.plannerArea, "Franchise");
     } else {

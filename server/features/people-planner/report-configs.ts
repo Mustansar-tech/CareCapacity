@@ -1,7 +1,8 @@
 export type ReportType =
   | "visitsExport"
   | "careGiverExport"
-  | "careGiverAvailabilityExport";
+  | "careGiverAvailabilityExport"
+  | "financialSummaryExport";
 
 export interface ReportFieldConfig {
   franchise: boolean;
@@ -105,6 +106,30 @@ export const REPORT_CONFIGS: Record<ReportType, ReportConfig> = {
     },
     exportButton: {
       name: "ReportViewer",
+    },
+  },
+
+  financialSummaryExport: {
+    key: "financialSummaryExport",
+    // Navigated via a click-through tab bar rather than a hover flyout — see the
+    // special-cased handling in automation-engine.ts's navigateToExport().
+    menuPath: ["Finance", "Financial", "Export"],
+    directUrl: null,
+    defaults: {
+      leaveAreaDefault: true,
+      type: "Summary",
+      status: "All",
+    },
+    fields: {
+      franchise: true,
+      area: true,
+      startDate: true,
+      endDate: true,
+      type: true,
+      status: true,
+    },
+    exportButton: {
+      name: "btnExport",
     },
   },
 };

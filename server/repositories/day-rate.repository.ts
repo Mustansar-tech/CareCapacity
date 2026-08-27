@@ -1,7 +1,8 @@
 import { db } from '../infrastructure/db';
 import { dayRateFranchises, dayRateEntries } from '@shared/schema';
 import type { DayRateFranchise } from '@shared/schema';
-import { asc, eq, inArray } from 'drizzle-orm';
+import { asc, eq, inArray, and } from 'drizzle-orm';
+import { sql } from 'drizzle-orm';
 
 export interface DayRateGridEntry {
   revenue: number;
@@ -25,6 +26,52 @@ export interface DayRateGrid {
   dates: string[];
   franchises: DayRateGridFranchise[];
   totals: Record<string, DayRateGridEntry>;
+}
+
+/**
+ * Upsert one automated Financial Summary reading for a franchise/date/reportingMonth,
+ * replacing any prior value for that exact key rather than duplicating —
+ * matches the unique_day_rate_entry constraint (franchiseId, date, reportingMonth).
+ */
+export async function upsertAutomatedEntry(params: {
+  franchiseId: string;
+  date: string;
+  reportingMonth: string;
+  daysInMonth: number;
+  revenue: number;
+}): Promise<void> {
+  const dayRate = params.daysInMonth > 0 ? params.revenue / params.daysInMonth : 0;
+
+  await db
+    .insert(dayRateEntries)
+    .values({
+      franchiseId: params.franchiseId,
+      date: params.date,
+      reportingMonth: params.reportingMonth,
+      daysInMonth: params.daysInMonth,
+      revenue: params.revenue,
+      dayRate,
+      source: 'automation',
+    })
+    .onConflictDoUpdate({
+      target: [dayRateEntries.franchiseId, dayRateEntries.date, dayRateEntries.reportingMonth],
+      set: {
+        daysInMonth: params.daysInMonth,
+        revenue: params.revenue,
+        dayRate,
+        source: 'automation',
+        updatedAt: sql`now()`,
+      },
+    });
+}
+
+export async function getFranchiseByName(franchiseName: string): Promise<DayRateFranchise | undefined> {
+  const rows = await db
+    .select()
+    .from(dayRateFranchises)
+    .where(eq(dayRateFranchises.franchiseName, franchiseName))
+    .limit(1);
+  return rows[0];
 }
 
 export async function getReportingMonths(): Promise<string[]> {

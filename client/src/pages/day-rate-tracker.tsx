@@ -6,7 +6,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { PoundSterling, Home } from "lucide-react";
+import { PoundSterling, Home, AlertTriangle, CheckCircle2 } from "lucide-react";
 
 // ── Types (mirrors server/repositories/day-rate.repository.ts) ───────────────
 
@@ -32,6 +32,32 @@ interface DayRateGrid {
   dates: string[];
   franchises: DayRateGridFranchise[];
   totals: Record<string, DayRateGridEntry>;
+}
+
+interface DayRateAutomationJobResult {
+  franchiseName: string;
+  reportingMonth: string;
+  status: "running" | "completed" | "failed";
+  revenue?: number;
+  error?: string;
+}
+
+interface DayRateAutomationSession {
+  sessionId: string;
+  status: "queued" | "running" | "completed" | "failed";
+  branchId: string;
+  startedAt: string;
+  completedAt?: string;
+  jobResults: DayRateAutomationJobResult[];
+}
+
+interface DayRateAutomationStatus {
+  enabled: boolean;
+  lastRunAt: string | null;
+  lastRunSessionIds: string[];
+  lastRunSummary: { total: number; completed: number; failed: number } | null;
+  lastErrors: { branchId: string; franchiseName: string; reportingMonth: string; error: string }[];
+  recentSessions: DayRateAutomationSession[];
 }
 
 // ── Formatting helpers ────────────────────────────────────────────────────────
@@ -102,6 +128,18 @@ export default function DayRateTrackerPage() {
 
   const grid = gridQuery.data;
 
+  const automationStatusQuery = useQuery<DayRateAutomationStatus>({
+    queryKey: ["/api/day-rate/automation/status"],
+    queryFn: async () => {
+      const res = await fetch(toAbsoluteUrl("/api/day-rate/automation/status"), { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to load automation status");
+      return res.json();
+    },
+    staleTime: 30_000,
+    retry: false,
+  });
+  const automationStatus = automationStatusQuery.data;
+
   const grandTotal = useMemo(() => {
     if (!grid || grid.dates.length === 0) return null;
     const lastDate = grid.dates[grid.dates.length - 1];
@@ -146,6 +184,36 @@ export default function DayRateTrackerPage() {
           </SelectContent>
         </Select>
       </div>
+
+      {automationStatus && (
+        <Card data-testid="card-automation-status">
+          <CardContent className="py-3 flex items-center gap-3 flex-wrap text-sm">
+            {automationStatus.lastRunSummary && automationStatus.lastRunSummary.failed > 0 ? (
+              <AlertTriangle className="h-4 w-4 text-destructive shrink-0" />
+            ) : (
+              <CheckCircle2 className="h-4 w-4 text-green-600 shrink-0" />
+            )}
+            <span className="text-muted-foreground">
+              Financial Summary automation last ran{" "}
+              {automationStatus.lastRunAt
+                ? new Date(automationStatus.lastRunAt).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" })
+                : "— not yet run"}
+              {automationStatus.lastRunSummary && (
+                <>
+                  {" · "}
+                  {automationStatus.lastRunSummary.completed}/{automationStatus.lastRunSummary.total} succeeded
+                </>
+              )}
+            </span>
+            {automationStatus.lastErrors.length > 0 && (
+              <span className="text-destructive">
+                {automationStatus.lastErrors.length} failure{automationStatus.lastErrors.length === 1 ? "" : "s"}:{" "}
+                {automationStatus.lastErrors.slice(0, 3).map(e => `${e.franchiseName} (${e.reportingMonth})`).join(", ")}
+              </span>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {gridQuery.isLoading && (
         <Card><CardContent className="py-10 text-center text-muted-foreground">Loading…</CardContent></Card>

@@ -39,6 +39,7 @@ import {
   getConfiguredBranchIds,
 } from "./features/people-planner/automation-routes";
 import { getWeeksToSync } from "./features/people-planner/week-helpers";
+import { runDayRateAutomation } from "./features/people-planner/day-rate-scheduler";
 
 logger.info("Care Capacity worker starting");
 
@@ -156,6 +157,28 @@ if (process.env.ACCESS_EMAIL) {
     schedule: "0 1 * * 1-5",
     timezone: "Europe/London",
     description: "Mon–Fri 01:00 BST/GMT — full forward-week multi-week sync",
+  });
+
+  // ─── Day Rate Tracker — Financial Summary cron — 02:00 Europe/London, every day ──
+  // Runs after the capacity sync above so the two automations rarely contend for the
+  // same Playwright account slots; if they do, the slot-reservation system queues one
+  // behind the other automatically. Runs every day (not just weekdays) because revenue
+  // keeps accruing daily.
+  cron.schedule("0 2 * * *", () => {
+    const now = new Date();
+    logger.info("Worker: day-rate cron fired", { localTime: now.toISOString() });
+    runDayRateAutomation(now).catch((err) => {
+      logger.error("Worker: day-rate automation threw", err instanceof Error ? err : undefined);
+      Sentry.captureException(err instanceof Error ? err : new Error(String(err)), {
+        tags: { cronJob: "day-rate-automation" },
+      });
+    });
+  }, { timezone: "Europe/London" });
+
+  logger.info("Worker: day-rate cron armed", {
+    schedule: "0 2 * * *",
+    timezone: "Europe/London",
+    description: "Every day 02:00 BST/GMT — Financial Summary export → Day Rate Tracker",
   });
 } else {
   logger.warn("Worker: ACCESS_EMAIL not configured — daily scheduler not armed");

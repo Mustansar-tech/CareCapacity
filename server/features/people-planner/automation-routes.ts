@@ -22,6 +22,8 @@ import {
   resetSlotForNextSession,
   type JobConfig,
 } from "./automation-engine";
+import { parseFinancialSummaryWorkbook } from "./financial-summary-parser";
+import { upsertAutomatedEntry } from "../../repositories/day-rate.repository";
 
 // ─── Branch config ────────────────────────────────────────────────────────────
 export interface BranchPPConfig {
@@ -356,6 +358,278 @@ function startNextQueuedSession(): void {
       setImmediate(() => startNextQueuedSession());
     });
   }
+}
+
+// ─── Day Rate Tracker — Financial Summary automation ─────────────────────────
+// Maps a day_rate_franchises "office" name to the branch whose People Planner
+// instance owns it (branches share PP tenants exactly like DEFAULT_BRANCH_PP_CONFIGS above).
+const DAY_RATE_OFFICE_TO_BRANCH: Record<string, string> = {
+  "Glasgow North":   "2f706320-5585-4e3c-8eb2-6c624acd7fca",
+  "North Lan":       "c812f593-9ec6-4a18-b48e-c847cc2eac81",
+  "Glasgow South":   "d3859b52-cfbb-4c23-b94a-4ca4f5351d65",
+  "Aberdeen":        "0d087ea2-68ed-45f3-9738-85de38d4ec9e",
+  "Perthshire":      "92a144e1-b9d5-4ec6-b6fb-e8269ddf521d",
+  "South Ayrshire":  "7bc2f2fe-c0e4-4b55-b32b-04954f4f86a7",
+  "Stirling":        "311ed83e-0715-4a83-9cdf-ca6b7792b624",
+  "East Lothian":    "b661f59b-750f-4d75-9343-31bdc3fd9c60",
+  "Scottish Borders": "2587f931-4a8c-4afd-bedf-6621ba55f0b4",
+  "West Fife":       "7b10cb7c-5b1a-4f0a-bce2-d82cc23427d4",
+};
+
+export function getBranchIdForDayRateOffice(office: string): string | null {
+  return DAY_RATE_OFFICE_TO_BRANCH[office] ?? null;
+}
+
+export interface FinancialSummaryJobSpec {
+  franchiseId: string;
+  financeFranchiseName: string;
+  /** Calendar date (YYYY-MM-DD) this reading is recorded against */
+  date: string;
+  /** YYYY-MM reporting period the export covers */
+  reportingMonth: string;
+  daysInMonth: number;
+  /** Full-month export range (YYYY-MM-DD) */
+  startDate: string;
+  endDate: string;
+}
+
+interface FinancialSummaryJobResult {
+  franchiseName: string;
+  reportingMonth: string;
+  status: "running" | "completed" | "failed";
+  revenue?: number;
+  error?: string;
+}
+
+interface FinancialSummarySession {
+  sessionId: string;
+  status: "queued" | "running" | "completed" | "failed";
+  error?: string;
+  branchId: string;
+  initiatedByUserId: string;
+  startedAt: string;
+  completedAt?: string;
+  jobResults: FinancialSummaryJobResult[];
+  pendingJobs?: FinancialSummaryJobSpec[];
+  slotArrayIndex?: number;
+}
+
+const financialSummarySessions = new Map<string, FinancialSummarySession>();
+const financialSummaryQueue: string[] = [];
+
+interface DayRateAutomationStatus {
+  enabled: boolean;
+  lastRunAt: string | null;
+  lastRunSessionIds: string[];
+  lastRunSummary: { total: number; completed: number; failed: number } | null;
+  lastErrors: { branchId: string; franchiseName: string; reportingMonth: string; error: string }[];
+}
+
+let dayRateAutomationStatus: DayRateAutomationStatus = {
+  enabled: false,
+  lastRunAt: null,
+  lastRunSessionIds: [],
+  lastRunSummary: null,
+  lastErrors: [],
+};
+
+export function updateDayRateAutomationStatus(update: Partial<DayRateAutomationStatus>): void {
+  dayRateAutomationStatus = { ...dayRateAutomationStatus, ...update };
+}
+
+export function getDayRateAutomationStatus(): DayRateAutomationStatus {
+  return { ...dayRateAutomationStatus };
+}
+
+export function listFinancialSummarySessions(): FinancialSummarySession[] {
+  return Array.from(financialSummarySessions.values())
+    .sort((a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime())
+    .slice(0, 30);
+}
+
+async function runFinancialSummarySession(
+  sessionId: string,
+  branchId: string,
+  jobs: FinancialSummaryJobSpec[],
+  initiatedByUserId: string,
+  slotArrayIndex: number,
+): Promise<void> {
+  const ppConfig = getMergedBranchConfig(branchId);
+  if (!ppConfig) throw new Error(`No People Planner config for branch ${branchId}`);
+
+  const existing = financialSummarySessions.get(sessionId);
+  const session: FinancialSummarySession = existing
+    ? { ...existing, status: "running", jobResults: [], pendingJobs: undefined }
+    : { sessionId, status: "running", branchId, initiatedByUserId, startedAt: new Date().toISOString(), jobResults: [] };
+  financialSummarySessions.set(sessionId, session);
+
+  try {
+    await resetSlotForNextSession(slotArrayIndex);
+
+    for (const job of jobs) {
+      const jobResult: FinancialSummaryJobResult = {
+        franchiseName: job.financeFranchiseName,
+        reportingMonth: job.reportingMonth,
+        status: "running",
+      };
+      session.jobResults.push(jobResult);
+      financialSummarySessions.set(sessionId, session);
+
+      try {
+        const config: JobConfig = {
+          branchUrl: ppConfig.branchUrl,
+          startDate: job.startDate,
+          endDate: job.endDate,
+          reportType: "financialSummaryExport",
+          exportType: "",
+          exportTemplate: "",
+          financeFranchiseName: job.financeFranchiseName,
+          careGiverType: "Summary",
+          careGiverStatus: "All",
+          branchId,
+        };
+
+        const jobId = await runAutomationJob(config, slotArrayIndex);
+        const completedJob = await waitForJob(jobId, 600000);
+
+        if (completedJob.status === "failed") {
+          throw new Error(completedJob.error || "Financial Summary download failed");
+        }
+
+        const filePath = completedJob.filePath ?? getDownloadPath(jobId);
+        if (!filePath || !fs.existsSync(filePath)) {
+          throw new Error("Downloaded Financial Summary file not found on disk");
+        }
+
+        const buffer = fs.readFileSync(filePath);
+        const totals = await parseFinancialSummaryWorkbook(buffer);
+
+        await upsertAutomatedEntry({
+          franchiseId: job.franchiseId,
+          date: job.date,
+          reportingMonth: job.reportingMonth,
+          daysInMonth: job.daysInMonth,
+          revenue: totals.revenue,
+        });
+
+        jobResult.status = "completed";
+        jobResult.revenue = totals.revenue;
+        logger.info("Financial Summary job completed", {
+          branchId, franchiseName: job.financeFranchiseName, reportingMonth: job.reportingMonth, revenue: totals.revenue,
+        });
+      } catch (jobErr) {
+        jobResult.status = "failed";
+        jobResult.error = jobErr instanceof Error ? jobErr.message : String(jobErr);
+        logger.error("Financial Summary job failed", jobErr instanceof Error ? jobErr : undefined, {
+          branchId, franchiseName: job.financeFranchiseName, reportingMonth: job.reportingMonth,
+        });
+        // Continue with remaining franchises/months rather than aborting the whole session.
+      }
+      financialSummarySessions.set(sessionId, session);
+    }
+
+    session.status = "completed";
+    session.completedAt = new Date().toISOString();
+    financialSummarySessions.set(sessionId, session);
+  } catch (err) {
+    session.status = "failed";
+    session.error = err instanceof Error ? err.message : String(err);
+    session.completedAt = new Date().toISOString();
+    financialSummarySessions.set(sessionId, session);
+    logger.error("Financial Summary session failed", err instanceof Error ? err : undefined, { sessionId, branchId });
+    throw err;
+  }
+}
+
+function startNextQueuedFinancialSummarySession(): void {
+  while (financialSummaryQueue.length > 0) {
+    const peekId = financialSummaryQueue[0];
+    const peekSession = financialSummarySessions.get(peekId);
+    const idleSlot = peekSession ? findPreferredSlotForBranch(peekSession.branchId) : -1;
+    if (idleSlot === -1) return;
+
+    const nextId = financialSummaryQueue.shift()!;
+    const session = financialSummarySessions.get(nextId);
+    if (!session?.pendingJobs) {
+      logger.warn("Queued financial summary session missing or has no jobs — skipping", { nextId });
+      continue;
+    }
+
+    reserveSlot(idleSlot, nextId);
+    const jobs = session.pendingJobs;
+    session.status = "running";
+    session.slotArrayIndex = idleSlot;
+    session.pendingJobs = undefined;
+    financialSummarySessions.set(nextId, session);
+
+    runFinancialSummarySession(nextId, session.branchId, jobs, session.initiatedByUserId, idleSlot)
+      .catch(err => {
+        const s = financialSummarySessions.get(nextId);
+        if (s && s.status === "running") {
+          financialSummarySessions.set(nextId, { ...s, status: "failed", error: err instanceof Error ? err.message : String(err), completedAt: new Date().toISOString() });
+        }
+        logger.error("Queued financial summary session failed", err instanceof Error ? err : undefined, { sessionId: nextId });
+      })
+      .finally(() => {
+        releaseSlot(idleSlot);
+        setImmediate(() => {
+          startNextQueuedFinancialSummarySession();
+          startNextQueuedSession();
+        });
+      });
+  }
+}
+
+/**
+ * Programmatically queue a Financial Summary automation run for one branch's set of
+ * franchise/month jobs — same slot-reservation machinery as the weekly capacity sync,
+ * so the two automations never contend for the same Playwright account slot.
+ */
+export async function programmaticQueueFinancialSummarySync(
+  branchId: string,
+  jobs: FinancialSummaryJobSpec[],
+  initiatedByUserId: string,
+): Promise<{ sessionId: string; queued: boolean; queuePosition?: number }> {
+  const ppConfig = getMergedBranchConfig(branchId);
+  if (!ppConfig) throw new Error(`No People Planner config for branch ${branchId}`);
+  if (jobs.length === 0) throw new Error("No Financial Summary jobs provided");
+
+  const sessionId = `fs-${branchId}-${Date.now()}`;
+  const idleSlot = findPreferredSlotForBranch(branchId);
+
+  if (idleSlot === -1) {
+    const pendingSession: FinancialSummarySession = {
+      sessionId, status: "queued", branchId, initiatedByUserId,
+      startedAt: new Date().toISOString(), jobResults: [], pendingJobs: jobs,
+    };
+    financialSummarySessions.set(sessionId, pendingSession);
+    financialSummaryQueue.push(sessionId);
+    return { sessionId, queued: true, queuePosition: financialSummaryQueue.length };
+  }
+
+  reserveSlot(idleSlot, sessionId);
+  const newSession: FinancialSummarySession = {
+    sessionId, status: "running", branchId, initiatedByUserId,
+    startedAt: new Date().toISOString(), jobResults: [], slotArrayIndex: idleSlot,
+  };
+  financialSummarySessions.set(sessionId, newSession);
+
+  runFinancialSummarySession(sessionId, branchId, jobs, initiatedByUserId, idleSlot)
+    .catch(err => {
+      const s = financialSummarySessions.get(sessionId);
+      if (s && s.status === "running") {
+        financialSummarySessions.set(sessionId, { ...s, status: "failed", error: err instanceof Error ? err.message : String(err), completedAt: new Date().toISOString() });
+      }
+    })
+    .finally(() => {
+      releaseSlot(idleSlot);
+      setImmediate(() => {
+        startNextQueuedFinancialSummarySession();
+        startNextQueuedSession();
+      });
+    });
+
+  return { sessionId, queued: false };
 }
 
 // ─── Access guard helpers ─────────────────────────────────────────────────────
@@ -984,6 +1258,47 @@ export function registerPeoplePlannerRoutes(app: Express): void {
   // GET /api/pp/scheduler/status — info about the weekly cron job
   app.get("/api/pp/scheduler/status", requireAuth, requireRoleAtLeast("admin"), (_req, res) => {
     res.json(getSchedulerStatus());
+  });
+
+  // POST /api/day-rate/automation/run — manually trigger the Financial Summary automation
+  // for every tracked franchise/office (current + forward month). Admin-only; mirrors the
+  // ad-hoc trigger pattern of /api/pp/run-multi-week.
+  app.post("/api/day-rate/automation/run", requireAuth, requireRoleAtLeast("admin"), async (_req, res) => {
+    if (!process.env.ACCESS_EMAIL || !process.env.ACCESS_PASSWORD) {
+      return res.status(503).json({ error: "People Planner credentials not configured." });
+    }
+    try {
+      const { runDayRateAutomation } = await import("./day-rate-scheduler");
+      // Fire-and-forget: sessions run in the background exactly like the cron trigger;
+      // status is polled via GET /api/day-rate/automation/status.
+      runDayRateAutomation().catch(err => {
+        logger.error("Manual day-rate automation run failed", err instanceof Error ? err : undefined);
+      });
+      return res.status(202).json({ started: true });
+    } catch (error) {
+      logger.error("Error starting day-rate automation run", error instanceof Error ? error : undefined);
+      return res.status(500).json({ error: "Failed to start day-rate automation run" });
+    }
+  });
+
+  // GET /api/day-rate/automation/status — Financial Summary automation health,
+  // surfaced the same way the weekly People Planner sync status is (admin-only).
+  app.get("/api/day-rate/automation/status", requireAuth, requireRoleAtLeast("admin"), (_req, res) => {
+    const sessions = listFinancialSummarySessions();
+    const allJobResults = sessions.flatMap(s => s.jobResults.map(j => ({ ...j, branchId: s.branchId })));
+    const completed = allJobResults.filter(j => j.status === "completed").length;
+    const failed = allJobResults.filter(j => j.status === "failed").length;
+    const lastErrors = allJobResults
+      .filter(j => j.status === "failed")
+      .map(j => ({ branchId: j.branchId, franchiseName: j.franchiseName, reportingMonth: j.reportingMonth, error: j.error ?? "Unknown error" }))
+      .slice(0, 20);
+
+    res.json({
+      ...getDayRateAutomationStatus(),
+      lastRunSummary: { total: allJobResults.length, completed, failed },
+      lastErrors,
+      recentSessions: sessions,
+    });
   });
 
   // POST /api/cron/sync?label=previous|current|next — cron-job.org friendly alias
