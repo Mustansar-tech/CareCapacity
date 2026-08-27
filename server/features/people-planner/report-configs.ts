@@ -111,10 +111,13 @@ export const REPORT_CONFIGS: Record<ReportType, ReportConfig> = {
 
   financialSummaryExport: {
     key: "financialSummaryExport",
-    // Navigated via a click-through tab bar rather than a hover flyout — see the
-    // special-cased handling in automation-engine.ts's navigateToExport().
-    menuPath: ["Finance", "Financial", "Export"],
-    directUrl: null,
+    // Live UI path is Finance (click) > Financial (hover) > Summary (click),
+    // which lands on an outer page embedding the real form in a nested iframe
+    // (ifrmDetail -> .../Finance/Duty/Exports/FinancialSummaryExport.aspx).
+    // Confirmed live that this ASPX is directly reachable, same pattern as the
+    // other 3 reports, so we skip the menu/iframe entirely via directUrl.
+    menuPath: ["Finance", "Financial", "Summary"],
+    directUrl: "/Finance/Duty/Exports/FinancialSummaryExport.aspx?URLHistory=Clear&PPNav=59785",
     defaults: {
       leaveAreaDefault: true,
       type: "Summary",

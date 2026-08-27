@@ -762,22 +762,6 @@ async function navigateToExport(plannerPage: Page, config: JobConfig): Promise<v
     await plannerPage.goto(targetUrl, { waitUntil: "domcontentloaded", timeout: 30000 });
     await plannerPage.waitForLoadState("networkidle", { timeout: 20000 }).catch(() => {});
     await plannerPage.waitForTimeout(2000);
-  } else if (config.reportType === "financialSummaryExport") {
-    // Finance/Financial/Export lives behind a two-level tab bar rather than a
-    // hover flyout: "Finance" is a top-level tab that must be CLICKED to load
-    // the Finance page, "Financial" is a second-level tab whose child links
-    // reveal on hover, and "Export" is one of those child links.
-    logger.info("Navigating to financialSummaryExport via Finance tab bar");
-    await plannerPage.locator("text=Finance").first().click({ force: true });
-    await plannerPage.waitForLoadState("networkidle", { timeout: 20000 }).catch(() => {});
-    await plannerPage.waitForTimeout(1000);
-
-    await plannerPage.locator("text=Financial").first().hover({ force: true });
-    await plannerPage.waitForTimeout(800);
-
-    await plannerPage.getByText(/^Export$/).last().click({ force: true });
-    await plannerPage.waitForLoadState("networkidle", { timeout: 20000 }).catch(() => {});
-    await plannerPage.waitForTimeout(1500);
   } else {
     for (const step of reportConfig.menuPath) {
       const loc = plannerPage.locator(`text=${step}`);
