@@ -1,10 +1,11 @@
 import { useMemo, Fragment } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { toAbsoluteUrl } from "@/lib/queryClient";
+import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { PoundSterling, Home, AlertTriangle, CheckCircle2 } from "lucide-react";
+import { PoundSterling, Home, AlertTriangle, CheckCircle2, ShieldAlert } from "lucide-react";
 
 // ── Types (mirrors server/repositories/day-rate.repository.ts) ───────────────
 
@@ -270,8 +271,12 @@ function MonthGrid({ month, showTitle = true }: { month: string; showTitle?: boo
 // ── Page ───────────────────────────────────────────────────────────────────────
 
 export default function DayRateTrackerPage() {
+  const { isAdmin } = useAuth();
   const [currentMonth, nextMonth] = useMemo(() => getComparisonMonths(new Date()), []);
 
+  // Hooks must run unconditionally on every render, so the admin gate below
+  // (which returns early) comes after this query — it's simply disabled
+  // (enabled: isAdmin) rather than skipped, keeping hook order stable.
   const automationStatusQuery = useQuery<DayRateAutomationStatus>({
     queryKey: ["/api/day-rate/automation/status"],
     queryFn: async () => {
@@ -281,8 +286,25 @@ export default function DayRateTrackerPage() {
     },
     staleTime: 30_000,
     retry: false,
+    enabled: isAdmin,
   });
   const automationStatus = automationStatusQuery.data;
+
+  if (!isAdmin) {
+    return (
+      <div className="p-6" data-testid="page-day-rate-tracker-denied">
+        <Card className="max-w-lg mx-auto mt-12">
+          <CardContent className="pt-6 text-center space-y-3">
+            <ShieldAlert className="h-8 w-8 text-muted-foreground mx-auto" />
+            <h1 className="text-lg font-semibold">Admin access required</h1>
+            <p className="text-sm text-muted-foreground">
+              The Day Rate Tracker is only available to admin users.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 space-y-6" data-testid="page-day-rate-tracker">
