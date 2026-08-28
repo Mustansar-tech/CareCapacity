@@ -799,8 +799,13 @@ async function configureExportForm(plannerPage: Page, config: JobConfig): Promis
   const reportConfig = getReportConfig(config.reportType);
   const formFrame = await getReportFormFrame(plannerPage);
 
+  // Collapse any run of non-alphanumeric characters (hyphens, ampersands,
+  // apostrophes, etc.) to a single space rather than deleting them outright.
+  // Deleting them merges words across the punctuation — "Live-In Care" would
+  // become "livein care" instead of "live in care" — which broke matching
+  // against PP options that spell the live-in-care suffix without a hyphen.
   const normalize = (text: string): string =>
-    text.toLowerCase().replace(/- uk -/g, "").replace(/[^a-z0-9 ]/g, "").replace(/\s+/g, " ").trim();
+    text.toLowerCase().replace(/- uk -/g, "").replace(/[^a-z0-9]+/g, " ").replace(/\s+/g, " ").trim();
 
   const selectBest = async (
     sel: ReturnType<Page["locator"]>,
@@ -867,14 +872,119 @@ async function configureExportForm(plannerPage: Page, config: JobConfig): Promis
     }
 
     if (match) {
-      await sel.evaluate((s: HTMLSelectElement, idx: number) => {
-        s.selectedIndex = idx;
-        s.dispatchEvent(new Event("change", { bubbles: true }));
-      }, match.index);
+      // Use Playwright's own selectOption() rather than manually poking
+      // .selectedIndex + dispatchEvent(): it drives the browser's real input
+      // pipeline (closer to a trusted user selection), which some ASP.NET
+      // postback/autopostback handlers on this site honour more reliably than
+      // a synthetic change event — a raw evaluate()-based selection was
+      // observed to silently revert to the previously-selected franchise on
+      // this exact dropdown for some offices.
+      await sel.selectOption({ index: match.index }).catch(async () => {
+        // Fallback for selects that reject selectOption (e.g. disabled options)
+        await sel.evaluate((s: HTMLSelectElement, idx: number) => {
+          s.selectedIndex = idx;
+          s.dispatchEvent(new Event("change", { bubbles: true }));
+        }, match!.index);
+      });
       logger.info("Selected option", { name, selected: match.text, index: match.index });
     } else {
       logger.warn("No matching option found", { name, value, available: uniqueOpts.map(o => o.text) });
     }
+    return match?.text ?? null;
+  };
+
+  // Confirmed exact People Planner dropdown text for franchises whose real
+  // option label diverges from the stored day_rate_franchises.franchise_name
+  // (different prefix like "Home Instead X", a combined-territory name like
+  // "X & Y", or a live-in-care suffix that doesn't normalize the same way).
+  // Verified against live screenshots of each office's Franchise dropdown —
+  // do not fuzzy-match these; fuzzy matching previously mis-selected a
+  // sibling franchise's option for several of these exact cases.
+  const FRANCHISE_PP_OPTION_OVERRIDES: Record<string, string> = {
+    "Aberdeen": "Home Instead Aberdeen",
+    "Aberdeen Live-In Care": "Home Instead Aberdeen live in care",
+    "Perthshire": "Home Instead Perthshire",
+    "Perthshire Live-in Care": "Home Instead Perthshire live in care",
+    "North Lanarkshire": "North Lanarkshire & Glasgow East",
+    "North Lanarkshire Live-In Care": "North Lanarkshire & Glasgow East - Live In Care",
+    "South Ayrshire": "Home Instead South Ayrshire Kilmarnock",
+    "South Ayrshire Live-in Care": "South Ayrshire & Kilmarnock - Live-In Care",
+    "East Lothian": "East Lothian and Midlothian",
+    "East Lothian Live-In Care": "East Lothian and Midlothian live in care",
+    "West Fife": "Home Instead West Fife and Kinross",
+    // Confirmed live from the dropdown itself during automation runs.
+    "West Fife Live-In Care": "Home Instead West Fife and Kinross live in care",
+    "Stirling": "Stirling & Falkirk",
+    "Stirling Live-In Care": "Stirling & Falkirk live in care",
+  };
+
+  /**
+   * The Franchise select triggers an ASP.NET postback that can repopulate the
+   * dropdown (e.g. switching between a normal franchise and its Live-In Care
+   * sub-entity). A fixed sleep after selecting is not reliable evidence the
+   * postback finished — if the export is triggered while the old selection is
+   * still active server-side, the download silently reflects the PREVIOUS
+   * franchise's data instead of the one just selected. Poll the select's own
+   * selected-option text until it matches what we asked for (or times out),
+   * re-applying the selection if the postback reset it, and throw rather than
+   * silently exporting the wrong franchise's figures.
+   */
+  const selectFranchiseAndVerify = async (
+    sel: ReturnType<Page["locator"]>,
+    value: string,
+    excludeLiveInCare: boolean,
+  ): Promise<void> => {
+    const override = FRANCHISE_PP_OPTION_OVERRIDES[value];
+    const target = normalize(override ?? (value.match(/^(.+)\s+\((\d+)\)$/)?.[1] ?? value));
+    let lastSeen = "";
+
+    for (let attempt = 0; attempt < 3; attempt++) {
+      if (attempt < 2) {
+        if (override) {
+          // Known exact PP option text — select it directly by label rather
+          // than running it through fuzzy matching.
+          await sel.selectOption({ label: override }).catch(err => {
+            logger.warn("Exact franchise override option not found in dropdown", { value, override, error: err instanceof Error ? err.message : String(err) });
+          });
+          logger.info("Selected franchise via exact override", { value, override });
+        } else {
+          await selectBest(sel, value, "Franchise", { excludeLiveInCare });
+        }
+      } else {
+        // Last resort: selectOption()/evaluate() both produced a selection
+        // that the site reverted. Drive real keyboard input instead — a
+        // native <select>'s type-ahead responds to genuine key events in a
+        // way some sites' postback handlers trust more than a programmatic
+        // selection, even one dispatched through Playwright's own API.
+        const label = override ?? value;
+        logger.info("Franchise selection reverted twice — retrying via keyboard type-ahead", { value, label });
+        await sel.click({ force: true }).catch(() => {});
+        await sel.press("Home").catch(() => {});
+        for (const ch of label) {
+          await plannerPage.keyboard.type(ch, { delay: 60 }).catch(() => {});
+        }
+        await plannerPage.keyboard.press("Enter").catch(() => {});
+        logger.info("Selected franchise via keyboard type-ahead", { value, label });
+      }
+      const deadline = Date.now() + 8000;
+
+      while (Date.now() < deadline) {
+        await plannerPage.waitForTimeout(400);
+        lastSeen = await sel.evaluate((s: HTMLSelectElement) => s.options[s.selectedIndex]?.text?.trim() ?? "").catch(() => "");
+        if (normalize(lastSeen) === target) {
+          logger.info("Franchise selection verified", { value, selected: lastSeen, attempt });
+          return;
+        }
+      }
+
+      logger.warn("Franchise selection did not stick after postback wait — retrying", {
+        value, expectedNormalized: target, sawInstead: lastSeen, attempt,
+      });
+    }
+
+    throw new Error(
+      `Franchise selection failed to stick after retries: wanted "${value}", select still shows "${lastSeen}". Refusing to export — the result would be attributed to the wrong franchise.`
+    );
   };
 
   const fillDateInput = async (input: ReturnType<import("playwright").Frame["locator"]>, dateStr: string, label: string) => {
@@ -905,10 +1015,13 @@ async function configureExportForm(plannerPage: Page, config: JobConfig): Promis
     if (config.financeFranchiseName) {
       // Financial Summary export — select the exact Franchise row, which may
       // be a Live-In Care sub-entity, so do NOT exclude live-in-care options.
-      await selectBest(franchiseSelect, config.financeFranchiseName, "Franchise", { excludeLiveInCare: false });
+      // Verified (not fire-and-forget): switching to/from a Live-In Care
+      // sub-entity can trigger a slow postback, and exporting before it
+      // completes silently attributes the download to the wrong franchise.
+      await selectFranchiseAndVerify(franchiseSelect, config.financeFranchiseName, false);
     } else if (config.plannerArea) {
       // Shared-PP branch — use the exact configured Franchise name
-      await selectBest(franchiseSelect, config.plannerArea, "Franchise");
+      await selectFranchiseAndVerify(franchiseSelect, config.plannerArea, true);
     } else {
       // Solo branch — pick the first option that isn't "All" and isn't a live-in-care variant.
       // This avoids relying on URL-slug guessing (which falls back to "All" when it doesn't match).

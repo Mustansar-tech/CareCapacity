@@ -7,3 +7,4 @@
 - [Shared processing pipeline paths](shared-processing-pipeline-paths.md) — any ingestion-time fix must be applied to manual upload + both PP automation paths, never just one.
 - [Employee identity key normalization](employee-identity-key-normalization.md) — always derive employee identity keys via the shared normalizeName(); ad hoc key logic silently duplicates people.
 - [People Planner automation architecture](people-planner-automation-architecture.md) — real cron scheduler is worker.ts not scheduler.ts; how to add a new export type (menuPath quirks, live-in-care selects, one-session-per-tenant).
+- [PP Financial Summary franchise dropdown quirks](people-planner-financial-summary-franchise-dropdown.md) — real dropdown text often diverges from stored franchise name; use exact overrides, never delete punctuation when normalizing.
