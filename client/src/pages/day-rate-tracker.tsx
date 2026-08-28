@@ -75,17 +75,19 @@ const ALL_FRANCHISES_FILTER = "all";
 
 // ── Formatting helpers ────────────────────────────────────────────────────────
 
+// All monetary figures on this dashboard are shown to exactly 2 decimal
+// places — never rounded to whole pounds — so board-facing numbers always
+// match the source figures precisely. minimumFractionDigits is set alongside
+// maximumFractionDigits so a whole-pound amount still renders as "£100.00",
+// not "£100".
 const gbp = new Intl.NumberFormat("en-GB", {
   style: "currency",
   currency: "GBP",
-  maximumFractionDigits: 0,
-});
-
-const gbpPrecise = new Intl.NumberFormat("en-GB", {
-  style: "currency",
-  currency: "GBP",
+  minimumFractionDigits: 2,
   maximumFractionDigits: 2,
 });
+
+const gbpPrecise = gbp;
 
 function formatMonthLabel(month: string): string {
   const [year, mon] = month.split("-").map(Number);

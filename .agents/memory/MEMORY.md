@@ -8,3 +8,4 @@
 - [Employee identity key normalization](employee-identity-key-normalization.md) — always derive employee identity keys via the shared normalizeName(); ad hoc key logic silently duplicates people.
 - [People Planner automation architecture](people-planner-automation-architecture.md) — real cron scheduler is worker.ts not scheduler.ts; how to add a new export type (menuPath quirks, live-in-care selects, one-session-per-tenant).
 - [PP Financial Summary franchise dropdown quirks](people-planner-financial-summary-franchise-dropdown.md) — real dropdown text often diverges from stored franchise name; use exact overrides, never delete punctuation when normalizing.
+- [Day Rate Tracker number formatting](day-rate-tracker-number-formatting.md) — never round monetary figures on this dashboard; always show exactly 2 decimal places.
