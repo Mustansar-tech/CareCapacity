@@ -75,15 +75,14 @@ const ALL_FRANCHISES_FILTER = "all";
 
 // ── Formatting helpers ────────────────────────────────────────────────────────
 
-// All monetary figures on this dashboard are shown to exactly 2 decimal
-// places — never rounded to whole pounds — so board-facing numbers always
-// match the source figures precisely. minimumFractionDigits is set alongside
-// maximumFractionDigits so a whole-pound amount still renders as "£100.00",
-// not "£100".
+// All monetary figures on this dashboard allow up to 2 decimal places and
+// are never rounded away — e.g. £108,728.35 stays £108,728.35, not £108,728.
+// A whole-pound amount still displays without decimals (£100, not £100.00);
+// only maximumFractionDigits is set, no minimum, so real pence are preserved
+// but nothing is padded that wasn't there.
 const gbp = new Intl.NumberFormat("en-GB", {
   style: "currency",
   currency: "GBP",
-  minimumFractionDigits: 2,
   maximumFractionDigits: 2,
 });
 

@@ -4,14 +4,16 @@ description: Currency/number display convention for the Day Rate Tracker dashboa
 ---
 
 The Day Rate Tracker dashboard (client/src/pages/day-rate-tracker.tsx) must
-never round monetary figures to whole pounds. Every currency value (revenue,
-day rate, summary cards, grid cells, totals rows) is formatted with both
-`minimumFractionDigits: 2` and `maximumFractionDigits: 2` on the shared
-Intl.NumberFormat instance, so a whole-pound amount still displays as
-"£100.00", not "£100".
+never round away real decimal pence, but must not pad whole-pound amounts
+with ".00" either. Every currency value (revenue, day rate, summary cards,
+grid cells, totals rows) is formatted with `maximumFractionDigits: 2` and
+NO `minimumFractionDigits` on the shared Intl.NumberFormat instance — so
+£100 stays "£100" and £108,728.35 stays "£108,728.35" (never rounded to
+£108,728).
 
-**Why:** explicit user requirement — these are board-facing figures pulled
-from the People Planner Financial Summary automation, and rounding was
+**Why:** explicit user requirement, refined after an initial overcorrection
+that forced ".00" on whole numbers — these are board-facing figures pulled
+from the People Planner Financial Summary automation, and any rounding was
 considered a loss of precision/trust in the numbers.
 
 **How to apply:** when adding any new monetary display to this dashboard
