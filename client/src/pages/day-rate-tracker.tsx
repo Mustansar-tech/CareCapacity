@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { PoundSterling, Home, AlertTriangle, CheckCircle2, ShieldAlert, PlayCircle, Loader2, Filter } from "lucide-react";
+import { PoundSterling, Home, AlertTriangle, CheckCircle2, ShieldAlert, PlayCircle, Loader2 } from "lucide-react";
 
 // ── Types (mirrors server/repositories/day-rate.repository.ts) ───────────────
 
@@ -119,7 +119,19 @@ function getComparisonMonths(now: Date): [string, string] {
 
 // ── Month grid (one full daily breakdown for a single reporting month) ────────
 
-function MonthGrid({ month, showTitle = true, selectedOffice = ALL_FRANCHISES_FILTER }: { month: string; showTitle?: boolean; selectedOffice?: string }) {
+function MonthGrid({
+  month,
+  showTitle = true,
+  selectedOffice = ALL_FRANCHISES_FILTER,
+  officeOptions,
+  onSelectedOfficeChange,
+}: {
+  month: string;
+  showTitle?: boolean;
+  selectedOffice?: string;
+  officeOptions: { office: string; label: string }[];
+  onSelectedOfficeChange: (office: string) => void;
+}) {
   const gridQuery = useQuery<DayRateGrid>({
     queryKey: ["/api/day-rate/grid", month],
     queryFn: async () => {
@@ -214,7 +226,20 @@ function MonthGrid({ month, showTitle = true, selectedOffice = ALL_FRANCHISES_FI
                   <thead>
                     <tr>
                       <th className="sticky left-0 z-10 bg-background border-b border-r px-3 py-2 text-left font-medium min-w-[220px]">
-                        Franchise
+                        <Select value={selectedOffice} onValueChange={onSelectedOfficeChange}>
+                          <SelectTrigger
+                            className="h-7 w-full border-none bg-transparent px-0 font-medium shadow-none focus:ring-0 focus:ring-offset-0 [&>svg]:opacity-60"
+                            data-testid={`select-franchise-filter-${month}`}
+                          >
+                            <SelectValue placeholder="Franchise" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value={ALL_FRANCHISES_FILTER}>All franchises</SelectItem>
+                            {officeOptions.map((o) => (
+                              <SelectItem key={o.office} value={o.office}>{o.label}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       </th>
                       {grid.dates.map((date) => {
                         const { day, weekday } = formatDateHeader(date);
@@ -480,21 +505,6 @@ export default function DayRateTrackerPage() {
         </Card>
       )}
 
-      <div className="flex items-center gap-2">
-        <Filter className="h-4 w-4 text-muted-foreground shrink-0" />
-        <Select value={selectedOffice} onValueChange={setSelectedOffice}>
-          <SelectTrigger className="w-[260px]" data-testid="select-franchise-filter">
-            <SelectValue placeholder="All franchises" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={ALL_FRANCHISES_FILTER}>All franchises</SelectItem>
-            {officeOptions.map((o) => (
-              <SelectItem key={o.office} value={o.office}>{o.label}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-
       <Tabs defaultValue={currentMonth} className="space-y-4">
         <TabsList>
           <TabsTrigger value={currentMonth} data-testid={`tab-${currentMonth}`}>
@@ -505,10 +515,22 @@ export default function DayRateTrackerPage() {
           </TabsTrigger>
         </TabsList>
         <TabsContent value={currentMonth}>
-          <MonthGrid month={currentMonth} showTitle={false} selectedOffice={selectedOffice} />
+          <MonthGrid
+            month={currentMonth}
+            showTitle={false}
+            selectedOffice={selectedOffice}
+            officeOptions={officeOptions}
+            onSelectedOfficeChange={setSelectedOffice}
+          />
         </TabsContent>
         <TabsContent value={nextMonth}>
-          <MonthGrid month={nextMonth} showTitle={false} selectedOffice={selectedOffice} />
+          <MonthGrid
+            month={nextMonth}
+            showTitle={false}
+            selectedOffice={selectedOffice}
+            officeOptions={officeOptions}
+            onSelectedOfficeChange={setSelectedOffice}
+          />
         </TabsContent>
       </Tabs>
     </div>
