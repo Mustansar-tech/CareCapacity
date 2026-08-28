@@ -1,4 +1,4 @@
-import { useMemo, Fragment } from "react";
+import { useMemo, useState, Fragment } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiRequest, toAbsoluteUrl } from "@/lib/queryClient";
 import { useAuth } from "@/contexts/AuthContext";
@@ -8,7 +8,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
-import { PoundSterling, Home, AlertTriangle, CheckCircle2, ShieldAlert, PlayCircle, Loader2 } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { PoundSterling, Home, AlertTriangle, CheckCircle2, ShieldAlert, PlayCircle, Loader2, Filter } from "lucide-react";
 
 // ── Types (mirrors server/repositories/day-rate.repository.ts) ───────────────
 
@@ -62,6 +63,16 @@ interface DayRateAutomationStatus {
   recentSessions: DayRateAutomationSession[];
 }
 
+interface DayRateFranchiseRef {
+  id: string;
+  franchiseName: string;
+  office: string;
+  isLiveInCare: boolean;
+  displayOrder: number;
+}
+
+const ALL_FRANCHISES_FILTER = "all";
+
 // ── Formatting helpers ────────────────────────────────────────────────────────
 
 const gbp = new Intl.NumberFormat("en-GB", {
@@ -108,7 +119,7 @@ function getComparisonMonths(now: Date): [string, string] {
 
 // ── Month grid (one full daily breakdown for a single reporting month) ────────
 
-function MonthGrid({ month, showTitle = true }: { month: string; showTitle?: boolean }) {
+function MonthGrid({ month, showTitle = true, selectedOffice = ALL_FRANCHISES_FILTER }: { month: string; showTitle?: boolean; selectedOffice?: string }) {
   const gridQuery = useQuery<DayRateGrid>({
     queryKey: ["/api/day-rate/grid", month],
     queryFn: async () => {
@@ -124,21 +135,37 @@ function MonthGrid({ month, showTitle = true }: { month: string; showTitle?: boo
 
   const grid = gridQuery.data;
 
-  const grandTotal = useMemo(() => {
-    if (!grid || grid.dates.length === 0) return null;
-    const lastDate = grid.dates[grid.dates.length - 1];
-    return grid.totals[lastDate];
-  }, [grid]);
-
   const officeGroups = useMemo(() => {
     if (!grid) return [];
     const seen = new Map<string, DayRateGridFranchise[]>();
     for (const f of grid.franchises) {
+      if (selectedOffice !== ALL_FRANCHISES_FILTER && f.office !== selectedOffice) continue;
       if (!seen.has(f.office)) seen.set(f.office, []);
       seen.get(f.office)!.push(f);
     }
     return Array.from(seen.entries());
-  }, [grid]);
+  }, [grid, selectedOffice]);
+
+  // Totals across only the currently-visible (filtered) franchises. Day rate
+  // is cumulative revenue-to-date divided by the fixed number of days in the
+  // month, so it's recomputed the same way the server does for the full set.
+  const filteredTotals = useMemo(() => {
+    if (!grid) return {} as Record<string, DayRateGridEntry>;
+    if (selectedOffice === ALL_FRANCHISES_FILTER) return grid.totals;
+    const visibleFranchises = officeGroups.flatMap(([, rows]) => rows);
+    const out: Record<string, DayRateGridEntry> = {};
+    for (const date of grid.dates) {
+      const revenue = visibleFranchises.reduce((sum, f) => sum + (f.entries[date]?.revenue ?? 0), 0);
+      out[date] = { revenue, dayRate: grid.daysInMonth > 0 ? revenue / grid.daysInMonth : 0 };
+    }
+    return out;
+  }, [grid, officeGroups, selectedOffice]);
+
+  const grandTotal = useMemo(() => {
+    if (!grid || grid.dates.length === 0) return null;
+    const lastDate = grid.dates[grid.dates.length - 1];
+    return filteredTotals[lastDate];
+  }, [grid, filteredTotals]);
 
   return (
     <div className="space-y-4">
@@ -168,7 +195,7 @@ function MonthGrid({ month, showTitle = true }: { month: string; showTitle?: boo
             <Card>
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-medium text-muted-foreground">
-                  Group Total — {grid.dates[grid.dates.length - 1] && formatDateHeader(grid.dates[grid.dates.length - 1]).day}
+                  {selectedOffice === ALL_FRANCHISES_FILTER ? "Group Total" : "Franchise Total"} — {grid.dates[grid.dates.length - 1] && formatDateHeader(grid.dates[grid.dates.length - 1]).day}
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -244,10 +271,10 @@ function MonthGrid({ month, showTitle = true }: { month: string; showTitle?: boo
                     ))}
                     <tr className="bg-muted/60 font-semibold">
                       <td className="sticky left-0 z-10 bg-muted/60 border-t border-r px-3 py-2">
-                        Group Total
+                        {selectedOffice === ALL_FRANCHISES_FILTER ? "Group Total" : "Franchise Total"}
                       </td>
                       {grid.dates.map((date) => {
-                        const t = grid.totals[date];
+                        const t = filteredTotals[date];
                         return (
                           <Fragment key={date}>
                             <td className="border-t border-r px-2 py-2 text-right tabular-nums">
@@ -278,6 +305,35 @@ export default function DayRateTrackerPage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [currentMonth, nextMonth] = useMemo(() => getComparisonMonths(new Date()), []);
+  const [selectedOffice, setSelectedOffice] = useState<string>(ALL_FRANCHISES_FILTER);
+
+  const franchisesQuery = useQuery<DayRateFranchiseRef[]>({
+    queryKey: ["/api/day-rate/franchises"],
+    queryFn: async () => {
+      const res = await fetch(toAbsoluteUrl("/api/day-rate/franchises"), { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to load franchise list");
+      return res.json();
+    },
+    staleTime: 5 * 60_000,
+    enabled: isAdmin,
+  });
+
+  // One dropdown option per office, labelled with its base (non-LIC)
+  // franchise name — selecting it filters the grid down to that franchise's
+  // normal and Live-In Care rows together.
+  const officeOptions = useMemo(() => {
+    const franchises = franchisesQuery.data ?? [];
+    const byOffice = new Map<string, DayRateFranchiseRef>();
+    for (const f of franchises) {
+      const existing = byOffice.get(f.office);
+      if (!existing || (existing.isLiveInCare && !f.isLiveInCare)) {
+        byOffice.set(f.office, f);
+      }
+    }
+    return Array.from(byOffice.entries())
+      .map(([office, f]) => ({ office, label: f.franchiseName, displayOrder: f.displayOrder }))
+      .sort((a, b) => a.displayOrder - b.displayOrder);
+  }, [franchisesQuery.data]);
 
   // Hooks must run unconditionally on every render, so the admin gate below
   // (which returns early) comes after this query — it's simply disabled
@@ -424,6 +480,21 @@ export default function DayRateTrackerPage() {
         </Card>
       )}
 
+      <div className="flex items-center gap-2">
+        <Filter className="h-4 w-4 text-muted-foreground shrink-0" />
+        <Select value={selectedOffice} onValueChange={setSelectedOffice}>
+          <SelectTrigger className="w-[260px]" data-testid="select-franchise-filter">
+            <SelectValue placeholder="All franchises" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={ALL_FRANCHISES_FILTER}>All franchises</SelectItem>
+            {officeOptions.map((o) => (
+              <SelectItem key={o.office} value={o.office}>{o.label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
       <Tabs defaultValue={currentMonth} className="space-y-4">
         <TabsList>
           <TabsTrigger value={currentMonth} data-testid={`tab-${currentMonth}`}>
@@ -434,10 +505,10 @@ export default function DayRateTrackerPage() {
           </TabsTrigger>
         </TabsList>
         <TabsContent value={currentMonth}>
-          <MonthGrid month={currentMonth} showTitle={false} />
+          <MonthGrid month={currentMonth} showTitle={false} selectedOffice={selectedOffice} />
         </TabsContent>
         <TabsContent value={nextMonth}>
-          <MonthGrid month={nextMonth} showTitle={false} />
+          <MonthGrid month={nextMonth} showTitle={false} selectedOffice={selectedOffice} />
         </TabsContent>
       </Tabs>
     </div>
