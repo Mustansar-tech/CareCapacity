@@ -1,11 +1,14 @@
 import { useMemo, Fragment } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { toAbsoluteUrl } from "@/lib/queryClient";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { apiRequest, toAbsoluteUrl } from "@/lib/queryClient";
 import { useAuth } from "@/contexts/AuthContext";
+import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { PoundSterling, Home, AlertTriangle, CheckCircle2, ShieldAlert } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
+import { PoundSterling, Home, AlertTriangle, CheckCircle2, ShieldAlert, PlayCircle, Loader2 } from "lucide-react";
 
 // ── Types (mirrors server/repositories/day-rate.repository.ts) ───────────────
 
@@ -272,6 +275,8 @@ function MonthGrid({ month, showTitle = true }: { month: string; showTitle?: boo
 
 export default function DayRateTrackerPage() {
   const { isAdmin } = useAuth();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [currentMonth, nextMonth] = useMemo(() => getComparisonMonths(new Date()), []);
 
   // Hooks must run unconditionally on every render, so the admin gate below
@@ -287,8 +292,40 @@ export default function DayRateTrackerPage() {
     staleTime: 30_000,
     retry: false,
     enabled: isAdmin,
+    // Poll a bit faster while a manual run is likely in flight so the banner
+    // and grid update without the admin needing to refresh the page.
+    refetchInterval: (query) => {
+      const sessions = query.state.data?.recentSessions ?? [];
+      const anyRunning = sessions.some(s => s.status === "queued" || s.status === "running");
+      return anyRunning ? 5_000 : false;
+    },
   });
   const automationStatus = automationStatusQuery.data;
+
+  const isAutomationRunning = (automationStatus?.recentSessions ?? []).some(
+    s => s.status === "queued" || s.status === "running",
+  );
+
+  const runAutomationMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/day-rate/automation/run");
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Financial Summary automation started",
+        description: "Pulling the latest figures from People Planner for every franchise — this can take a few minutes.",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/day-rate/automation/status"] });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Failed to start the automation",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
 
   if (!isAdmin) {
     return (
@@ -308,17 +345,60 @@ export default function DayRateTrackerPage() {
 
   return (
     <div className="p-6 space-y-6" data-testid="page-day-rate-tracker">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight flex items-center gap-2">
-          <PoundSterling className="h-6 w-6 text-primary" />
-          Day Rate Tracker
-        </h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          {formatMonthLabel(currentMonth)} vs {formatMonthLabel(nextMonth)} — cumulative revenue and day rate per
-          franchise, from the People Planner Financial Summary. This comparison always tracks the current and next
-          calendar month, so it rolls forward automatically each month.
-        </p>
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight flex items-center gap-2">
+            <PoundSterling className="h-6 w-6 text-primary" />
+            Day Rate Tracker
+          </h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            {formatMonthLabel(currentMonth)} vs {formatMonthLabel(nextMonth)} — cumulative revenue and day rate per
+            franchise, from the People Planner Financial Summary. This comparison always tracks the current and next
+            calendar month, so it rolls forward automatically each month.
+          </p>
+        </div>
+        <Button
+          onClick={() => runAutomationMutation.mutate()}
+          disabled={runAutomationMutation.isPending || isAutomationRunning}
+          data-testid="button-run-automation"
+        >
+          {runAutomationMutation.isPending || isAutomationRunning ? (
+            <>
+              <Loader2 className="h-4 w-4 animate-spin" />
+              {isAutomationRunning ? "Running…" : "Starting…"}
+            </>
+          ) : (
+            <>
+              <PlayCircle className="h-4 w-4" />
+              Run automation now
+            </>
+          )}
+        </Button>
       </div>
+
+      {automationStatus && automationStatus.lastRunSummary && automationStatus.lastRunSummary.failed > 0 && (
+        <Alert variant="destructive" data-testid="banner-automation-failure">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertTitle>
+            {automationStatus.lastErrors.length} franchise figure{automationStatus.lastErrors.length === 1 ? "" : "s"} failed to pull from People Planner
+          </AlertTitle>
+          <AlertDescription>
+            <div className="mt-1 space-y-1">
+              {automationStatus.lastErrors.slice(0, 6).map((e, i) => (
+                <div key={i}>
+                  <span className="font-medium">{e.franchiseName}</span> ({formatMonthLabel(e.reportingMonth)}) — {e.error}
+                </div>
+              ))}
+              {automationStatus.lastErrors.length > 6 && (
+                <div className="text-xs opacity-80">+{automationStatus.lastErrors.length - 6} more</div>
+              )}
+              <div className="text-xs opacity-80 pt-1">
+                These figures were left unchanged rather than written incorrectly — use "Run automation now" to retry after checking People Planner.
+              </div>
+            </div>
+          </AlertDescription>
+        </Alert>
+      )}
 
       {automationStatus && (
         <Card data-testid="card-automation-status">
@@ -340,12 +420,6 @@ export default function DayRateTrackerPage() {
                 </>
               )}
             </span>
-            {automationStatus.lastErrors.length > 0 && (
-              <span className="text-destructive">
-                {automationStatus.lastErrors.length} failure{automationStatus.lastErrors.length === 1 ? "" : "s"}:{" "}
-                {automationStatus.lastErrors.slice(0, 3).map(e => `${e.franchiseName} (${e.reportingMonth})`).join(", ")}
-              </span>
-            )}
           </CardContent>
         </Card>
       )}
