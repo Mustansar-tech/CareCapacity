@@ -1009,38 +1009,57 @@ async function configureExportForm(plannerPage: Page, config: JobConfig): Promis
   const selectCount = await selects.count();
   let si = 0;
 
+  // The Franchise <select> is always the first select on this form. We used
+  // to select and verify it here, at the TOP of the function, before every
+  // other field (Area/Type/Status, the date inputs, checkboxes, export
+  // type/template) was touched. That was the root cause of the "wrong
+  // franchise exported" failures: this is a classic ASP.NET WebForms page,
+  // and several of those later fields (in particular the date inputs, which
+  // Tab out of the control to fire their change handling) trigger their own
+  // postback round-trip. A same-page postback can silently reset an
+  // already-selected DropDownList back to its default ("All") if the
+  // franchise value isn't threaded through that postback's ViewState —
+  // selectFranchiseAndVerify() only proved the selection was correct at the
+  // moment it ran, not that it still held by the time we clicked Export.
+  // Fix: defer the actual Franchise selection+verification until AFTER every
+  // other field has been set, immediately before triggerDownload() is
+  // called, so nothing on this form can touch the page again before export.
+  let performFranchiseSelection: (() => Promise<void>) | null = null;
+
   if (reportConfig.fields.franchise && selectCount > si) {
     const franchiseSelect = selects.nth(si);
 
-    if (config.financeFranchiseName) {
-      // Financial Summary export — select the exact Franchise row, which may
-      // be a Live-In Care sub-entity, so do NOT exclude live-in-care options.
-      // Verified (not fire-and-forget): switching to/from a Live-In Care
-      // sub-entity can trigger a slow postback, and exporting before it
-      // completes silently attributes the download to the wrong franchise.
-      await selectFranchiseAndVerify(franchiseSelect, config.financeFranchiseName, false);
-    } else if (config.plannerArea) {
-      // Shared-PP branch — use the exact configured Franchise name
-      await selectFranchiseAndVerify(franchiseSelect, config.plannerArea, true);
-    } else {
-      // Solo branch — pick the first option that isn't "All" and isn't a live-in-care variant.
-      // This avoids relying on URL-slug guessing (which falls back to "All" when it doesn't match).
-      const liveInCareRe = /live[\s-]?in[\s-]?care/i;
-      const allOptions = await franchiseSelect.locator("option").allTextContents();
-      const candidate = allOptions.find(
-        (opt) => opt.trim().toLowerCase() !== "all" && !liveInCareRe.test(opt)
-      );
-      if (candidate) {
-        await franchiseSelect.selectOption({ label: candidate.trim() });
-        logger.info("Selected option", { name: "Franchise", selected: candidate.trim(), method: "first-non-all" });
+    performFranchiseSelection = async () => {
+      if (config.financeFranchiseName) {
+        // Financial Summary export — select the exact Franchise row, which may
+        // be a Live-In Care sub-entity, so do NOT exclude live-in-care options.
+        // Verified (not fire-and-forget): switching to/from a Live-In Care
+        // sub-entity can trigger a slow postback, and exporting before it
+        // completes silently attributes the download to the wrong franchise.
+        await selectFranchiseAndVerify(franchiseSelect, config.financeFranchiseName, false);
+      } else if (config.plannerArea) {
+        // Shared-PP branch — use the exact configured Franchise name
+        await selectFranchiseAndVerify(franchiseSelect, config.plannerArea, true);
       } else {
-        logger.warn("No suitable Franchise option found for solo branch — leaving as All", {
-          branchUrl: config.branchUrl,
-          options: allOptions,
-        });
+        // Solo branch — pick the first option that isn't "All" and isn't a live-in-care variant.
+        // This avoids relying on URL-slug guessing (which falls back to "All" when it doesn't match).
+        const liveInCareRe = /live[\s-]?in[\s-]?care/i;
+        const allOptions = await franchiseSelect.locator("option").allTextContents();
+        const candidate = allOptions.find(
+          (opt) => opt.trim().toLowerCase() !== "all" && !liveInCareRe.test(opt)
+        );
+        if (candidate) {
+          await franchiseSelect.selectOption({ label: candidate.trim() });
+          logger.info("Selected option", { name: "Franchise", selected: candidate.trim(), method: "first-non-all" });
+        } else {
+          logger.warn("No suitable Franchise option found for solo branch — leaving as All", {
+            branchUrl: config.branchUrl,
+            options: allOptions,
+          });
+        }
       }
-    }
-    await plannerPage.waitForTimeout(1000);
+      await plannerPage.waitForTimeout(1000);
+    };
     si++;
   }
 
@@ -1145,6 +1164,16 @@ async function configureExportForm(plannerPage: Page, config: JobConfig): Promis
   }
 
   await plannerPage.waitForTimeout(500);
+
+  // Select the Franchise LAST, now that every other field on the form
+  // (dates, Type/Status, checkboxes, export type/template) has already
+  // triggered whatever postbacks it was going to trigger. See the comment
+  // above `performFranchiseSelection` for why this ordering matters — this
+  // is the one franchise selection that is trusted to still be in effect
+  // when triggerDownload() clicks Export immediately afterwards.
+  if (performFranchiseSelection) {
+    await performFranchiseSelection();
+  }
 }
 
 // ─── Trigger download ─────────────────────────────────────────────────────────
