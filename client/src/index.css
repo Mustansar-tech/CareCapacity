@@ -2,6 +2,15 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Wide tables (e.g. Day Rate Tracker) scroll horizontally inside their own
+   container. Without this, that overflow can also register on the document
+   itself, producing a second, page-level horizontal scrollbar alongside the
+   table's own — this pins scrolling to the intended inner containers only. */
+html, body {
+  overflow-x: hidden;
+  max-width: 100%;
+}
+
 :root {
   /* Vibrant, solid color system */
   --background: hsl(220 20% 97%);
