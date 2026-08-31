@@ -1163,3 +1163,46 @@ export const insertDayRateEntrySchema = createInsertSchema(dayRateEntries).omit(
 
 export type InsertDayRateEntry = z.infer<typeof insertDayRateEntrySchema>;
 export type DayRateEntry = typeof dayRateEntries.$inferSelect;
+
+// KPI Tracker — weekly per-store rows, mirroring the "Weekly Data" sheet of the
+// KPI Tracker workbook. One row per (weekBeginning, store). Ratio columns
+// (Day Rate, Conversion Rate) are NOT stored — they're derived at read time
+// from the raw counts here, so editing a row never leaves a stale computed
+// figure behind.
+export const kpiWeeklyEntries = pgTable("kpi_weekly_entries", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  weekBeginning: text("week_beginning").notNull(), // YYYY-MM-DD (Monday of the ISO week)
+  weekNumber: integer("week_number").notNull(),
+  qtrNumber: integer("qtr_number").notNull(),
+  groupName: text("group_name").notNull().default("SUR Group"),
+  store: text("store").notNull(), // e.g. "Glasgow North" — matches day_rate_franchises.office
+  daysInMonth: integer("days_in_month").notNull().default(0),
+  monthlyRevenue: real("monthly_revenue").notNull().default(0),
+  monthlyRevenueTarget: real("monthly_revenue_target").notNull().default(0),
+  enquiries: integer("enquiries").notNull().default(0),
+  enquiriesTarget: integer("enquiries_target").notNull().default(0),
+  newClients: integer("new_clients").notNull().default(0),
+  applications: integer("applications").notNull().default(0),
+  newHiresHeads: integer("new_hires_heads").notNull().default(0),
+  newHiresHours: real("new_hires_hours").notNull().default(0),
+  guaranteedHourWastageLastWeek: real("guaranteed_hour_wastage_last_week").notNull().default(0),
+  guaranteedHourWastageWeekAhead: real("guaranteed_hour_wastage_week_ahead").notNull().default(0),
+  absenceHoursLastWeek: real("absence_hours_last_week").notNull().default(0),
+  hospitalisationsHeads: integer("hospitalisations_heads").notNull().default(0),
+  hospitalisationsHours: real("hospitalisations_hours").notNull().default(0),
+  clientHoursAtRisk: real("client_hours_at_risk"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  uniqueWeekStore: unique("unique_kpi_weekly_entry").on(table.weekBeginning, table.store),
+  weekIdx: index("kpi_weekly_week_idx").on(table.weekBeginning),
+}));
+
+export const insertKpiWeeklyEntrySchema = createInsertSchema(kpiWeeklyEntries).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertKpiWeeklyEntry = z.infer<typeof insertKpiWeeklyEntrySchema>;
+export type KpiWeeklyEntry = typeof kpiWeeklyEntries.$inferSelect;

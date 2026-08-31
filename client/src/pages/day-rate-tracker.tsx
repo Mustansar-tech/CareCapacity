@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { PoundSterling, Home, AlertTriangle, CheckCircle2, ShieldAlert, PlayCircle, Loader2 } from "lucide-react";
+import { KpiWeeklyGrid } from "@/components/kpi-weekly-grid";
 
 // ── Types (mirrors server/repositories/day-rate.repository.ts) ───────────────
 
@@ -514,6 +515,9 @@ export default function DayRateTrackerPage() {
           <TabsTrigger value={nextMonth} data-testid={`tab-${nextMonth}`}>
             {formatMonthLabel(nextMonth)}
           </TabsTrigger>
+          <TabsTrigger value="kpi-tracker" data-testid="tab-kpi-tracker">
+            KPI Tracker
+          </TabsTrigger>
         </TabsList>
         <TabsContent value={currentMonth}>
           <MonthGrid
@@ -532,6 +536,9 @@ export default function DayRateTrackerPage() {
             officeOptions={officeOptions}
             onSelectedOfficeChange={setSelectedOffice}
           />
+        </TabsContent>
+        <TabsContent value="kpi-tracker">
+          <KpiWeeklyGrid />
         </TabsContent>
       </Tabs>
     </div>
