@@ -423,7 +423,7 @@ export function KpiWeeklyGrid() {
       )}
 
       {!isLoading && selectedWeek && stores.length > 0 && (
-        <Card className="overflow-hidden">
+        <Card>
           <CardContent className="p-0">
             <div className="overflow-x-auto">
               <table className="border-collapse text-sm w-full" data-testid="table-kpi-weekly">
