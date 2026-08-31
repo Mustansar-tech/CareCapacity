@@ -207,7 +207,7 @@ export default function Dashboard() {
       )}
 
       {/* Main Content Area */}
-      <div className="w-full flex-1 px-lg py-4 overflow-y-auto animate-fade-in flex flex-col">
+      <div className="w-full flex-1 px-lg py-4 overflow-y-auto animate-fade-in flex flex-col [scrollbar-gutter:stable]">
 
         {/* Upload Section - no-data state */}
         {!processedData && (

@@ -325,7 +325,7 @@ export function OverviewTab({
       {/* ── KPI strip ── */}
       {isProcessing || processMutation.isPending ? (
         <div className="px-6 pb-3">
-          <div className="grid grid-cols-5 xl:grid-cols-10 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 xl:grid-cols-10 gap-3">
             {Array.from({ length: 10 }).map((_, i) => (
               <MetricCardSkeleton key={i} />
             ))}
@@ -333,7 +333,7 @@ export function OverviewTab({
         </div>
       ) : data ? (
         <div className="px-6 pb-3">
-          <div className="grid grid-cols-5 xl:grid-cols-10 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 xl:grid-cols-10 gap-3">
 
             {/* 1. Desired Hours */}
             <button

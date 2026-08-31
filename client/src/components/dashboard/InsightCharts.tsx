@@ -440,7 +440,7 @@ export function InsightCharts({ data }: InsightChartsProps) {
         <h2 className="text-sm font-semibold text-foreground">Intelligence View</h2>
         <span className="text-[11px] text-muted-foreground">— the story behind the numbers</span>
       </div>
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 flex-1 min-h-0">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 flex-1 min-h-[420px] lg:min-h-0">
         <DailyCapacityChart data={data} />
         <UtilisationDonut data={data} />
         <TopDrains data={data} />
