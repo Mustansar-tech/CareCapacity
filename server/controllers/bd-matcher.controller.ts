@@ -65,7 +65,7 @@ export async function bdMatch(req: Request, res: Response): Promise<void> {
         const clientCoords = { lat: parseFloat(geocoded.lat), lng: parseFloat(geocoded.lng) };
         await refineForwardTravelWithORS(result.matches, clientCoords, branchId);
         result.matches = result.matches.filter(m => m.matchedSlots.length > 0);
-        await refineReturnHomeTravelWithORS(result.matches, clientCoords);
+        await refineReturnHomeTravelWithORS(result.matches, clientCoords, branchId);
       }
     } catch (refineErr) {
       logger.warn('BD Matcher: ORS forward-travel refinement failed (non-fatal)', { error: String(refineErr) });
@@ -151,7 +151,7 @@ export async function bdMatchMultiWeek(req: Request, res: Response): Promise<voi
         const allMatches = result.visitResults.flatMap(vr => vr.matches);
         await refineForwardTravelWithORS(allMatches, clientCoords, branchId);
         for (const vr of result.visitResults) vr.matches = vr.matches.filter(m => m.matchedSlots.length > 0);
-        await refineReturnHomeTravelWithORS(allMatches, clientCoords);
+        await refineReturnHomeTravelWithORS(allMatches, clientCoords, branchId);
       } catch (refineErr) {
         logger.warn('BD Multi-Week Matcher: ORS refinement failed (non-fatal)', { week: analysis.weekStartDate, error: String(refineErr) });
       }
@@ -242,7 +242,7 @@ export async function bdMatchMultiVisit(req: Request, res: Response): Promise<vo
         const allMatches = result.visitResults.flatMap(vr => vr.matches);
         await refineForwardTravelWithORS(allMatches, clientCoords, branchId);
         for (const vr of result.visitResults) vr.matches = vr.matches.filter(m => m.matchedSlots.length > 0);
-        await refineReturnHomeTravelWithORS(allMatches, clientCoords);
+        await refineReturnHomeTravelWithORS(allMatches, clientCoords, branchId);
       }
     } catch (refineErr) {
       logger.warn('BD Multi-Visit Matcher: ORS forward-travel refinement failed (non-fatal)', { error: String(refineErr) });

@@ -51,6 +51,16 @@ const ORS_MATRIX_BATCH_SIZE = 50;
 const TRAVELTIME_MATRIX_BATCH_SIZE = 100;
 const TRAVELTIME_TIMEOUT_MS = 10000;
 
+/**
+ * How long a DB-cached travel time is trusted before we refetch from the API.
+ * Roads/postcodes barely change week to week, so a couple of weeks is a safe
+ * window that still cuts ORS quota usage dramatically across repeat runs.
+ */
+const CACHE_TTL_DAYS = 21;
+
+/** Only these sources are ever trusted from the DB cache — never a heuristic/haversine fallback. */
+const TRUSTED_CAR_SOURCES = new Set(['ors', 'ors-matrix']);
+
 export class TravelTimeService {
   private readonly ROAD_FACTOR = 1.2;
 
@@ -69,6 +79,8 @@ export class TravelTimeService {
   private _sourceStats: TravelSourceStats = { ors: 0, 'ors-matrix': 0, traveltime: 0, 'traveltime-matrix': 0, heuristic: 0, unreachable: 0, total: 0 };
   private _sessionCache: Map<string, { durationMinutes: number; distanceMeters: number; source: string }> = new Map();
   private _ttGeoCache: Map<string, { lat: number; lng: number } | null> = new Map();
+  /** Branches already hydrated from the DB cache this process lifetime — avoids re-querying per call. */
+  private _hydratedBranches: Set<string> = new Set();
 
   constructor(maxTravelMinutes: number = 45, softLimitMinutes?: number) {
     this.maxTravelMinutes = maxTravelMinutes;
@@ -120,6 +132,35 @@ export class TravelTimeService {
 
   private sessionKey(fromLat: string, fromLng: string, toLat: string, toLng: string, mode: string): string {
     return `${fromLat}:${fromLng}:${toLat}:${toLng}:${mode}`;
+  }
+
+  /**
+   * One-time (per branch, per process) bulk load of still-fresh, real-road DB
+   * cache entries into the in-memory session cache. This is what makes the
+   * cache actually cross scheduling runs: without it, `_sessionCache` starts
+   * empty every run and every pair — even ones looked up minutes ago — goes
+   * back to the ORS API, burning through the daily quota needlessly.
+   */
+  private async hydrateDbCache(branchId: string, mode: TransportMode): Promise<void> {
+    const guardKey = `${branchId}:${mode}`;
+    if (this._hydratedBranches.has(guardKey)) return;
+    this._hydratedBranches.add(guardKey);
+    try {
+      const cutoff = new Date(Date.now() - CACHE_TTL_DAYS * 24 * 60 * 60 * 1000);
+      const rows = await storage.getFreshTravelTimes(branchId, mode, cutoff);
+      let loaded = 0;
+      for (const row of rows) {
+        if (!TRUSTED_CAR_SOURCES.has(row.source)) continue; // belt-and-braces — repo query already filters this
+        const sk = this.sessionKey(row.fromLat, row.fromLng, row.toLat, row.toLng, row.transportMode || mode);
+        if (!this._sessionCache.has(sk)) {
+          this._sessionCache.set(sk, { durationMinutes: row.durationMinutes, distanceMeters: row.distanceMeters || 0, source: row.source });
+          loaded++;
+        }
+      }
+      logger.info(`[DB Cache] Hydrated ${loaded} fresh ${mode} travel time(s) for branch ${branchId} (cache ≤${CACHE_TTL_DAYS}d old)`);
+    } catch (e) {
+      logger.warn('[DB Cache] Hydration failed — continuing without persistent cache:', e instanceof Error ? e.message : e);
+    }
   }
 
   /**
@@ -477,6 +518,12 @@ export class TravelTimeService {
     const currentMaxTravel = this.isWalkerOrPublic(transportMode) ? 90 : this.maxTravelMinutes;
     const isNonCar = this.isWalkerOrPublic(transportMode);
 
+    // 1a-pre. Hydrate the session cache from the DB cache once per branch (car only —
+    // walker/public never call the ORS API so there's nothing to persist for them).
+    if (!isNonCar) {
+      await this.hydrateDbCache(branchId, 'car');
+    }
+
     // 1a. Check in-memory session cache (resets each scheduling run — no persistence)
     // For walker/public calls, include the full ISO timestamp (date + HH:MM) in the key
     // so the same route at different times on the same day gets separate cache entries.
@@ -498,41 +545,9 @@ export class TravelTimeService {
       };
     }
 
-    // 1b. Check DB cache — DISABLED: always fetch fresh from API
-    // // For walkers/public: accept traveltime or traveltime-matrix sources; reject old heuristic/ors entries
-    // // For car: accept ors or ors-matrix
-    // try {
-    //   const cached = await storage.getTravelTime(branchId, fromLat, fromLng, toLat, toLng, transportMode);
-    //   if (cached) {
-    //     const isRealTravelTime = cached.source === 'traveltime' || cached.source === 'traveltime-matrix';
-    //     const isCarRealRoad = cached.source === 'ors' || cached.source === 'ors-matrix';
-    //     const isHeuristic = cached.source === 'heuristic';
-    //
-    //     let useCache = false;
-    //     if (isNonCar) {
-    //       useCache = isRealTravelTime || (isHeuristic && !this.hasTravelTimeCredentials());
-    //     } else {
-    //       useCache = isCarRealRoad || isHeuristic;
-    //     }
-    //
-    //     if (useCache) {
-    //       return {
-    //         fromLocation: from,
-    //         toLocation: to,
-    //         distanceKm: (cached.distanceMeters || 0) / 1000,
-    //         travelTimeMinutes: cached.durationMinutes,
-    //         feasible: cached.durationMinutes <= currentMaxTravel,
-    //         penaltyScore: this.calculatePenalty(cached.durationMinutes),
-    //       };
-    //     }
-    //
-    //     if (isNonCar && (isCarRealRoad || (isHeuristic && this.hasTravelTimeCredentials()))) {
-    //       logger.debug(`Refreshing stale cache for walker/public (${cached.source}) with TravelTime API`);
-    //     }
-    //   }
-    // } catch (e) {
-    //   logger.error("Cache lookup failed:", e);
-    // }
+    // 1b. DB cache is folded into the session cache via hydrateDbCache() above —
+    // a hit there is a fresh (≤ CACHE_TTL_DAYS old), real-road ('ors'/'ors-matrix')
+    // entry, so no separate DB round trip or source/staleness check is needed here.
 
     // 2. Walker / public transport — Use Haversine heuristic for walkers, TravelTime for public transport
     if (isNonCar) {
@@ -609,8 +624,11 @@ export class TravelTimeService {
           const durationMinutes = Math.max(2, Math.round(data.routes[0].summary.duration / 60));
           const distanceMeters = Math.round(data.routes[0].summary.distance);
           logger.debug(`ORS result: ${durationMinutes} min, ${distanceMeters} m`);
-          // Cache save DISABLED: always fetch fresh from API
-          // await storage.saveTravelTime({ branchId, fromLat, fromLng, toLat, toLng, transportMode, durationMinutes, distanceMeters, source: 'ors' });
+          try {
+            await storage.saveTravelTime({ branchId, fromLat, fromLng, toLat, toLng, transportMode, durationMinutes, distanceMeters, source: 'ors' });
+          } catch (e) {
+            logger.warn('[DB Cache] Failed to persist ORS directions result:', e instanceof Error ? e.message : e);
+          }
           this.trackSource('ors');
           this._sessionCache.set(sKey, { durationMinutes, distanceMeters, source: 'ors' });
           return {
@@ -671,6 +689,8 @@ export class TravelTimeService {
     earliestStartTime?: string
   ): Promise<void> {
     if (employeeLocations.length === 0 || clientLocations.length === 0) return;
+
+    await this.hydrateDbCache(branchId, 'car');
 
     const startTime = Date.now();
     let totalNew = 0;
@@ -744,7 +764,7 @@ export class TravelTimeService {
         const empBatch = carEmployees.slice(ei, ei + ORS_MATRIX_BATCH_SIZE);
         for (let ci = 0; ci < clientLocations.length; ci += ORS_MATRIX_BATCH_SIZE) {
           const clientBatch = clientLocations.slice(ci, ci + ORS_MATRIX_BATCH_SIZE);
-          const added = await this.orsMatrixBatch(empBatch, clientBatch);
+          const added = await this.orsMatrixBatch(branchId, empBatch, clientBatch);
           totalNew += added;
         }
       }
@@ -763,7 +783,7 @@ export class TravelTimeService {
           const srcBatch = carUniqueLocations.slice(si, si + ORS_MATRIX_BATCH_SIZE);
           for (let di = 0; di < carUniqueLocations.length; di += ORS_MATRIX_BATCH_SIZE) {
             const dstBatch = carUniqueLocations.slice(di, di + ORS_MATRIX_BATCH_SIZE);
-            const added = await this.orsMatrixBatch(srcBatch, dstBatch, true);
+            const added = await this.orsMatrixBatch(branchId, srcBatch, dstBatch, true);
             totalNew += added;
           }
         }
@@ -779,11 +799,15 @@ export class TravelTimeService {
   }
 
   /**
-   * Helper: run one ORS Matrix batch (sources × destinations) and store in session cache.
+   * Helper: run one ORS Matrix batch (sources × destinations), store results in the
+   * session cache, and persist them to the DB cache (bulk upsert) so future runs —
+   * even after the process restarts — can skip ORS entirely for these pairs while
+   * still within CACHE_TTL_DAYS.
    * @param skipSameCoords When true, skips entries where source and destination coords are identical.
    * Returns count of new entries stored.
    */
   async orsMatrixBatch(
+    branchId: string,
     sources: Array<{ lat: number; lng: number; id?: string }>,
     destinations: Array<{ lat: number; lng: number; id?: string }>,
     skipSameCoords = false
@@ -827,6 +851,7 @@ export class TravelTimeService {
         const data = await response.json();
         const durations: (number | null)[][] = data.durations;
         const distances: (number | null)[][] = data.distances;
+        const dbRows: Array<{ branchId: string; fromLat: string; fromLng: string; toLat: string; toLng: string; transportMode: TransportMode; durationMinutes: number; distanceMeters: number; source: 'ors-matrix' }> = [];
         for (let si = 0; si < sources.length; si++) {
           for (let di = 0; di < destinations.length; di++) {
             const src = sources[si];
@@ -836,10 +861,22 @@ export class TravelTimeService {
             const distMeters = distances?.[si]?.[di];
             if (durationSec == null || distMeters == null) continue;
             const dMin = Math.max(2, Math.round(durationSec / 60));
-            const sk = this.sessionKey(src.lat.toString(), src.lng.toString(), dst.lat.toString(), dst.lng.toString(), 'car');
+            const fromLatS = src.lat.toString();
+            const fromLngS = src.lng.toString();
+            const toLatS = dst.lat.toString();
+            const toLngS = dst.lng.toString();
+            const sk = this.sessionKey(fromLatS, fromLngS, toLatS, toLngS, 'car');
             this._sessionCache.set(sk, { durationMinutes: dMin, distanceMeters: Math.round(distMeters), source: 'ors-matrix' });
             this.trackSource('ors-matrix');
+            dbRows.push({ branchId, fromLat: fromLatS, fromLng: fromLngS, toLat: toLatS, toLng: toLngS, transportMode: 'car', durationMinutes: dMin, distanceMeters: Math.round(distMeters), source: 'ors-matrix' });
             added++;
+          }
+        }
+        if (dbRows.length > 0) {
+          try {
+            await storage.saveTravelTimesBulk(dbRows);
+          } catch (e) {
+            logger.warn('[DB Cache] Failed to persist ORS Matrix batch:', e instanceof Error ? e.message : e);
           }
         }
         logger.info(`[Cache Pre-warm] ORS Matrix: ${sources.length}×${destinations.length} batch → ${added} entries cached`);

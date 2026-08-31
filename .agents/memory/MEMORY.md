@@ -9,3 +9,4 @@
 - [People Planner automation architecture](people-planner-automation-architecture.md) — real cron scheduler is worker.ts not scheduler.ts; how to add a new export type (menuPath quirks, live-in-care selects, one-session-per-tenant).
 - [PP Financial Summary franchise dropdown quirks](people-planner-financial-summary-franchise-dropdown.md) — real dropdown text often diverges from stored franchise name; use exact overrides, never delete punctuation when normalizing.
 - [Day Rate Tracker number formatting](day-rate-tracker-number-formatting.md) — never round monetary figures on this dashboard; always show exactly 2 decimal places.
+- [Travel time DB cache](travel-time-db-cache.md) — persistent ORS cache re-enabled with 21-day TTL + ors/ors-matrix-only trust; `orsMatrixBatch()` now requires `branchId` as first arg.

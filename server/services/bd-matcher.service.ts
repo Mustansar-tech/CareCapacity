@@ -91,7 +91,7 @@ export async function refineForwardTravelWithORS(
   if (orsQueue.length > 0 && travelTimeService.hasORSKey()) {
     const destinations = orsQueue.map(p => p.resolvedCoords!);
     try {
-      await travelTimeService.orsMatrixBatch([clientCoords], destinations);
+      await travelTimeService.orsMatrixBatch(branchId, [clientCoords], destinations);
       for (const p of orsQueue) {
         const cached = travelTimeService.getCachedTravelTime(clientCoords, p.resolvedCoords!, 'car');
         if (cached) {
@@ -119,6 +119,7 @@ export async function refineForwardTravelWithORS(
 export async function refineReturnHomeTravelWithORS(
   matches: MatchedEmployee[],
   clientCoords: { lat: number; lng: number },
+  branchId: string,
 ): Promise<void> {
   type PendingSlot = {
     slot: MatchedSlot;
@@ -154,7 +155,7 @@ export async function refineReturnHomeTravelWithORS(
   if (orsQueue.length > 0 && travelTimeService.hasORSKey()) {
     const destinations = orsQueue.map(p => p.homeCoords);
     try {
-      await travelTimeService.orsMatrixBatch([clientCoords], destinations);
+      await travelTimeService.orsMatrixBatch(branchId, [clientCoords], destinations);
       for (const p of orsQueue) {
         const cached = travelTimeService.getCachedTravelTime(clientCoords, p.homeCoords, 'car');
         if (cached) {
