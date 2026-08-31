@@ -53,6 +53,42 @@ type EditableField = Exclude<keyof KpiWeeklyEntry, "id" | "weekBeginning" | "wee
 const gbp = new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP", maximumFractionDigits: 2 });
 const pct = (n: number) => (Number.isFinite(n) ? `${(n * 100).toFixed(0)}%` : "—");
 
+// Vivid owner colour bands mirroring the original Excel workbook's column
+// header colours — each owner's cluster of metrics gets a matching header
+// band and a soft tint across the column body so the grid reads at a glance.
+const OWNER_COLORS: Record<string, { header: string; col: string; colHeader: string; accent: string }> = {
+  Daniel: {
+    header: "bg-blue-600 text-white",
+    colHeader: "bg-blue-100/80 text-blue-900 dark:bg-blue-950/50 dark:text-blue-200 border-blue-200 dark:border-blue-900",
+    col: "bg-blue-50/60 dark:bg-blue-950/20 border-blue-100 dark:border-blue-900/60",
+    accent: "text-blue-700 dark:text-blue-300",
+  },
+  Sandra: {
+    header: "bg-emerald-600 text-white",
+    colHeader: "bg-emerald-100/80 text-emerald-900 dark:bg-emerald-950/50 dark:text-emerald-200 border-emerald-200 dark:border-emerald-900",
+    col: "bg-emerald-50/60 dark:bg-emerald-950/20 border-emerald-100 dark:border-emerald-900/60",
+    accent: "text-emerald-700 dark:text-emerald-300",
+  },
+  Craig: {
+    header: "bg-red-600 text-white",
+    colHeader: "bg-red-100/80 text-red-900 dark:bg-red-950/50 dark:text-red-200 border-red-200 dark:border-red-900",
+    col: "bg-red-50/60 dark:bg-red-950/20 border-red-100 dark:border-red-900/60",
+    accent: "text-red-700 dark:text-red-300",
+  },
+  Sean: {
+    header: "bg-amber-500 text-white",
+    colHeader: "bg-amber-100/80 text-amber-900 dark:bg-amber-950/50 dark:text-amber-200 border-amber-200 dark:border-amber-900",
+    col: "bg-amber-50/60 dark:bg-amber-950/20 border-amber-100 dark:border-amber-900/60",
+    accent: "text-amber-700 dark:text-amber-300",
+  },
+  Willie: {
+    header: "bg-purple-600 text-white",
+    colHeader: "bg-purple-100/80 text-purple-900 dark:bg-purple-950/50 dark:text-purple-200 border-purple-200 dark:border-purple-900",
+    col: "bg-purple-50/60 dark:bg-purple-950/20 border-purple-100 dark:border-purple-900/60",
+    accent: "text-purple-700 dark:text-purple-300",
+  },
+};
+
 // Column groups mirror the "owner" header row in the source workbook (Daniel /
 // Sandra / Craig / Sean / Willie each accountable for one cluster of metrics).
 const COLUMN_GROUPS: {
@@ -103,6 +139,8 @@ const COLUMN_GROUPS: {
     ],
   },
 ];
+
+const FLAT_COLUMNS = COLUMN_GROUPS.flatMap(g => g.columns.map(col => ({ ...col, owner: g.owner })));
 
 function dayRateOf(row: { monthlyRevenue: number; daysInMonth: number }): number {
   return row.daysInMonth > 0 ? row.monthlyRevenue / row.daysInMonth : 0;
@@ -391,21 +429,27 @@ export function KpiWeeklyGrid() {
               <table className="border-collapse text-sm w-full" data-testid="table-kpi-weekly">
                 <thead>
                   <tr>
-                    <th rowSpan={2} className="sticky left-0 z-10 bg-background border-b border-r px-3 py-2 text-left font-medium min-w-[160px]">
+                    <th rowSpan={2} className="sticky left-0 z-10 bg-background border-b-2 border-r px-3 py-2 text-left font-medium min-w-[160px]">
                       Store
                     </th>
-                    {COLUMN_GROUPS.map(g => (
-                      <th key={g.owner} colSpan={g.columns.length} className="border-b border-r px-3 py-1 text-center font-medium text-xs text-muted-foreground">
-                        {g.owner}
-                      </th>
-                    ))}
+                    {COLUMN_GROUPS.map(g => {
+                      const palette = OWNER_COLORS[g.owner];
+                      return (
+                        <th key={g.owner} colSpan={g.columns.length} className={`border-b-2 border-r-2 border-white/40 dark:border-black/40 px-3 py-1.5 text-center font-semibold text-xs tracking-wide uppercase ${palette.header}`}>
+                          {g.owner}
+                        </th>
+                      );
+                    })}
                   </tr>
-                  <tr className="text-xs text-muted-foreground">
-                    {COLUMN_GROUPS.flatMap(g => g.columns).map(col => (
-                      <th key={col.field} className="border-b border-r px-2 py-1 text-right font-normal whitespace-nowrap">
-                        {col.label}
-                      </th>
-                    ))}
+                  <tr className="text-xs">
+                    {FLAT_COLUMNS.map(col => {
+                      const palette = OWNER_COLORS[col.owner];
+                      return (
+                        <th key={col.field} className={`border-b-2 border-r px-2 py-1.5 text-right font-medium whitespace-nowrap ${palette.colHeader}`}>
+                          {col.label}
+                        </th>
+                      );
+                    })}
                   </tr>
                 </thead>
                 <tbody>
@@ -415,15 +459,16 @@ export function KpiWeeklyGrid() {
                     const enquiryConversion = enquiryConversionOf(row);
                     const hireConversion = hireConversionOf(row);
                     return (
-                      <tr key={store} className="hover:bg-muted/40">
+                      <tr key={store} className="hover:brightness-[0.97] dark:hover:brightness-125 transition-[filter]">
                         <td className="sticky left-0 z-10 bg-background border-b border-r px-3 py-1.5 whitespace-nowrap font-medium">
                           {store}
                         </td>
-                        {COLUMN_GROUPS.flatMap(g => g.columns).map(col => {
+                        {FLAT_COLUMNS.map(col => {
+                          const palette = OWNER_COLORS[col.owner];
                           if (col.computed) {
                             const value = col.field === "dayRate" ? dayRate : col.field === "enquiryConversion" ? enquiryConversion : hireConversion;
                             return (
-                              <td key={col.field} className="border-b border-r px-2 py-1.5 text-right tabular-nums text-muted-foreground">
+                              <td key={col.field} className={`border-b border-r px-2 py-1.5 text-right tabular-nums font-semibold ${palette.col} ${palette.accent}`}>
                                 {formatValue(col.kind, value)}
                               </td>
                             );
@@ -431,10 +476,10 @@ export function KpiWeeklyGrid() {
                           const field = col.field as EditableField;
                           const rawValue = row[field];
                           return (
-                            <td key={field} className="border-b border-r p-0">
+                            <td key={field} className={`border-b border-r p-0 ${palette.col}`}>
                               <Input
                                 type="number"
-                                className="h-8 border-none rounded-none text-right tabular-nums shadow-none focus-visible:ring-1"
+                                className={`h-8 border-none rounded-none text-right tabular-nums shadow-none focus-visible:ring-1 focus-visible:z-10 relative bg-transparent ${palette.col}`}
                                 value={rawValue === null ? "" : (rawValue as number)}
                                 onChange={e => updateCell(store, field, e.target.value)}
                                 data-testid={`input-kpi-${store.replace(/\s+/g, "-")}-${field}`}
@@ -447,9 +492,9 @@ export function KpiWeeklyGrid() {
                   })}
                   {totalRow && (
                     <tr className="bg-muted/60 font-semibold">
-                      <td className="sticky left-0 z-10 bg-muted/60 border-t border-r px-3 py-2">SUR Group Total</td>
-                      {COLUMN_GROUPS.flatMap(g => g.columns).map(col => (
-                        <td key={col.field} className="border-t border-r px-2 py-2 text-right tabular-nums">
+                      <td className="sticky left-0 z-10 bg-muted/60 border-t-2 border-r px-3 py-2">SUR Group Total</td>
+                      {FLAT_COLUMNS.map(col => (
+                        <td key={col.field} className="border-t-2 border-r px-2 py-2 text-right tabular-nums">
                           {formatValue(col.kind, (totalRow as any)[col.field] ?? 0)}
                         </td>
                       ))}
