@@ -9,7 +9,18 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { PoundSterling, Home, AlertTriangle, CheckCircle2, ShieldAlert, PlayCircle, Loader2 } from "lucide-react";
+import {
+  PoundSterling,
+  Home,
+  AlertTriangle,
+  CheckCircle2,
+  ShieldAlert,
+  PlayCircle,
+  Loader2,
+  ArrowDownRight,
+  ArrowUpRight,
+  Minus,
+} from "lucide-react";
 import { KpiWeeklyGrid } from "@/components/kpi-weekly-grid";
 
 // ── Types (mirrors server/repositories/day-rate.repository.ts) ───────────────
@@ -119,6 +130,42 @@ function getComparisonMonths(now: Date): [string, string] {
   return [fmt(year, month), fmt(year, month + 1)];
 }
 
+type Trend = "up" | "down" | "flat" | null;
+
+function getTrend(current: number | undefined, previous: number | undefined): Trend {
+  if (current === undefined || previous === undefined) return null;
+  if (current > previous) return "up";
+  if (current < previous) return "down";
+  return "flat";
+}
+
+function trendClasses(trend: Trend): string {
+  if (trend === "up") {
+    return "bg-emerald-50/80 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-300";
+  }
+  if (trend === "down") {
+    return "bg-rose-50/80 text-rose-700 dark:bg-rose-950/30 dark:text-rose-300";
+  }
+  if (trend === "flat") {
+    return "bg-slate-50/70 text-slate-600 dark:bg-slate-900/40 dark:text-slate-300";
+  }
+  return "text-muted-foreground";
+}
+
+function TrendIcon({ trend }: { trend: Trend }) {
+  if (trend === "up") return <ArrowUpRight className="h-3 w-3 shrink-0" aria-hidden="true" />;
+  if (trend === "down") return <ArrowDownRight className="h-3 w-3 shrink-0" aria-hidden="true" />;
+  if (trend === "flat") return <Minus className="h-3 w-3 shrink-0" aria-hidden="true" />;
+  return null;
+}
+
+function getTrendLabel(trend: Trend): string {
+  if (trend === "up") return "increased from the previous day";
+  if (trend === "down") return "decreased from the previous day";
+  if (trend === "flat") return "unchanged from the previous day";
+  return "no previous day available";
+}
+
 // ── Month grid (one full daily breakdown for a single reporting month) ────────
 
 function MonthGrid({
@@ -181,56 +228,82 @@ function MonthGrid({
     return filteredTotals[lastDate];
   }, [grid, filteredTotals]);
 
+  const grandTotalTrend = useMemo(() => {
+    if (!grid || grid.dates.length < 2) return null;
+    const lastIndex = grid.dates.length - 1;
+    return getTrend(
+      filteredTotals[grid.dates[lastIndex]]?.dayRate,
+      filteredTotals[grid.dates[lastIndex - 1]]?.dayRate,
+    );
+  }, [grid, filteredTotals]);
+
   return (
     <div className="space-y-4">
       {showTitle && <h2 className="text-lg font-semibold tracking-tight">{formatMonthLabel(month)}</h2>}
 
       {gridQuery.isLoading && (
-        <Card><CardContent className="py-10 text-center text-muted-foreground">Loading…</CardContent></Card>
+        <Card className="border-border/70 shadow-sm"><CardContent className="py-10 text-center text-muted-foreground">Loading…</CardContent></Card>
       )}
 
       {gridQuery.isError && (
-        <Card><CardContent className="py-10 text-center text-destructive">Failed to load the day rate grid.</CardContent></Card>
+        <Card className="border-destructive/30 bg-destructive/[0.03] shadow-sm"><CardContent className="py-10 text-center text-destructive">Failed to load the day rate grid.</CardContent></Card>
       )}
 
       {grid && grid.dates.length === 0 && !gridQuery.isLoading && (
-        <Card><CardContent className="py-10 text-center text-muted-foreground">No data for {formatMonthLabel(month)} yet.</CardContent></Card>
+        <Card className="border-border/70 shadow-sm"><CardContent className="py-10 text-center text-muted-foreground">No data for {formatMonthLabel(month)} yet.</CardContent></Card>
       )}
 
       {grid && grid.dates.length > 0 && (
         <>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <Card>
+             <Card className="border-border/70 bg-gradient-to-br from-primary/[0.06] via-card to-card shadow-sm">
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">Days in Month</CardTitle>
+                 <CardTitle className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">Days in Month</CardTitle>
               </CardHeader>
-              <CardContent className="text-2xl font-semibold">{grid.daysInMonth}</CardContent>
+               <CardContent className="flex items-end gap-2 text-3xl font-semibold tracking-tight">
+                 {grid.daysInMonth}
+                 <span className="pb-1 text-sm font-normal text-muted-foreground">days</span>
+               </CardContent>
             </Card>
-            <Card>
+             <Card className="border-border/70 bg-gradient-to-br from-secondary/[0.07] via-card to-card shadow-sm">
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">
+                 <CardTitle className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
                   {selectedOffice === ALL_FRANCHISES_FILTER ? "Group Total" : "Franchise Total"} — {grid.dates[grid.dates.length - 1] && formatDateHeader(grid.dates[grid.dates.length - 1]).day}
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-semibold">{grandTotal ? gbp.format(grandTotal.revenue) : "—"}</div>
-                <div className="text-sm text-muted-foreground">
-                  Day rate: {grandTotal ? gbpPrecise.format(grandTotal.dayRate) : "—"}
+                 <div className="text-3xl font-semibold tracking-tight">{grandTotal ? gbp.format(grandTotal.revenue) : "—"}</div>
+                 <div className={`mt-1 flex items-center gap-1.5 text-sm font-medium ${trendClasses(grandTotalTrend)}`} title={getTrendLabel(grandTotalTrend)}>
+                   <span>Day rate: {grandTotal ? gbpPrecise.format(grandTotal.dayRate) : "—"}</span>
+                   <TrendIcon trend={grandTotalTrend} />
+                   {grandTotalTrend && <span className="sr-only">{getTrendLabel(grandTotalTrend)}</span>}
                 </div>
               </CardContent>
             </Card>
           </div>
 
-          <Card>
+           <Card className="overflow-hidden border-border/70 shadow-sm">
             <CardContent className="p-0">
+               <div className="flex flex-wrap items-center justify-between gap-2 border-b bg-muted/20 px-3 py-2 text-xs">
+                 <span className="font-medium text-muted-foreground">Daily revenue and day rate</span>
+                 <div className="flex items-center gap-3 text-muted-foreground" aria-label="Day rate trend legend">
+                   <span className="font-medium">Day rate trend</span>
+                   <span className="inline-flex items-center gap-1 text-emerald-700 dark:text-emerald-300">
+                     <ArrowUpRight className="h-3 w-3" aria-hidden="true" /> Rising
+                   </span>
+                   <span className="inline-flex items-center gap-1 text-rose-700 dark:text-rose-300">
+                     <ArrowDownRight className="h-3 w-3" aria-hidden="true" /> Falling
+                   </span>
+                 </div>
+               </div>
               <div className="overflow-x-auto">
                 <table className="border-collapse text-sm w-full" data-testid={`table-day-rate-grid-${month}`}>
                   <thead>
                     <tr>
-                      <th className="sticky left-0 z-10 bg-background border-b border-r px-3 py-2 text-left font-medium min-w-[220px]">
+                       <th className="sticky left-0 z-10 bg-background border-b border-r px-3 py-2 text-left font-medium min-w-[220px]">
                         <Select value={selectedOffice} onValueChange={onSelectedOfficeChange}>
                           <SelectTrigger
-                            className="h-7 w-full border-none bg-transparent px-0 font-medium shadow-none focus:ring-0 focus:ring-offset-0 [&>svg]:opacity-60"
+                             className="h-8 w-full border-none bg-transparent px-0 font-semibold shadow-none focus:ring-0 focus:ring-offset-0 [&>svg]:opacity-60"
                             data-testid={`select-franchise-filter-${month}`}
                           >
                             <SelectValue placeholder="Franchise" />
@@ -245,10 +318,18 @@ function MonthGrid({
                       </th>
                       {grid.dates.map((date) => {
                         const { day, weekday } = formatDateHeader(date);
-                        return (
-                          <th key={date} colSpan={2} className="border-b border-r px-3 py-2 text-center font-medium whitespace-nowrap">
+                         const isLatestDate = date === grid.dates[grid.dates.length - 1];
+                         const isToday = date === new Date().toISOString().slice(0, 10);
+                         return (
+                           <th
+                             key={date}
+                             colSpan={2}
+                             className={`border-b border-r px-3 py-2 text-center font-medium whitespace-nowrap ${isLatestDate ? "bg-primary/[0.06]" : ""} ${isToday ? "text-primary" : ""}`}
+                           >
                             <div>{day}</div>
-                            <div className="text-xs text-muted-foreground font-normal">{weekday}</div>
+                             <div className={`text-xs font-normal ${isToday ? "text-primary/80" : "text-muted-foreground"}`}>
+                               {weekday}{isToday && <span className="ml-1.5 rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium">Today</span>}
+                             </div>
                           </th>
                         );
                       })}
@@ -259,19 +340,19 @@ function MonthGrid({
                       </th>
                       {grid.dates.map((date) => (
                         <Fragment key={date}>
-                          <th className="border-b border-r px-2 py-1 text-right font-normal">Revenue</th>
-                          <th className="border-b border-r px-2 py-1 text-right font-normal">Day Rate</th>
+                         <th className="border-b border-r px-2 py-1 text-right font-normal">Revenue</th>
+                         <th className="border-b border-r bg-primary/[0.025] px-2 py-1 text-right font-normal">Day Rate</th>
                         </Fragment>
                       ))}
                     </tr>
                   </thead>
                   <tbody>
-                    {officeGroups.map(([office, rows]) => (
+                     {officeGroups.map(([office, rows]) => (
                       rows.map((f, idx) => (
-                        <tr key={f.id} className="hover:bg-muted/40">
-                          <td className="sticky left-0 z-10 bg-background border-b border-r px-3 py-1.5 whitespace-nowrap">
+                         <tr key={f.id} className={`group transition-colors hover:bg-primary/[0.035] ${idx === 0 ? "border-t-2 border-t-primary/10" : ""}`}>
+                           <td className={`sticky left-0 z-10 border-b border-r px-3 py-1.5 whitespace-nowrap transition-colors group-hover:bg-primary/[0.035] ${idx === 0 ? "border-t-2 border-t-primary/10" : ""} bg-background`}>
                             <div className="flex items-center gap-2">
-                              {idx === 0 && <Home className="h-3.5 w-3.5 text-muted-foreground shrink-0" />}
+                               {idx === 0 && <Home className="h-3.5 w-3.5 text-primary/70 shrink-0" />}
                               <span className={idx === 0 ? "font-medium" : "text-muted-foreground pl-5"}>
                                 {f.franchiseName}
                               </span>
@@ -280,15 +361,25 @@ function MonthGrid({
                               )}
                             </div>
                           </td>
-                          {grid.dates.map((date) => {
+                           {grid.dates.map((date, dateIndex) => {
                             const e = f.entries[date];
+                             const previousEntry = dateIndex > 0 ? f.entries[grid.dates[dateIndex - 1]] : undefined;
+                             const dayRateTrend = getTrend(e?.dayRate, previousEntry?.dayRate);
+                             const isLatestDate = date === grid.dates[grid.dates.length - 1];
                             return (
                               <Fragment key={date}>
-                                <td className="border-b border-r px-2 py-1.5 text-right tabular-nums">
+                                 <td className={`border-b border-r px-2 py-1.5 text-right tabular-nums ${isLatestDate ? "bg-primary/[0.025]" : ""}`}>
                                   {e ? gbp.format(e.revenue) : <span className="text-muted-foreground">—</span>}
                                 </td>
-                                <td className="border-b border-r px-2 py-1.5 text-right tabular-nums text-muted-foreground">
-                                  {e ? gbpPrecise.format(e.dayRate) : "—"}
+                                 <td
+                                   className={`border-b border-r px-2 py-1.5 text-right tabular-nums font-medium transition-colors ${trendClasses(dayRateTrend)} ${isLatestDate ? "ring-1 ring-inset ring-primary/10" : ""}`}
+                                   title={e ? `Day rate ${gbpPrecise.format(e.dayRate)} — ${getTrendLabel(dayRateTrend)}` : "No day rate available"}
+                                 >
+                                   <span className="inline-flex items-center justify-end gap-1">
+                                     {e ? gbpPrecise.format(e.dayRate) : "—"}
+                                     <TrendIcon trend={dayRateTrend} />
+                                   </span>
+                                   {dayRateTrend && <span className="sr-only">{getTrendLabel(dayRateTrend)}</span>}
                                 </td>
                               </Fragment>
                             );
@@ -296,19 +387,25 @@ function MonthGrid({
                         </tr>
                       ))
                     ))}
-                    <tr className="bg-muted/60 font-semibold">
-                      <td className="sticky left-0 z-10 bg-muted/60 border-t border-r px-3 py-2">
+                     <tr className="bg-muted/60 font-semibold">
+                       <td className="sticky left-0 z-10 bg-muted/60 border-t border-r px-3 py-2">
                         {selectedOffice === ALL_FRANCHISES_FILTER ? "Group Total" : "Franchise Total"}
                       </td>
-                      {grid.dates.map((date) => {
+                       {grid.dates.map((date, dateIndex) => {
                         const t = filteredTotals[date];
+                         const previousTotal = dateIndex > 0 ? filteredTotals[grid.dates[dateIndex - 1]] : undefined;
+                         const totalTrend = getTrend(t?.dayRate, previousTotal?.dayRate);
                         return (
                           <Fragment key={date}>
                             <td className="border-t border-r px-2 py-2 text-right tabular-nums">
                               {t ? gbp.format(t.revenue) : "—"}
                             </td>
-                            <td className="border-t border-r px-2 py-2 text-right tabular-nums">
-                              {t ? gbpPrecise.format(t.dayRate) : "—"}
+                             <td className={`border-t border-r px-2 py-2 text-right tabular-nums ${trendClasses(totalTrend)}`}>
+                               <span className="inline-flex items-center justify-end gap-1">
+                                 {t ? gbpPrecise.format(t.dayRate) : "—"}
+                                 <TrendIcon trend={totalTrend} />
+                               </span>
+                               {totalTrend && <span className="sr-only">{getTrendLabel(totalTrend)}</span>}
                             </td>
                           </Fragment>
                         );
@@ -427,22 +524,27 @@ export default function DayRateTrackerPage() {
   }
 
   return (
-    <div className="p-6 space-y-6" data-testid="page-day-rate-tracker">
-      <div className="flex items-start justify-between gap-4 flex-wrap">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight flex items-center gap-2">
-            <PoundSterling className="h-6 w-6 text-primary" />
-            Day Rate Tracker
-          </h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            {formatMonthLabel(currentMonth)} vs {formatMonthLabel(nextMonth)} — cumulative revenue and day rate per
-            franchise, from the People Planner Financial Summary. This comparison always tracks the current and next
-            calendar month, so it rolls forward automatically each month.
-          </p>
-        </div>
+    <div className="min-h-full p-4 sm:p-6 space-y-6" data-testid="page-day-rate-tracker">
+      <div className="relative overflow-hidden rounded-2xl border border-primary/10 bg-gradient-to-br from-primary/[0.09] via-background to-secondary/[0.08] p-5 shadow-sm sm:p-6">
+        <div className="pointer-events-none absolute -right-16 -top-20 h-48 w-48 rounded-full bg-primary/10 blur-3xl" aria-hidden="true" />
+        <div className="relative flex items-start justify-between gap-4 flex-wrap">
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight flex items-center gap-2.5 sm:text-3xl">
+              <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm shadow-primary/20">
+                <PoundSterling className="h-5 w-5" aria-hidden="true" />
+              </span>
+              Day Rate Tracker
+            </h1>
+            <p className="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">
+              {formatMonthLabel(currentMonth)} vs {formatMonthLabel(nextMonth)} — cumulative revenue and day rate per
+              franchise, from the People Planner Financial Summary. This comparison always tracks the current and next
+              calendar month, so it rolls forward automatically each month.
+            </p>
+          </div>
         <Button
           onClick={() => runAutomationMutation.mutate()}
           disabled={runAutomationMutation.isPending || isAutomationRunning}
+          className="shadow-md shadow-primary/15 transition-all hover:-translate-y-0.5 hover:shadow-lg hover:shadow-primary/20"
           data-testid="button-run-automation"
         >
           {runAutomationMutation.isPending || isAutomationRunning ? (
@@ -457,10 +559,11 @@ export default function DayRateTrackerPage() {
             </>
           )}
         </Button>
+        </div>
       </div>
 
       {automationStatus && automationStatus.lastRunSummary && automationStatus.lastRunSummary.failed > 0 && (
-        <Alert variant="destructive" data-testid="banner-automation-failure">
+        <Alert variant="destructive" className="border-rose-200 bg-rose-50/70 dark:border-rose-900/60 dark:bg-rose-950/20" data-testid="banner-automation-failure">
           <AlertTriangle className="h-4 w-4" />
           <AlertTitle>
             {automationStatus.lastErrors.length} franchise figure{automationStatus.lastErrors.length === 1 ? "" : "s"} failed to pull from People Planner
@@ -484,7 +587,7 @@ export default function DayRateTrackerPage() {
       )}
 
       {automationStatus && (
-        <Card data-testid="card-automation-status">
+        <Card className={`shadow-sm ${automationStatus.lastRunSummary && automationStatus.lastRunSummary.failed > 0 ? "border-rose-200 bg-rose-50/50 dark:border-rose-900/60 dark:bg-rose-950/20" : "border-emerald-200/80 bg-emerald-50/45 dark:border-emerald-900/60 dark:bg-emerald-950/20"}`} data-testid="card-automation-status">
           <CardContent className="py-3 flex items-center gap-3 flex-wrap text-sm">
             {automationStatus.lastRunSummary && automationStatus.lastRunSummary.failed > 0 ? (
               <AlertTriangle className="h-4 w-4 text-destructive shrink-0" />
@@ -508,14 +611,14 @@ export default function DayRateTrackerPage() {
       )}
 
       <Tabs defaultValue={currentMonth} className="space-y-4">
-        <TabsList>
-          <TabsTrigger value={currentMonth} data-testid={`tab-${currentMonth}`}>
+        <TabsList className="h-auto rounded-xl bg-muted/70 p-1.5 shadow-inner">
+          <TabsTrigger value={currentMonth} className="rounded-lg px-3 py-2 text-xs font-medium transition-all data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:shadow-sm sm:px-4 sm:text-sm" data-testid={`tab-${currentMonth}`}>
             {formatMonthLabel(currentMonth)}
           </TabsTrigger>
-          <TabsTrigger value={nextMonth} data-testid={`tab-${nextMonth}`}>
+          <TabsTrigger value={nextMonth} className="rounded-lg px-3 py-2 text-xs font-medium transition-all data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:shadow-sm sm:px-4 sm:text-sm" data-testid={`tab-${nextMonth}`}>
             {formatMonthLabel(nextMonth)}
           </TabsTrigger>
-          <TabsTrigger value="kpi-tracker" data-testid="tab-kpi-tracker">
+          <TabsTrigger value="kpi-tracker" className="rounded-lg px-3 py-2 text-xs font-medium transition-all data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:shadow-sm sm:px-4 sm:text-sm" data-testid="tab-kpi-tracker">
             KPI Tracker
           </TabsTrigger>
         </TabsList>
