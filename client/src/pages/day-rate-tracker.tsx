@@ -538,88 +538,18 @@ export default function DayRateTrackerPage() {
     <div className="min-h-full p-4 sm:p-6 space-y-6" data-testid="page-day-rate-tracker">
       <div className="relative overflow-hidden rounded-2xl border border-primary/10 bg-gradient-to-br from-primary/[0.09] via-background to-secondary/[0.08] p-5 shadow-sm sm:p-6">
         <div className="pointer-events-none absolute -right-16 -top-20 h-48 w-48 rounded-full bg-primary/10 blur-3xl" aria-hidden="true" />
-        <div className="relative flex items-start justify-between gap-4 flex-wrap">
-          <div>
-            <h1 className="text-2xl font-semibold tracking-tight flex items-center gap-2.5 sm:text-3xl">
-              <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm shadow-primary/20">
-                <PoundSterling className="h-5 w-5" aria-hidden="true" />
-              </span>
-              Data House
-            </h1>
-            <p className="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">
-              {formatMonthLabel(previousMonth)} (closed) vs {formatMonthLabel(currentMonth)} vs {formatMonthLabel(nextMonth)} —
-              cumulative revenue and day rate per franchise, from the People Planner Financial Summary. This comparison
-              always tracks the last closed, current and next calendar month, so it rolls forward automatically each month.
-            </p>
-          </div>
-        <Button
-          onClick={() => runAutomationMutation.mutate()}
-          disabled={runAutomationMutation.isPending || isAutomationRunning}
-          className="shadow-md shadow-primary/15 transition-all hover:-translate-y-0.5 hover:shadow-lg hover:shadow-primary/20"
-          data-testid="button-run-automation"
-        >
-          {runAutomationMutation.isPending || isAutomationRunning ? (
-            <>
-              <Loader2 className="h-4 w-4 animate-spin" />
-              {isAutomationRunning ? "Running…" : "Starting…"}
-            </>
-          ) : (
-            <>
-              <PlayCircle className="h-4 w-4" />
-              Run automation now
-            </>
-          )}
-        </Button>
+        <div className="relative">
+          <h1 className="text-2xl font-semibold tracking-tight flex items-center gap-2.5 sm:text-3xl">
+            <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm shadow-primary/20">
+              <PoundSterling className="h-5 w-5" aria-hidden="true" />
+            </span>
+            Data House
+          </h1>
+          <p className="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">
+            Revenue, KPIs and the annual roadmap for every franchise, in one place.
+          </p>
         </div>
       </div>
-
-      {automationStatus && automationStatus.lastRunSummary && automationStatus.lastRunSummary.failed > 0 && (
-        <Alert variant="destructive" className="border-rose-200 bg-rose-50/70 dark:border-rose-900/60 dark:bg-rose-950/20" data-testid="banner-automation-failure">
-          <AlertTriangle className="h-4 w-4" />
-          <AlertTitle>
-            {automationStatus.lastErrors.length} franchise figure{automationStatus.lastErrors.length === 1 ? "" : "s"} failed to pull from People Planner
-          </AlertTitle>
-          <AlertDescription>
-            <div className="mt-1 space-y-1">
-              {automationStatus.lastErrors.slice(0, 6).map((e, i) => (
-                <div key={i}>
-                  <span className="font-medium">{e.franchiseName}</span> ({formatMonthLabel(e.reportingMonth)}) — {e.error}
-                </div>
-              ))}
-              {automationStatus.lastErrors.length > 6 && (
-                <div className="text-xs opacity-80">+{automationStatus.lastErrors.length - 6} more</div>
-              )}
-              <div className="text-xs opacity-80 pt-1">
-                These figures were left unchanged rather than written incorrectly — use "Run automation now" to retry after checking People Planner.
-              </div>
-            </div>
-          </AlertDescription>
-        </Alert>
-      )}
-
-      {automationStatus && (
-        <Card className={`shadow-sm ${automationStatus.lastRunSummary && automationStatus.lastRunSummary.failed > 0 ? "border-rose-200 bg-rose-50/50 dark:border-rose-900/60 dark:bg-rose-950/20" : "border-emerald-200/80 bg-emerald-50/45 dark:border-emerald-900/60 dark:bg-emerald-950/20"}`} data-testid="card-automation-status">
-          <CardContent className="py-3 flex items-center gap-3 flex-wrap text-sm">
-            {automationStatus.lastRunSummary && automationStatus.lastRunSummary.failed > 0 ? (
-              <AlertTriangle className="h-4 w-4 text-destructive shrink-0" />
-            ) : (
-              <CheckCircle2 className="h-4 w-4 text-green-600 shrink-0" />
-            )}
-            <span className="text-muted-foreground">
-              Financial Summary automation last ran{" "}
-              {automationStatus.lastRunAt
-                ? new Date(automationStatus.lastRunAt).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" })
-                : "— not yet run"}
-              {automationStatus.lastRunSummary && (
-                <>
-                  {" · "}
-                  {automationStatus.lastRunSummary.completed}/{automationStatus.lastRunSummary.total} succeeded
-                </>
-              )}
-            </span>
-          </CardContent>
-        </Card>
-      )}
 
       <Tabs defaultValue="day-rate-tracker" className="space-y-4">
         <TabsList className="h-auto rounded-xl bg-muted/70 p-1.5 shadow-inner">
@@ -635,6 +565,80 @@ export default function DayRateTrackerPage() {
         </TabsList>
 
         <TabsContent value="day-rate-tracker" className="space-y-4">
+          <div className="flex items-start justify-between gap-4 flex-wrap">
+            <p className="max-w-3xl text-sm leading-6 text-muted-foreground">
+              {formatMonthLabel(previousMonth)} (closed) vs {formatMonthLabel(currentMonth)} vs {formatMonthLabel(nextMonth)} —
+              cumulative revenue and day rate per franchise, from the People Planner Financial Summary. This comparison
+              always tracks the last closed, current and next calendar month, so it rolls forward automatically each month.
+            </p>
+            <Button
+              onClick={() => runAutomationMutation.mutate()}
+              disabled={runAutomationMutation.isPending || isAutomationRunning}
+              className="shadow-md shadow-primary/15 transition-all hover:-translate-y-0.5 hover:shadow-lg hover:shadow-primary/20"
+              data-testid="button-run-automation"
+            >
+              {runAutomationMutation.isPending || isAutomationRunning ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  {isAutomationRunning ? "Running…" : "Starting…"}
+                </>
+              ) : (
+                <>
+                  <PlayCircle className="h-4 w-4" />
+                  Run automation now
+                </>
+              )}
+            </Button>
+          </div>
+
+          {automationStatus && automationStatus.lastRunSummary && automationStatus.lastRunSummary.failed > 0 && (
+            <Alert variant="destructive" className="border-rose-200 bg-rose-50/70 dark:border-rose-900/60 dark:bg-rose-950/20" data-testid="banner-automation-failure">
+              <AlertTriangle className="h-4 w-4" />
+              <AlertTitle>
+                {automationStatus.lastErrors.length} franchise figure{automationStatus.lastErrors.length === 1 ? "" : "s"} failed to pull from People Planner
+              </AlertTitle>
+              <AlertDescription>
+                <div className="mt-1 space-y-1">
+                  {automationStatus.lastErrors.slice(0, 6).map((e, i) => (
+                    <div key={i}>
+                      <span className="font-medium">{e.franchiseName}</span> ({formatMonthLabel(e.reportingMonth)}) — {e.error}
+                    </div>
+                  ))}
+                  {automationStatus.lastErrors.length > 6 && (
+                    <div className="text-xs opacity-80">+{automationStatus.lastErrors.length - 6} more</div>
+                  )}
+                  <div className="text-xs opacity-80 pt-1">
+                    These figures were left unchanged rather than written incorrectly — use "Run automation now" to retry after checking People Planner.
+                  </div>
+                </div>
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {automationStatus && (
+            <Card className={`shadow-sm ${automationStatus.lastRunSummary && automationStatus.lastRunSummary.failed > 0 ? "border-rose-200 bg-rose-50/50 dark:border-rose-900/60 dark:bg-rose-950/20" : "border-emerald-200/80 bg-emerald-50/45 dark:border-emerald-900/60 dark:bg-emerald-950/20"}`} data-testid="card-automation-status">
+              <CardContent className="py-3 flex items-center gap-3 flex-wrap text-sm">
+                {automationStatus.lastRunSummary && automationStatus.lastRunSummary.failed > 0 ? (
+                  <AlertTriangle className="h-4 w-4 text-destructive shrink-0" />
+                ) : (
+                  <CheckCircle2 className="h-4 w-4 text-green-600 shrink-0" />
+                )}
+                <span className="text-muted-foreground">
+                  Financial Summary automation last ran{" "}
+                  {automationStatus.lastRunAt
+                    ? new Date(automationStatus.lastRunAt).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" })
+                    : "— not yet run"}
+                  {automationStatus.lastRunSummary && (
+                    <>
+                      {" · "}
+                      {automationStatus.lastRunSummary.completed}/{automationStatus.lastRunSummary.total} succeeded
+                    </>
+                  )}
+                </span>
+              </CardContent>
+            </Card>
+          )}
+
           <Tabs defaultValue={currentMonth} className="space-y-4">
             <TabsList className="h-auto rounded-lg bg-muted/50 p-1">
               <TabsTrigger value={previousMonth} className="rounded-md px-3 py-1.5 text-xs font-medium transition-all data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:shadow-sm sm:text-sm" data-testid={`tab-${previousMonth}`}>
