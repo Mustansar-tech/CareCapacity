@@ -441,6 +441,27 @@ export default function DayRateTrackerPage() {
   const queryClient = useQueryClient();
   const [previousMonth, currentMonth, nextMonth] = useMemo(() => getComparisonMonths(new Date()), []);
   const [selectedOffice, setSelectedOffice] = useState<string>(ALL_FRANCHISES_FILTER);
+  const [selectedArchiveMonth, setSelectedArchiveMonth] = useState<string>("");
+
+  const monthsQuery = useQuery<string[]>({
+    queryKey: ["/api/day-rate/months"],
+    queryFn: async () => {
+      const res = await fetch(toAbsoluteUrl("/api/day-rate/months"), { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to load reporting months");
+      return res.json();
+    },
+    staleTime: 5 * 60_000,
+    enabled: isAdmin,
+  });
+
+  // Every closed month older than the rolling 3-month window — newest first —
+  // so past months stay reachable via an archive dropdown instead of piling
+  // up as permanent tabs.
+  const archiveMonths = useMemo(() => {
+    return (monthsQuery.data ?? [])
+      .filter(m => m < previousMonth)
+      .sort((a, b) => (a < b ? 1 : a > b ? -1 : 0));
+  }, [monthsQuery.data, previousMonth]);
 
   const franchisesQuery = useQuery<DayRateFranchiseRef[]>({
     queryKey: ["/api/day-rate/franchises"],
@@ -651,6 +672,11 @@ export default function DayRateTrackerPage() {
               <TabsTrigger value={nextMonth} className="rounded-md px-3 py-1.5 text-xs font-medium transition-all data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:shadow-sm sm:text-sm" data-testid={`tab-${nextMonth}`}>
                 {formatMonthLabel(nextMonth)}
               </TabsTrigger>
+              {archiveMonths.length > 0 && (
+                <TabsTrigger value="archive" className="rounded-md px-3 py-1.5 text-xs font-medium transition-all data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:shadow-sm sm:text-sm" data-testid="tab-archive">
+                  Previous months
+                </TabsTrigger>
+              )}
             </TabsList>
             <TabsContent value={previousMonth}>
               <MonthGrid
@@ -680,6 +706,34 @@ export default function DayRateTrackerPage() {
                 onSelectedOfficeChange={setSelectedOffice}
               />
             </TabsContent>
+            {archiveMonths.length > 0 && (
+              <TabsContent value="archive" className="space-y-4">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium text-muted-foreground">Month</span>
+                  <Select
+                    value={selectedArchiveMonth || archiveMonths[0]}
+                    onValueChange={setSelectedArchiveMonth}
+                  >
+                    <SelectTrigger className="w-[220px]" data-testid="select-archive-month">
+                      <SelectValue placeholder="Select a month" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {archiveMonths.map(m => (
+                        <SelectItem key={m} value={m}>{formatMonthLabel(m)}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <MonthGrid
+                  month={selectedArchiveMonth || archiveMonths[0]}
+                  showTitle={false}
+                  isClosed
+                  selectedOffice={selectedOffice}
+                  officeOptions={officeOptions}
+                  onSelectedOfficeChange={setSelectedOffice}
+                />
+              </TabsContent>
+            )}
           </Tabs>
         </TabsContent>
 
