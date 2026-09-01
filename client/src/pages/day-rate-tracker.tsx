@@ -588,9 +588,7 @@ export default function DayRateTrackerPage() {
         <TabsContent value="day-rate-tracker" className="space-y-4">
           <div className="flex items-start justify-between gap-4 flex-wrap">
             <p className="max-w-3xl text-sm leading-6 text-muted-foreground">
-              {formatMonthLabel(previousMonth)} (closed) vs {formatMonthLabel(currentMonth)} vs {formatMonthLabel(nextMonth)} —
-              cumulative revenue and day rate per franchise, from the People Planner Financial Summary. This comparison
-              always tracks the last closed, current and next calendar month, so it rolls forward automatically each month.
+              This comparison always tracks the last closed, current and next calendar month, so it rolls forward automatically each month.
             </p>
             <Button
               onClick={() => runAutomationMutation.mutate()}
