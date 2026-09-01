@@ -544,7 +544,7 @@ export default function DayRateTrackerPage() {
               <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm shadow-primary/20">
                 <PoundSterling className="h-5 w-5" aria-hidden="true" />
               </span>
-              Day Rate Tracker
+              Data House
             </h1>
             <p className="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">
               {formatMonthLabel(previousMonth)} (closed) vs {formatMonthLabel(currentMonth)} vs {formatMonthLabel(nextMonth)} —
@@ -621,53 +621,64 @@ export default function DayRateTrackerPage() {
         </Card>
       )}
 
-      <Tabs defaultValue={currentMonth} className="space-y-4">
+      <Tabs defaultValue="day-rate-tracker" className="space-y-4">
         <TabsList className="h-auto rounded-xl bg-muted/70 p-1.5 shadow-inner">
-          <TabsTrigger value={previousMonth} className="rounded-lg px-3 py-2 text-xs font-medium transition-all data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:shadow-sm sm:px-4 sm:text-sm" data-testid={`tab-${previousMonth}`}>
-            {formatMonthLabel(previousMonth)}
-            <Badge variant="secondary" className="ml-1.5 font-normal text-[10px] px-1.5 py-0">Closed</Badge>
+          <TabsTrigger value="day-rate-tracker" className="rounded-lg px-3 py-2 text-xs font-medium transition-all data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:shadow-sm sm:px-4 sm:text-sm" data-testid="tab-section-day-rate-tracker">
+            Day Rate Tracker
           </TabsTrigger>
-          <TabsTrigger value={currentMonth} className="rounded-lg px-3 py-2 text-xs font-medium transition-all data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:shadow-sm sm:px-4 sm:text-sm" data-testid={`tab-${currentMonth}`}>
-            {formatMonthLabel(currentMonth)}
-          </TabsTrigger>
-          <TabsTrigger value={nextMonth} className="rounded-lg px-3 py-2 text-xs font-medium transition-all data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:shadow-sm sm:px-4 sm:text-sm" data-testid={`tab-${nextMonth}`}>
-            {formatMonthLabel(nextMonth)}
-          </TabsTrigger>
-          <TabsTrigger value="kpi-tracker" className="rounded-lg px-3 py-2 text-xs font-medium transition-all data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:shadow-sm sm:px-4 sm:text-sm" data-testid="tab-kpi-tracker">
+          <TabsTrigger value="kpi-tracker" className="rounded-lg px-3 py-2 text-xs font-medium transition-all data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:shadow-sm sm:px-4 sm:text-sm" data-testid="tab-section-kpi-tracker">
             KPI Tracker
           </TabsTrigger>
-          <TabsTrigger value="annual-roadmap" className="rounded-lg px-3 py-2 text-xs font-medium transition-all data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:shadow-sm sm:px-4 sm:text-sm" data-testid="tab-annual-roadmap">
+          <TabsTrigger value="annual-roadmap" className="rounded-lg px-3 py-2 text-xs font-medium transition-all data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:shadow-sm sm:px-4 sm:text-sm" data-testid="tab-section-annual-roadmap">
             Annual Roadmap
           </TabsTrigger>
         </TabsList>
-        <TabsContent value={previousMonth}>
-          <MonthGrid
-            month={previousMonth}
-            showTitle={false}
-            isClosed
-            selectedOffice={selectedOffice}
-            officeOptions={officeOptions}
-            onSelectedOfficeChange={setSelectedOffice}
-          />
+
+        <TabsContent value="day-rate-tracker" className="space-y-4">
+          <Tabs defaultValue={currentMonth} className="space-y-4">
+            <TabsList className="h-auto rounded-lg bg-muted/50 p-1">
+              <TabsTrigger value={previousMonth} className="rounded-md px-3 py-1.5 text-xs font-medium transition-all data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:shadow-sm sm:text-sm" data-testid={`tab-${previousMonth}`}>
+                {formatMonthLabel(previousMonth)}
+                <Badge variant="secondary" className="ml-1.5 font-normal text-[10px] px-1.5 py-0">Closed</Badge>
+              </TabsTrigger>
+              <TabsTrigger value={currentMonth} className="rounded-md px-3 py-1.5 text-xs font-medium transition-all data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:shadow-sm sm:text-sm" data-testid={`tab-${currentMonth}`}>
+                {formatMonthLabel(currentMonth)}
+              </TabsTrigger>
+              <TabsTrigger value={nextMonth} className="rounded-md px-3 py-1.5 text-xs font-medium transition-all data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:shadow-sm sm:text-sm" data-testid={`tab-${nextMonth}`}>
+                {formatMonthLabel(nextMonth)}
+              </TabsTrigger>
+            </TabsList>
+            <TabsContent value={previousMonth}>
+              <MonthGrid
+                month={previousMonth}
+                showTitle={false}
+                isClosed
+                selectedOffice={selectedOffice}
+                officeOptions={officeOptions}
+                onSelectedOfficeChange={setSelectedOffice}
+              />
+            </TabsContent>
+            <TabsContent value={currentMonth}>
+              <MonthGrid
+                month={currentMonth}
+                showTitle={false}
+                selectedOffice={selectedOffice}
+                officeOptions={officeOptions}
+                onSelectedOfficeChange={setSelectedOffice}
+              />
+            </TabsContent>
+            <TabsContent value={nextMonth}>
+              <MonthGrid
+                month={nextMonth}
+                showTitle={false}
+                selectedOffice={selectedOffice}
+                officeOptions={officeOptions}
+                onSelectedOfficeChange={setSelectedOffice}
+              />
+            </TabsContent>
+          </Tabs>
         </TabsContent>
-        <TabsContent value={currentMonth}>
-          <MonthGrid
-            month={currentMonth}
-            showTitle={false}
-            selectedOffice={selectedOffice}
-            officeOptions={officeOptions}
-            onSelectedOfficeChange={setSelectedOffice}
-          />
-        </TabsContent>
-        <TabsContent value={nextMonth}>
-          <MonthGrid
-            month={nextMonth}
-            showTitle={false}
-            selectedOffice={selectedOffice}
-            officeOptions={officeOptions}
-            onSelectedOfficeChange={setSelectedOffice}
-          />
-        </TabsContent>
+
         <TabsContent value="kpi-tracker">
           <KpiWeeklyGrid />
         </TabsContent>
