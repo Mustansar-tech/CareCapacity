@@ -118,16 +118,17 @@ function formatDateHeader(date: string): { day: string; weekday: string } {
 }
 
 /**
- * Always compares "this calendar month" vs "next calendar month" — computed from
- * today's date rather than stored, so once the calendar rolls into September this
- * automatically becomes Sep vs Oct without anyone re-selecting anything.
+ * Always compares "last calendar month" (closed) vs "this calendar month" vs
+ * "next calendar month" — computed from today's date rather than stored, so
+ * once the calendar rolls into September this automatically becomes Aug vs
+ * Sep vs Oct without anyone re-selecting anything.
  */
-function getComparisonMonths(now: Date): [string, string] {
+function getComparisonMonths(now: Date): [string, string, string] {
   const pad = (n: number) => String(n).padStart(2, "0");
   const fmt = (y: number, m: number) => `${y}-${pad(m + 1)}`;
   const year = now.getUTCFullYear();
   const month = now.getUTCMonth();
-  return [fmt(year, month), fmt(year, month + 1)];
+  return [fmt(year, month - 1), fmt(year, month), fmt(year, month + 1)];
 }
 
 type Trend = "up" | "down" | "flat" | null;
@@ -171,12 +172,14 @@ function getTrendLabel(trend: Trend): string {
 function MonthGrid({
   month,
   showTitle = true,
+  isClosed = false,
   selectedOffice = ALL_FRANCHISES_FILTER,
   officeOptions,
   onSelectedOfficeChange,
 }: {
   month: string;
   showTitle?: boolean;
+  isClosed?: boolean;
   selectedOffice?: string;
   officeOptions: { office: string; label: string }[];
   onSelectedOfficeChange: (office: string) => void;
@@ -239,7 +242,14 @@ function MonthGrid({
 
   return (
     <div className="space-y-4">
-      {showTitle && <h2 className="text-lg font-semibold tracking-tight">{formatMonthLabel(month)}</h2>}
+      {showTitle && (
+        <h2 className="flex items-center gap-2 text-lg font-semibold tracking-tight">
+          {formatMonthLabel(month)}
+          {isClosed && (
+            <Badge variant="secondary" className="font-normal text-muted-foreground">Closed</Badge>
+          )}
+        </h2>
+      )}
 
       {gridQuery.isLoading && (
         <Card className="border-border/70 shadow-sm"><CardContent className="py-10 text-center text-muted-foreground">Loading…</CardContent></Card>
@@ -268,7 +278,7 @@ function MonthGrid({
              <Card className="border-border/70 bg-gradient-to-br from-secondary/[0.07] via-card to-card shadow-sm">
               <CardHeader className="pb-2">
                  <CardTitle className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-                  {selectedOffice === ALL_FRANCHISES_FILTER ? "Group Total" : "Franchise Total"} — {grid.dates[grid.dates.length - 1] && formatDateHeader(grid.dates[grid.dates.length - 1]).day}
+                  {selectedOffice === ALL_FRANCHISES_FILTER ? "Group Total" : "Franchise Total"} — {isClosed ? "Final" : grid.dates[grid.dates.length - 1] && formatDateHeader(grid.dates[grid.dates.length - 1]).day}
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -428,7 +438,7 @@ export default function DayRateTrackerPage() {
   const { isAdmin } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [currentMonth, nextMonth] = useMemo(() => getComparisonMonths(new Date()), []);
+  const [previousMonth, currentMonth, nextMonth] = useMemo(() => getComparisonMonths(new Date()), []);
   const [selectedOffice, setSelectedOffice] = useState<string>(ALL_FRANCHISES_FILTER);
 
   const franchisesQuery = useQuery<DayRateFranchiseRef[]>({
@@ -536,9 +546,9 @@ export default function DayRateTrackerPage() {
               Day Rate Tracker
             </h1>
             <p className="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">
-              {formatMonthLabel(currentMonth)} vs {formatMonthLabel(nextMonth)} — cumulative revenue and day rate per
-              franchise, from the People Planner Financial Summary. This comparison always tracks the current and next
-              calendar month, so it rolls forward automatically each month.
+              {formatMonthLabel(previousMonth)} (closed) vs {formatMonthLabel(currentMonth)} vs {formatMonthLabel(nextMonth)} —
+              cumulative revenue and day rate per franchise, from the People Planner Financial Summary. This comparison
+              always tracks the last closed, current and next calendar month, so it rolls forward automatically each month.
             </p>
           </div>
         <Button
@@ -612,6 +622,10 @@ export default function DayRateTrackerPage() {
 
       <Tabs defaultValue={currentMonth} className="space-y-4">
         <TabsList className="h-auto rounded-xl bg-muted/70 p-1.5 shadow-inner">
+          <TabsTrigger value={previousMonth} className="rounded-lg px-3 py-2 text-xs font-medium transition-all data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:shadow-sm sm:px-4 sm:text-sm" data-testid={`tab-${previousMonth}`}>
+            {formatMonthLabel(previousMonth)}
+            <Badge variant="secondary" className="ml-1.5 font-normal text-[10px] px-1.5 py-0">Closed</Badge>
+          </TabsTrigger>
           <TabsTrigger value={currentMonth} className="rounded-lg px-3 py-2 text-xs font-medium transition-all data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:shadow-sm sm:px-4 sm:text-sm" data-testid={`tab-${currentMonth}`}>
             {formatMonthLabel(currentMonth)}
           </TabsTrigger>
@@ -622,6 +636,16 @@ export default function DayRateTrackerPage() {
             KPI Tracker
           </TabsTrigger>
         </TabsList>
+        <TabsContent value={previousMonth}>
+          <MonthGrid
+            month={previousMonth}
+            showTitle={false}
+            isClosed
+            selectedOffice={selectedOffice}
+            officeOptions={officeOptions}
+            onSelectedOfficeChange={setSelectedOffice}
+          />
+        </TabsContent>
         <TabsContent value={currentMonth}>
           <MonthGrid
             month={currentMonth}
