@@ -1,0 +1,19 @@
+kind = "design"
+previewPath = "/__day-rate-mockup/"
+title = "Day Rate Visual Mockup"
+description = "An isolated visual preview for the Day Rate Tracker redesign."
+version = "1.0.0"
+id = "artifacts/day-rate-visual-mockup"
+router = "path"
+
+[[services]]
+name = "Component Preview Server"
+paths = [ "/__day-rate-mockup/" ]
+localPort = 19111
+
+[services.development]
+run = "npm run dev"
+
+[services.env]
+PORT = "19111"
+BASE_PATH = "/__day-rate-mockup/"
