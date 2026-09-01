@@ -473,7 +473,7 @@ export function KpiWeeklyGrid() {
                     {FLAT_COLUMNS.map(col => {
                       const palette = OWNER_COLORS[col.owner];
                       return (
-                        <th key={col.field} className={`border-b-2 border-r px-2 py-1.5 text-right font-medium whitespace-nowrap ${palette.colHeader}`}>
+                        <th key={col.field} className={`border-b-2 border-r px-2 py-1.5 text-right font-medium whitespace-nowrap min-w-[88px] ${palette.colHeader}`}>
                           {col.label}
                         </th>
                       );
@@ -496,7 +496,7 @@ export function KpiWeeklyGrid() {
                           if (col.computed) {
                             const value = col.field === "dayRate" ? dayRate : col.field === "enquiryConversion" ? enquiryConversion : hireConversion;
                             return (
-                              <td key={col.field} className={`border-b border-r px-2 py-1.5 text-right tabular-nums font-semibold ${palette.col} ${palette.accent}`}>
+                              <td key={col.field} className={`border-b border-r px-2 py-1.5 text-right tabular-nums font-semibold min-w-[88px] ${palette.col} ${palette.accent}`}>
                                 {formatValue(col.kind, value)}
                               </td>
                             );
@@ -504,10 +504,10 @@ export function KpiWeeklyGrid() {
                           const field = col.field as EditableField;
                           const rawValue = row[field];
                           return (
-                            <td key={field} className={`border-b border-r p-0 ${palette.col}`}>
+                            <td key={field} className={`border-b border-r p-0 min-w-[88px] ${palette.col}`}>
                               <Input
                                 type="number"
-                                className={`h-8 border-none rounded-none text-right tabular-nums shadow-none focus-visible:ring-1 focus-visible:z-10 relative bg-transparent ${palette.col}`}
+                                className={`h-8 border-none rounded-none text-right tabular-nums shadow-none focus-visible:ring-1 focus-visible:z-10 relative bg-transparent px-2 ${palette.col}`}
                                 value={rawValue === null ? "" : (rawValue as number)}
                                 onChange={e => updateCell(store, field, e.target.value)}
                                 data-testid={`input-kpi-${store.replace(/\s+/g, "-")}-${field}`}
@@ -522,7 +522,7 @@ export function KpiWeeklyGrid() {
                     <tr className="bg-muted/60 font-semibold">
                       <td className="sticky left-0 z-10 bg-muted/60 border-t-2 border-r px-3 py-2">SUR Group Total</td>
                       {FLAT_COLUMNS.map(col => (
-                        <td key={col.field} className="border-t-2 border-r px-2 py-2 text-right tabular-nums">
+                        <td key={col.field} className="border-t-2 border-r px-2 py-2 text-right tabular-nums min-w-[88px]">
                           {formatValue(col.kind, (totalRow as any)[col.field] ?? 0)}
                         </td>
                       ))}
