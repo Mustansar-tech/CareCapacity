@@ -86,122 +86,6 @@ interface DayRateFranchiseRef {
 
 const ALL_FRANCHISES_FILTER = "all";
 
-// ── Franchise colour bands ─────────────────────────────────────────────────────
-// Every office/franchise gets its own vivid colour — mirroring the owner
-// colour bands on the KPI Tracker (Daniel/Sandra/Craig/Sean/Willie) — so rows
-// belonging to the same franchise read as one group at a glance, and
-// different franchises are instantly distinguishable when "All franchises"
-// is selected. Colour is derived from a stable hash of the office code, so a
-// given franchise always gets the same colour across renders, filters and
-// sessions rather than shifting with sort order.
-interface FranchiseTheme {
-  dot: string;
-  chip: string;
-  text: string;
-  topBorder: string;
-  leftBorder: string;
-  stickyBg: string;
-  stickyHoverBg: string;
-  rowTint: string;
-  rowHover: string;
-  swatch: string;
-}
-
-const FRANCHISE_PALETTE: FranchiseTheme[] = [
-  {
-    dot: "bg-sky-500", chip: "bg-sky-600", text: "text-sky-800 dark:text-sky-300",
-    topBorder: "border-t-sky-300 dark:border-t-sky-800", leftBorder: "border-l-sky-500",
-    stickyBg: "bg-sky-50/70 dark:bg-sky-950/25", stickyHoverBg: "group-hover:bg-sky-100/70 dark:group-hover:bg-sky-900/30",
-    rowTint: "bg-sky-50/40 dark:bg-sky-950/10", rowHover: "hover:bg-sky-100/50 dark:hover:bg-sky-900/20",
-    swatch: "bg-sky-500",
-  },
-  {
-    dot: "bg-violet-500", chip: "bg-violet-600", text: "text-violet-800 dark:text-violet-300",
-    topBorder: "border-t-violet-300 dark:border-t-violet-800", leftBorder: "border-l-violet-500",
-    stickyBg: "bg-violet-50/70 dark:bg-violet-950/25", stickyHoverBg: "group-hover:bg-violet-100/70 dark:group-hover:bg-violet-900/30",
-    rowTint: "bg-violet-50/40 dark:bg-violet-950/10", rowHover: "hover:bg-violet-100/50 dark:hover:bg-violet-900/20",
-    swatch: "bg-violet-500",
-  },
-  {
-    dot: "bg-amber-500", chip: "bg-amber-500", text: "text-amber-800 dark:text-amber-300",
-    topBorder: "border-t-amber-300 dark:border-t-amber-800", leftBorder: "border-l-amber-500",
-    stickyBg: "bg-amber-50/70 dark:bg-amber-950/25", stickyHoverBg: "group-hover:bg-amber-100/70 dark:group-hover:bg-amber-900/30",
-    rowTint: "bg-amber-50/40 dark:bg-amber-950/10", rowHover: "hover:bg-amber-100/50 dark:hover:bg-amber-900/20",
-    swatch: "bg-amber-500",
-  },
-  {
-    dot: "bg-rose-500", chip: "bg-rose-600", text: "text-rose-800 dark:text-rose-300",
-    topBorder: "border-t-rose-300 dark:border-t-rose-800", leftBorder: "border-l-rose-500",
-    stickyBg: "bg-rose-50/70 dark:bg-rose-950/25", stickyHoverBg: "group-hover:bg-rose-100/70 dark:group-hover:bg-rose-900/30",
-    rowTint: "bg-rose-50/40 dark:bg-rose-950/10", rowHover: "hover:bg-rose-100/50 dark:hover:bg-rose-900/20",
-    swatch: "bg-rose-500",
-  },
-  {
-    dot: "bg-teal-500", chip: "bg-teal-600", text: "text-teal-800 dark:text-teal-300",
-    topBorder: "border-t-teal-300 dark:border-t-teal-800", leftBorder: "border-l-teal-500",
-    stickyBg: "bg-teal-50/70 dark:bg-teal-950/25", stickyHoverBg: "group-hover:bg-teal-100/70 dark:group-hover:bg-teal-900/30",
-    rowTint: "bg-teal-50/40 dark:bg-teal-950/10", rowHover: "hover:bg-teal-100/50 dark:hover:bg-teal-900/20",
-    swatch: "bg-teal-500",
-  },
-  {
-    dot: "bg-fuchsia-500", chip: "bg-fuchsia-600", text: "text-fuchsia-800 dark:text-fuchsia-300",
-    topBorder: "border-t-fuchsia-300 dark:border-t-fuchsia-800", leftBorder: "border-l-fuchsia-500",
-    stickyBg: "bg-fuchsia-50/70 dark:bg-fuchsia-950/25", stickyHoverBg: "group-hover:bg-fuchsia-100/70 dark:group-hover:bg-fuchsia-900/30",
-    rowTint: "bg-fuchsia-50/40 dark:bg-fuchsia-950/10", rowHover: "hover:bg-fuchsia-100/50 dark:hover:bg-fuchsia-900/20",
-    swatch: "bg-fuchsia-500",
-  },
-  {
-    dot: "bg-orange-500", chip: "bg-orange-600", text: "text-orange-800 dark:text-orange-300",
-    topBorder: "border-t-orange-300 dark:border-t-orange-800", leftBorder: "border-l-orange-500",
-    stickyBg: "bg-orange-50/70 dark:bg-orange-950/25", stickyHoverBg: "group-hover:bg-orange-100/70 dark:group-hover:bg-orange-900/30",
-    rowTint: "bg-orange-50/40 dark:bg-orange-950/10", rowHover: "hover:bg-orange-100/50 dark:hover:bg-orange-900/20",
-    swatch: "bg-orange-500",
-  },
-  {
-    dot: "bg-indigo-500", chip: "bg-indigo-600", text: "text-indigo-800 dark:text-indigo-300",
-    topBorder: "border-t-indigo-300 dark:border-t-indigo-800", leftBorder: "border-l-indigo-500",
-    stickyBg: "bg-indigo-50/70 dark:bg-indigo-950/25", stickyHoverBg: "group-hover:bg-indigo-100/70 dark:group-hover:bg-indigo-900/30",
-    rowTint: "bg-indigo-50/40 dark:bg-indigo-950/10", rowHover: "hover:bg-indigo-100/50 dark:hover:bg-indigo-900/20",
-    swatch: "bg-indigo-500",
-  },
-  {
-    dot: "bg-emerald-500", chip: "bg-emerald-600", text: "text-emerald-800 dark:text-emerald-300",
-    topBorder: "border-t-emerald-300 dark:border-t-emerald-800", leftBorder: "border-l-emerald-500",
-    stickyBg: "bg-emerald-50/70 dark:bg-emerald-950/25", stickyHoverBg: "group-hover:bg-emerald-100/70 dark:group-hover:bg-emerald-900/30",
-    rowTint: "bg-emerald-50/40 dark:bg-emerald-950/10", rowHover: "hover:bg-emerald-100/50 dark:hover:bg-emerald-900/20",
-    swatch: "bg-emerald-500",
-  },
-  {
-    dot: "bg-pink-500", chip: "bg-pink-600", text: "text-pink-800 dark:text-pink-300",
-    topBorder: "border-t-pink-300 dark:border-t-pink-800", leftBorder: "border-l-pink-500",
-    stickyBg: "bg-pink-50/70 dark:bg-pink-950/25", stickyHoverBg: "group-hover:bg-pink-100/70 dark:group-hover:bg-pink-900/30",
-    rowTint: "bg-pink-50/40 dark:bg-pink-950/10", rowHover: "hover:bg-pink-100/50 dark:hover:bg-pink-900/20",
-    swatch: "bg-pink-500",
-  },
-  {
-    dot: "bg-cyan-500", chip: "bg-cyan-600", text: "text-cyan-800 dark:text-cyan-300",
-    topBorder: "border-t-cyan-300 dark:border-t-cyan-800", leftBorder: "border-l-cyan-500",
-    stickyBg: "bg-cyan-50/70 dark:bg-cyan-950/25", stickyHoverBg: "group-hover:bg-cyan-100/70 dark:group-hover:bg-cyan-900/30",
-    rowTint: "bg-cyan-50/40 dark:bg-cyan-950/10", rowHover: "hover:bg-cyan-100/50 dark:hover:bg-cyan-900/20",
-    swatch: "bg-cyan-500",
-  },
-  {
-    dot: "bg-lime-500", chip: "bg-lime-600", text: "text-lime-800 dark:text-lime-300",
-    topBorder: "border-t-lime-300 dark:border-t-lime-800", leftBorder: "border-l-lime-500",
-    stickyBg: "bg-lime-50/70 dark:bg-lime-950/25", stickyHoverBg: "group-hover:bg-lime-100/70 dark:group-hover:bg-lime-900/30",
-    rowTint: "bg-lime-50/40 dark:bg-lime-950/10", rowHover: "hover:bg-lime-100/50 dark:hover:bg-lime-900/20",
-    swatch: "bg-lime-500",
-  },
-];
-
-function getFranchiseTheme(office: string): FranchiseTheme {
-  let hash = 0;
-  for (let i = 0; i < office.length; i++) {
-    hash = (hash * 31 + office.charCodeAt(i)) >>> 0;
-  }
-  return FRANCHISE_PALETTE[hash % FRANCHISE_PALETTE.length];
-}
-
 // ── Formatting helpers ────────────────────────────────────────────────────────
 
 // All monetary figures on this dashboard allow up to 2 decimal places and
@@ -383,28 +267,22 @@ function MonthGrid({
       {grid && grid.dates.length > 0 && (
         <>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-             <Card className="relative overflow-hidden border-sky-200/60 bg-gradient-to-br from-sky-500/[0.08] via-card to-card shadow-sm dark:border-sky-900/40">
-               <div className="pointer-events-none absolute -right-8 -top-10 h-28 w-28 rounded-full bg-sky-400/10 blur-2xl" aria-hidden="true" />
+             <Card className="border-border/70 bg-gradient-to-br from-primary/[0.06] via-card to-card shadow-sm">
               <CardHeader className="pb-2">
-                 <CardTitle className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.14em] text-sky-700/80 dark:text-sky-300/80">
-                   <span className="h-1.5 w-1.5 rounded-full bg-sky-500 shrink-0" aria-hidden="true" />
-                   Days in Month
-                 </CardTitle>
+                 <CardTitle className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">Days in Month</CardTitle>
               </CardHeader>
-               <CardContent className="relative flex items-end gap-2 text-3xl font-semibold tracking-tight">
+               <CardContent className="flex items-end gap-2 text-3xl font-semibold tracking-tight">
                  {grid.daysInMonth}
                  <span className="pb-1 text-sm font-normal text-muted-foreground">days</span>
                </CardContent>
             </Card>
-             <Card className="relative overflow-hidden border-violet-200/60 bg-gradient-to-br from-violet-500/[0.08] via-card to-card shadow-sm dark:border-violet-900/40">
-               <div className="pointer-events-none absolute -right-8 -top-10 h-28 w-28 rounded-full bg-violet-400/10 blur-2xl" aria-hidden="true" />
+             <Card className="border-border/70 bg-gradient-to-br from-secondary/[0.07] via-card to-card shadow-sm">
               <CardHeader className="pb-2">
-                 <CardTitle className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.14em] text-violet-700/80 dark:text-violet-300/80">
-                   <span className="h-1.5 w-1.5 rounded-full bg-violet-500 shrink-0" aria-hidden="true" />
+                 <CardTitle className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
                   {selectedOffice === ALL_FRANCHISES_FILTER ? "Group Total" : "Franchise Total"} — {isClosed ? "Final" : grid.dates[grid.dates.length - 1] && formatDateHeader(grid.dates[grid.dates.length - 1]).day}
                 </CardTitle>
               </CardHeader>
-              <CardContent className="relative">
+              <CardContent>
                  <div className="text-3xl font-semibold tracking-tight">{grandTotal ? gbp.format(grandTotal.revenue) : "—"}</div>
                  <div className={`mt-1 flex items-center gap-1.5 text-sm font-medium ${trendClasses(grandTotalTrend)}`} title={getTrendLabel(grandTotalTrend)}>
                    <span>Day rate: {grandTotal ? gbpPrecise.format(grandTotal.dayRate) : "—"}</span>
@@ -429,19 +307,6 @@ function MonthGrid({
                    </span>
                  </div>
                </div>
-               {selectedOffice === ALL_FRANCHISES_FILTER && officeGroups.length > 1 && (
-                 <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 border-b bg-muted/10 px-3 py-2 text-xs" aria-label="Franchise colour key">
-                   {officeGroups.map(([office, rows]) => {
-                     const theme = getFranchiseTheme(office);
-                     return (
-                       <span key={office} className="inline-flex items-center gap-1.5 text-muted-foreground">
-                         <span className={`h-2 w-2 rounded-full ${theme.swatch}`} aria-hidden="true" />
-                         <span className="font-medium">{rows[0]?.franchiseName ?? office}</span>
-                       </span>
-                     );
-                   })}
-                 </div>
-               )}
               <div className="overflow-x-auto">
                 <table className="border-collapse text-sm w-full" data-testid={`table-day-rate-grid-${month}`}>
                   <thead>
@@ -493,20 +358,13 @@ function MonthGrid({
                     </tr>
                   </thead>
                   <tbody>
-                     {officeGroups.map(([office, rows]) => {
-                      const theme = getFranchiseTheme(office);
-                      return rows.map((f, idx) => (
-                         <tr key={f.id} className={`group transition-colors ${theme.rowTint} ${theme.rowHover} ${idx === 0 ? `border-t-2 ${theme.topBorder}` : ""}`}>
-                           <td className={`sticky left-0 z-10 border-b border-r border-l-4 ${theme.leftBorder} px-3 py-1.5 whitespace-nowrap transition-colors ${theme.stickyBg} ${theme.stickyHoverBg} ${idx === 0 ? `border-t-2 ${theme.topBorder}` : ""}`}>
+                     {officeGroups.map(([office, rows]) => (
+                      rows.map((f, idx) => (
+                         <tr key={f.id} className={`group transition-colors hover:bg-primary/[0.035] ${idx === 0 ? "border-t-2 border-t-primary/10" : ""}`}>
+                           <td className={`sticky left-0 z-10 border-b border-r px-3 py-1.5 whitespace-nowrap transition-colors group-hover:bg-primary/[0.035] ${idx === 0 ? "border-t-2 border-t-primary/10" : ""} bg-background`}>
                             <div className="flex items-center gap-2">
-                               {idx === 0 ? (
-                                 <span className={`inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-md ${theme.chip} shadow-sm`}>
-                                   <Home className="h-3 w-3 text-white" aria-hidden="true" />
-                                 </span>
-                               ) : (
-                                 <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${theme.dot} ml-5`} aria-hidden="true" />
-                               )}
-                              <span className={idx === 0 ? `font-semibold ${theme.text}` : "text-muted-foreground"}>
+                               {idx === 0 && <Home className="h-3.5 w-3.5 text-primary/70 shrink-0" />}
+                              <span className={idx === 0 ? "font-medium" : "text-muted-foreground pl-5"}>
                                 {f.franchiseName}
                               </span>
                               {f.isLiveInCare && (
@@ -538,8 +396,8 @@ function MonthGrid({
                             );
                           })}
                         </tr>
-                      ));
-                    })}
+                      ))
+                    ))}
                      <tr className="bg-muted/60 font-semibold">
                        <td className="sticky left-0 z-10 bg-muted/60 border-t border-r px-3 py-2">
                         {selectedOffice === ALL_FRANCHISES_FILTER ? "Group Total" : "Franchise Total"}
@@ -699,13 +557,11 @@ export default function DayRateTrackerPage() {
 
   return (
     <div className="min-h-full p-4 sm:p-6 space-y-6" data-testid="page-day-rate-tracker">
-      <div className="relative overflow-hidden rounded-2xl border border-primary/10 bg-gradient-to-br from-primary/[0.10] via-background to-violet-500/[0.07] p-5 shadow-sm sm:p-6">
-        <div className="pointer-events-none absolute -right-16 -top-20 h-48 w-48 rounded-full bg-primary/15 blur-3xl" aria-hidden="true" />
-        <div className="pointer-events-none absolute -left-10 bottom-[-3.5rem] h-36 w-36 rounded-full bg-violet-500/15 blur-3xl" aria-hidden="true" />
-        <div className="pointer-events-none absolute right-1/3 top-0 h-24 w-24 rounded-full bg-amber-400/10 blur-2xl" aria-hidden="true" />
+      <div className="relative overflow-hidden rounded-2xl border border-primary/10 bg-gradient-to-br from-primary/[0.09] via-background to-secondary/[0.08] p-5 shadow-sm sm:p-6">
+        <div className="pointer-events-none absolute -right-16 -top-20 h-48 w-48 rounded-full bg-primary/10 blur-3xl" aria-hidden="true" />
         <div className="relative">
           <h1 className="text-2xl font-semibold tracking-tight flex items-center gap-2.5 sm:text-3xl">
-            <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-violet-600 text-primary-foreground shadow-md shadow-primary/25">
+            <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm shadow-primary/20">
               <PoundSterling className="h-5 w-5" aria-hidden="true" />
             </span>
             Data House
@@ -718,16 +574,13 @@ export default function DayRateTrackerPage() {
 
       <Tabs defaultValue="day-rate-tracker" className="space-y-4">
         <TabsList className="h-auto rounded-xl bg-muted/70 p-1.5 shadow-inner">
-          <TabsTrigger value="day-rate-tracker" className="rounded-lg px-3 py-2 text-xs font-medium text-muted-foreground transition-all data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:shadow-sm sm:px-4 sm:text-sm" data-testid="tab-section-day-rate-tracker">
-            <span className="mr-1.5 inline-block h-1.5 w-1.5 rounded-full bg-primary align-middle" aria-hidden="true" />
+          <TabsTrigger value="day-rate-tracker" className="rounded-lg px-3 py-2 text-xs font-medium transition-all data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:shadow-sm sm:px-4 sm:text-sm" data-testid="tab-section-day-rate-tracker">
             Day Rate Tracker
           </TabsTrigger>
-          <TabsTrigger value="kpi-tracker" className="rounded-lg px-3 py-2 text-xs font-medium text-muted-foreground transition-all data-[state=active]:bg-background data-[state=active]:text-violet-600 dark:data-[state=active]:text-violet-400 data-[state=active]:shadow-sm sm:px-4 sm:text-sm" data-testid="tab-section-kpi-tracker">
-            <span className="mr-1.5 inline-block h-1.5 w-1.5 rounded-full bg-violet-500 align-middle" aria-hidden="true" />
+          <TabsTrigger value="kpi-tracker" className="rounded-lg px-3 py-2 text-xs font-medium transition-all data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:shadow-sm sm:px-4 sm:text-sm" data-testid="tab-section-kpi-tracker">
             KPI Tracker
           </TabsTrigger>
-          <TabsTrigger value="annual-roadmap" className="rounded-lg px-3 py-2 text-xs font-medium text-muted-foreground transition-all data-[state=active]:bg-background data-[state=active]:text-amber-600 dark:data-[state=active]:text-amber-400 data-[state=active]:shadow-sm sm:px-4 sm:text-sm" data-testid="tab-section-annual-roadmap">
-            <span className="mr-1.5 inline-block h-1.5 w-1.5 rounded-full bg-amber-500 align-middle" aria-hidden="true" />
+          <TabsTrigger value="annual-roadmap" className="rounded-lg px-3 py-2 text-xs font-medium transition-all data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:shadow-sm sm:px-4 sm:text-sm" data-testid="tab-section-annual-roadmap">
             Annual Roadmap
           </TabsTrigger>
         </TabsList>
