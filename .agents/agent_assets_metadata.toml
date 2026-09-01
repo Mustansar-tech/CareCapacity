@@ -6,24 +6,29 @@ id = "vOW6smyHGL0lqhHfheYYw"
 uri = "file://docs/capacity-outlook.md"
 type = "text"
 title = "Capacity Outlook — Rules, Logic & Improvements"
+logical_id = "fae40eab-b1ef-41bc-b2a2-6554dea2edea"
 
 [[outputs]]
 id = "5lQOzoQCpRDW6g1aQBv6a"
 uri = "file://email-update.html"
-type = "unspecified"
+type = "text"
 title = "Platform Update Email — Dashboard & Capacity Outlook"
+logical_id = "80881f80-3263-44f7-9a9c-ea877e038ef7"
+content_type = "text/html"
 
 [[outputs]]
 id = "bEZwEICwK27G4JGD7NIjQ"
 uri = "file://email-update.txt"
 type = "text"
 title = "Email — ready to paste into Outlook"
+logical_id = "638a3189-05d0-42c2-afc2-206bddf2947f"
 
 [[outputs]]
 id = "rrWIM-fbnm8IXvjZT_j_Z"
 uri = "file://email-platform-update.txt"
 type = "text"
 title = "Updated Email — Before & After Dashboard Redesign"
+logical_id = "5f3318c5-7a13-420f-b4d4-fab9e1d8941a"
 
 [[outputs]]
 id = "yH6RR0Rkwy73EWTQ42jrr"
@@ -31,6 +36,7 @@ uri = "file://attached_assets/Postcodes_Only_Smappen_Import_1786452402272.xlsx"
 type = "table"
 title = "Postcodes_Only_Smappen_Import.xlsx"
 description = "Updated territory postcode list including the new West Lothian territory (20 territories, 693 rows)."
+logical_id = "c5f4104d-77ce-48d1-b483-b46d3ab63a10"
 
 [[outputs]]
 id = "ESi3rqFynt5ZxHbkv68Ll"
@@ -38,6 +44,7 @@ uri = "file://attached_assets/West_Lothian_Territory_Postcodes.xlsx"
 type = "table"
 title = "West_Lothian_Territory_Postcodes.xlsx"
 description = "New Excel sheet listing West Lothian's 25 postcode sectors (Independent Franchise territory)."
+logical_id = "2530e5d7-1020-4f0c-8971-9303a454393c"
 
 [[outputs]]
 id = "GP-UxmV-9IaQh_rn04qcq"
@@ -45,6 +52,7 @@ uri = "file://attached_assets/Scotland_Territories_Summary_and_Full.xlsx"
 type = "table"
 title = "Scotland_Territories_Summary_and_Full.xlsx"
 description = "Sheet 1 'Summary': all 20 territories with their franchise group and postcode-sector count (incl. West Lothian, 25 sectors). Sheet 2 'All Postcode Sectors': the full 693-row list of every sector for every territory."
+logical_id = "e9271ae1-3fab-4845-8e27-1611cf0d347f"
 
 [[outputs]]
 id = "v1fyFGeB4LBz-557LFIH6"
@@ -52,3 +60,19 @@ uri = "file://attached_assets/announcement-email.html"
 type = "text"
 title = "Care Capacity — Product Update (announcement email)"
 description = "Ready-to-use HTML for today's announcement email: full Scotland territory map, LIC leaver KPI fix, cross-branch GH Loss fix, and multi-week enquiry matcher."
+logical_id = "4b45907e-a6b0-43ca-aee8-ac6acd8cb701"
+content_type = "text/html"
+
+[[outputs]]
+id = "C2ESmw_aNSkV3Vzsei3_a"
+uri = "file://Annual_Roadmap_2026.xlsx"
+type = "table"
+title = "SUR Group — 2026 Annual Roadmap (Consolidated)"
+description = "All 10 branches, group totals, and hiring assumptions from the original file consolidated into one workbook: an Overview (group monthly plan + growth drivers + Key Player assumptions), a Group Stats sheet (client/carepro attrition & tenure by office), and one sheet per branch combining its monthly revenue/hours plan, growth-driver targets, and KPI/critical-driver tracker in a single place with blank cells ready for logging actuals through the year."
+logical_id = "58654853-b0d9-4cea-85f9-2ebdacff63a1"
+content_hash = "sha256:e853c8fde37e2811e73a054d4d2255ffc5243349c25cb73b68b4d7a2c673943c"
+size = 43091
+mtime_ms = 1788262505326
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:e164a791-856f-4b6d-a70c-3ea20af31226/58654853-b0d9-4cea-85f9-2ebdacff63a1/8e3b4bef-d4ad-470b-9eea-58f6d72e7a1e"
+storage_version_token = "1788262515474837"
+content_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
