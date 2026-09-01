@@ -310,11 +310,39 @@ export function KpiWeeklyGrid() {
       const qtrNumber = parseInt(newWeek.qtrNumber, 10);
       const daysInMonth = parseInt(newWeek.daysInMonth, 10) || 0;
       if (!weekBeginning || !weekNumber || !qtrNumber) throw new Error("Week beginning, week number and quarter are required");
+
+      // Prefill Revenue/Enquiries targets from that month's Annual Roadmap
+      // figure for each store, so targets aren't re-typed from scratch every
+      // week — the Roadmap tab is the single source, this just reads it.
+      const [year, month] = weekBeginning.split("-").map(Number);
+      const roadmapByStore: Record<string, { monthlyRevenueTarget: number; enquiriesTarget: number }> = {};
+      await Promise.all(stores.map(async (store) => {
+        try {
+          const res = await fetch(toAbsoluteUrl(`/api/annual-roadmap/${year}/${encodeURIComponent(store)}/${month}`), { credentials: "include" });
+          if (!res.ok) return;
+          const entry = await res.json();
+          if (entry) {
+            roadmapByStore[store] = {
+              monthlyRevenueTarget: entry.projectedRevenue ?? 0,
+              enquiriesTarget: Math.round(entry.enquiriesRequired ?? 0),
+            };
+          }
+        } catch {
+          // Roadmap lookup is best-effort — fall back to a blank target.
+        }
+      }));
+
       const payload = {
         weekNumber, qtrNumber, daysInMonth, groupName: "SUR Group",
         rows: stores.map(store => {
           const { id, weekBeginning: _wb, weekNumber: _wn, qtrNumber: _qn, groupName: _gn, ...rest } = emptyRow(store);
-          return { ...rest, daysInMonth };
+          const roadmap = roadmapByStore[store];
+          return {
+            ...rest,
+            daysInMonth,
+            monthlyRevenueTarget: roadmap?.monthlyRevenueTarget ?? rest.monthlyRevenueTarget,
+            enquiriesTarget: roadmap?.enquiriesTarget ?? rest.enquiriesTarget,
+          };
         }),
       };
       const res = await apiRequest("PUT", `/api/kpi-weekly/${weekBeginning}`, payload);

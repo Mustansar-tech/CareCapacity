@@ -22,6 +22,7 @@ import {
   Minus,
 } from "lucide-react";
 import { KpiWeeklyGrid } from "@/components/kpi-weekly-grid";
+import { AnnualRoadmapGrid } from "@/components/annual-roadmap-grid";
 
 // ── Types (mirrors server/repositories/day-rate.repository.ts) ───────────────
 
@@ -635,6 +636,9 @@ export default function DayRateTrackerPage() {
           <TabsTrigger value="kpi-tracker" className="rounded-lg px-3 py-2 text-xs font-medium transition-all data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:shadow-sm sm:px-4 sm:text-sm" data-testid="tab-kpi-tracker">
             KPI Tracker
           </TabsTrigger>
+          <TabsTrigger value="annual-roadmap" className="rounded-lg px-3 py-2 text-xs font-medium transition-all data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:shadow-sm sm:px-4 sm:text-sm" data-testid="tab-annual-roadmap">
+            Annual Roadmap
+          </TabsTrigger>
         </TabsList>
         <TabsContent value={previousMonth}>
           <MonthGrid
@@ -666,6 +670,9 @@ export default function DayRateTrackerPage() {
         </TabsContent>
         <TabsContent value="kpi-tracker">
           <KpiWeeklyGrid />
+        </TabsContent>
+        <TabsContent value="annual-roadmap">
+          <AnnualRoadmapGrid />
         </TabsContent>
       </Tabs>
     </div>

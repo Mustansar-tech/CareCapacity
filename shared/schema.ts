@@ -1206,3 +1206,65 @@ export const insertKpiWeeklyEntrySchema = createInsertSchema(kpiWeeklyEntries).o
 
 export type InsertKpiWeeklyEntry = z.infer<typeof insertKpiWeeklyEntrySchema>;
 export type KpiWeeklyEntry = typeof kpiWeeklyEntries.$inferSelect;
+
+// Annual Roadmap — one place to hold each franchise's (and the group's) yearly
+// plan/growth-driver targets, month by month. Sits next to the KPI Tracker tab
+// so the same numbers can be reused as targets there and in future years,
+// instead of living only in an annual Excel workbook.
+export const annualRoadmapEntries = pgTable("annual_roadmap_entries", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  year: integer("year").notNull(),
+  office: text("office").notNull(), // matches kpi_weekly_entries.store, or "SUR Group Total"
+  month: integer("month").notNull(), // 1-12
+  projectedRevenue: real("projected_revenue").notNull().default(0),
+  actualRevenue: real("actual_revenue"),
+  dayRateTarget: real("day_rate_target").notNull().default(0),
+  clientHoursTarget: real("client_hours_target").notNull().default(0),
+  careProHoursTarget: real("carepro_hours_target").notNull().default(0),
+  monthlyGrowthTarget: real("monthly_growth_target").notNull().default(0), // e.g. £1,500/month revenue growth
+  enquiriesRequired: real("enquiries_required").notNull().default(0),
+  clientsRequired: real("clients_required").notNull().default(0),
+  careProApplicationsRequired: real("carepro_applications_required").notNull().default(0),
+  careProsRequiredHeads: real("carepros_required_heads").notNull().default(0),
+  newCareProHoursRequired: real("new_carepro_hours_required").notNull().default(0),
+  netCareProHoursRequired: real("net_carepro_hours_required").notNull().default(0),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  uniqueEntry: unique("unique_annual_roadmap_entry").on(table.year, table.office, table.month),
+  yearIdx: index("annual_roadmap_year_idx").on(table.year),
+  officeIdx: index("annual_roadmap_office_idx").on(table.office),
+}));
+
+export const insertAnnualRoadmapEntrySchema = createInsertSchema(annualRoadmapEntries).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertAnnualRoadmapEntry = z.infer<typeof insertAnnualRoadmapEntrySchema>;
+export type AnnualRoadmapEntry = typeof annualRoadmapEntries.$inferSelect;
+
+// Key Player hiring thresholds table from the roadmap's "Assumptions" sheet —
+// year-scoped so it can be revised each year alongside the monthly plan.
+export const annualRoadmapAssumptions = pgTable("annual_roadmap_assumptions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  year: integer("year").notNull(),
+  displayOrder: integer("display_order").notNull().default(0),
+  headcountThreshold: integer("headcount_threshold").notNull().default(0),
+  revenueTrigger: real("revenue_trigger").notNull().default(0),
+  revenuePerKeyPlayer: real("revenue_per_key_player").notNull().default(0),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  yearIdx: index("annual_roadmap_assumptions_year_idx").on(table.year),
+}));
+
+export const insertAnnualRoadmapAssumptionSchema = createInsertSchema(annualRoadmapAssumptions).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertAnnualRoadmapAssumption = z.infer<typeof insertAnnualRoadmapAssumptionSchema>;
+export type AnnualRoadmapAssumption = typeof annualRoadmapAssumptions.$inferSelect;

@@ -23,6 +23,7 @@ import { registerHrRoutes } from './routes/hr.routes';
 import { registerDataRequestRoutes } from './routes/data-requests';
 import { registerDayRateRoutes } from './routes/day-rate';
 import { registerKpiWeeklyRoutes } from './routes/kpi-weekly';
+import { registerAnnualRoadmapRoutes } from './routes/annual-roadmap';
 
 const PUBLIC_API_PATHS = ['/auth/', '/branches', '/cron/sync', '/auth/microsoft'];
 
@@ -96,6 +97,7 @@ export async function configureApp(app: Express): Promise<Server> {
   registerDataRequestRoutes(app);
   registerDayRateRoutes(app);
   registerKpiWeeklyRoutes(app);
+  registerAnnualRoadmapRoutes(app);
 
   return createServer(app);
 }
