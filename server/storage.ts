@@ -566,6 +566,13 @@ export class MemStorage implements IStorage {
       createdAt: new Date(),
     };
     this.clientEnquiriesMap.set(id, result);
+    // Keep only the 50 most recent enquiries per branch (mirrors DatabaseStorage pruning).
+    const branchEntries = Array.from(this.clientEnquiriesMap.entries())
+      .filter(([, e]) => e.branchId === enquiry.branchId)
+      .sort((a, b) => b[1].createdAt.getTime() - a[1].createdAt.getTime());
+    for (const [staleId] of branchEntries.slice(50)) {
+      this.clientEnquiriesMap.delete(staleId);
+    }
     return result;
   }
 
