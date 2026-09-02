@@ -1268,3 +1268,41 @@ export const insertAnnualRoadmapAssumptionSchema = createInsertSchema(annualRoad
 
 export type InsertAnnualRoadmapAssumption = z.infer<typeof insertAnnualRoadmapAssumptionSchema>;
 export type AnnualRoadmapAssumption = typeof annualRoadmapAssumptions.$inferSelect;
+
+// Day Rate Tracker — Financial Summary automation run history, persisted so the
+// status is visible regardless of which PM2 process (API server vs. cron worker)
+// actually executed the run. One row per invocation (cron-fired or manual).
+export const dayRateAutomationRuns = pgTable("day_rate_automation_runs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  triggeredBy: text("triggered_by").notNull(), // 'system-scheduler' | a userId
+  startedAt: timestamp("started_at").defaultNow().notNull(),
+  completedAt: timestamp("completed_at"),
+  totalJobs: integer("total_jobs").notNull().default(0),
+  completedJobs: integer("completed_jobs").notNull().default(0),
+  failedJobs: integer("failed_jobs").notNull().default(0),
+  unmappedFranchises: jsonb("unmapped_franchises").notNull().default([]),
+}, (table) => ({
+  startedAtIdx: index("day_rate_automation_runs_started_at_idx").on(table.startedAt),
+}));
+
+export type InsertDayRateAutomationRun = typeof dayRateAutomationRuns.$inferInsert;
+export type DayRateAutomationRun = typeof dayRateAutomationRuns.$inferSelect;
+
+// One row per franchise/reportingMonth job within a run, including retry attempts.
+export const dayRateAutomationJobResults = pgTable("day_rate_automation_job_results", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  runId: varchar("run_id").notNull().references(() => dayRateAutomationRuns.id, { onDelete: 'cascade' }),
+  branchId: text("branch_id").notNull(),
+  franchiseName: text("franchise_name").notNull(),
+  reportingMonth: text("reporting_month").notNull(),
+  status: text("status").notNull(), // 'completed' | 'failed'
+  revenue: real("revenue"),
+  error: text("error"),
+  attempts: integer("attempts").notNull().default(1),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  runIdx: index("day_rate_automation_job_results_run_idx").on(table.runId),
+}));
+
+export type InsertDayRateAutomationJobResult = typeof dayRateAutomationJobResults.$inferInsert;
+export type DayRateAutomationJobResult = typeof dayRateAutomationJobResults.$inferSelect;

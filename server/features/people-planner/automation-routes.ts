@@ -24,6 +24,7 @@ import {
 } from "./automation-engine";
 import { parseFinancialSummaryWorkbook } from "./financial-summary-parser";
 import { upsertAutomatedEntry } from "../../repositories/day-rate.repository";
+import { recordAutomationJobResult } from "../../repositories/day-rate-automation.repository";
 
 // ─── Branch config ────────────────────────────────────────────────────────────
 export interface BranchPPConfig {
@@ -412,6 +413,27 @@ interface FinancialSummarySession {
   jobResults: FinancialSummaryJobResult[];
   pendingJobs?: FinancialSummaryJobSpec[];
   slotArrayIndex?: number;
+  /** Persisted automation-run row this session's job results are recorded against. */
+  runId?: string;
+}
+
+/** Transient automation errors worth retrying — login/launcher flakiness, not business-logic failures. */
+const RETRYABLE_JOB_ERROR_PATTERNS = [
+  /timeout/i,
+  /tile not found/i,
+  /net::ERR_/i,
+  /no file download detected/i,
+  /frame was detached/i,
+  /still on login page/i,
+  /launcher iframe/i,
+];
+
+function isRetryableJobError(message: string): boolean {
+  return RETRYABLE_JOB_ERROR_PATTERNS.some(p => p.test(message));
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
 }
 
 const financialSummarySessions = new Map<string, FinancialSummarySession>();
@@ -453,15 +475,18 @@ async function runFinancialSummarySession(
   jobs: FinancialSummaryJobSpec[],
   initiatedByUserId: string,
   slotArrayIndex: number,
+  runId?: string,
 ): Promise<void> {
   const ppConfig = getMergedBranchConfig(branchId);
   if (!ppConfig) throw new Error(`No People Planner config for branch ${branchId}`);
 
   const existing = financialSummarySessions.get(sessionId);
   const session: FinancialSummarySession = existing
-    ? { ...existing, status: "running", jobResults: [], pendingJobs: undefined }
-    : { sessionId, status: "running", branchId, initiatedByUserId, startedAt: new Date().toISOString(), jobResults: [] };
+    ? { ...existing, status: "running", jobResults: [], pendingJobs: undefined, runId: existing.runId ?? runId }
+    : { sessionId, status: "running", branchId, initiatedByUserId, startedAt: new Date().toISOString(), jobResults: [], runId };
   financialSummarySessions.set(sessionId, session);
+
+  const MAX_ATTEMPTS = 3; // 1 initial + 2 retries — covers the common cold-login timeout flakiness
 
   try {
     await resetSlotForNextSession(slotArrayIndex);
@@ -475,57 +500,88 @@ async function runFinancialSummarySession(
       session.jobResults.push(jobResult);
       financialSummarySessions.set(sessionId, session);
 
-      try {
-        const config: JobConfig = {
-          branchUrl: ppConfig.branchUrl,
-          startDate: job.startDate,
-          endDate: job.endDate,
-          reportType: "financialSummaryExport",
-          exportType: "",
-          exportTemplate: "",
-          financeFranchiseName: job.financeFranchiseName,
-          careGiverType: "Summary",
-          careGiverStatus: "All",
-          branchId,
-        };
+      let attempt = 0;
+      let lastError: string | undefined;
 
-        const jobId = await runAutomationJob(config, slotArrayIndex);
-        const completedJob = await waitForJob(jobId, 600000);
+      while (attempt < MAX_ATTEMPTS) {
+        attempt++;
+        try {
+          const config: JobConfig = {
+            branchUrl: ppConfig.branchUrl,
+            startDate: job.startDate,
+            endDate: job.endDate,
+            reportType: "financialSummaryExport",
+            exportType: "",
+            exportTemplate: "",
+            financeFranchiseName: job.financeFranchiseName,
+            careGiverType: "Summary",
+            careGiverStatus: "All",
+            branchId,
+          };
 
-        if (completedJob.status === "failed") {
-          throw new Error(completedJob.error || "Financial Summary download failed");
+          const jobId = await runAutomationJob(config, slotArrayIndex);
+          const completedJob = await waitForJob(jobId, 600000);
+
+          if (completedJob.status === "failed") {
+            throw new Error(completedJob.error || "Financial Summary download failed");
+          }
+
+          const filePath = completedJob.filePath ?? getDownloadPath(jobId);
+          if (!filePath || !fs.existsSync(filePath)) {
+            throw new Error("Downloaded Financial Summary file not found on disk");
+          }
+
+          const buffer = fs.readFileSync(filePath);
+          const totals = await parseFinancialSummaryWorkbook(buffer);
+
+          await upsertAutomatedEntry({
+            franchiseId: job.franchiseId,
+            date: job.date,
+            reportingMonth: job.reportingMonth,
+            daysInMonth: job.daysInMonth,
+            revenue: totals.revenue,
+          });
+
+          jobResult.status = "completed";
+          jobResult.revenue = totals.revenue;
+          logger.info("Financial Summary job completed", {
+            branchId, franchiseName: job.financeFranchiseName, reportingMonth: job.reportingMonth,
+            revenue: totals.revenue, attempt,
+          });
+          lastError = undefined;
+          break;
+        } catch (jobErr) {
+          lastError = jobErr instanceof Error ? jobErr.message : String(jobErr);
+          const willRetry = attempt < MAX_ATTEMPTS && isRetryableJobError(lastError);
+          logger.error(willRetry ? "Financial Summary job failed — will retry" : "Financial Summary job failed", jobErr instanceof Error ? jobErr : undefined, {
+            branchId, franchiseName: job.financeFranchiseName, reportingMonth: job.reportingMonth, attempt, willRetry,
+          });
+          if (!willRetry) break;
+          // Give the launcher/login flow a moment to recover before trying again —
+          // most failures at this point are transient AccessCloud login/launcher timeouts.
+          await sleep(8000);
         }
+      }
 
-        const filePath = completedJob.filePath ?? getDownloadPath(jobId);
-        if (!filePath || !fs.existsSync(filePath)) {
-          throw new Error("Downloaded Financial Summary file not found on disk");
-        }
-
-        const buffer = fs.readFileSync(filePath);
-        const totals = await parseFinancialSummaryWorkbook(buffer);
-
-        await upsertAutomatedEntry({
-          franchiseId: job.franchiseId,
-          date: job.date,
-          reportingMonth: job.reportingMonth,
-          daysInMonth: job.daysInMonth,
-          revenue: totals.revenue,
-        });
-
-        jobResult.status = "completed";
-        jobResult.revenue = totals.revenue;
-        logger.info("Financial Summary job completed", {
-          branchId, franchiseName: job.financeFranchiseName, reportingMonth: job.reportingMonth, revenue: totals.revenue,
-        });
-      } catch (jobErr) {
+      if (lastError) {
         jobResult.status = "failed";
-        jobResult.error = jobErr instanceof Error ? jobErr.message : String(jobErr);
-        logger.error("Financial Summary job failed", jobErr instanceof Error ? jobErr : undefined, {
-          branchId, franchiseName: job.financeFranchiseName, reportingMonth: job.reportingMonth,
-        });
+        jobResult.error = lastError;
         // Continue with remaining franchises/months rather than aborting the whole session.
       }
       financialSummarySessions.set(sessionId, session);
+
+      if (session.runId) {
+        recordAutomationJobResult({
+          runId: session.runId,
+          branchId,
+          franchiseName: job.financeFranchiseName,
+          reportingMonth: job.reportingMonth,
+          status: jobResult.status === "completed" ? "completed" : "failed",
+          revenue: jobResult.revenue,
+          error: jobResult.error,
+          attempts: attempt,
+        }).catch(err => logger.error("Failed to persist automation job result", err instanceof Error ? err : undefined));
+      }
     }
 
     session.status = "completed";
@@ -562,7 +618,7 @@ function startNextQueuedFinancialSummarySession(): void {
     session.pendingJobs = undefined;
     financialSummarySessions.set(nextId, session);
 
-    runFinancialSummarySession(nextId, session.branchId, jobs, session.initiatedByUserId, idleSlot)
+    runFinancialSummarySession(nextId, session.branchId, jobs, session.initiatedByUserId, idleSlot, session.runId)
       .catch(err => {
         const s = financialSummarySessions.get(nextId);
         if (s && s.status === "running") {
@@ -589,6 +645,7 @@ export async function programmaticQueueFinancialSummarySync(
   branchId: string,
   jobs: FinancialSummaryJobSpec[],
   initiatedByUserId: string,
+  runId?: string,
 ): Promise<{ sessionId: string; queued: boolean; queuePosition?: number }> {
   const ppConfig = getMergedBranchConfig(branchId);
   if (!ppConfig) throw new Error(`No People Planner config for branch ${branchId}`);
@@ -600,7 +657,7 @@ export async function programmaticQueueFinancialSummarySync(
   if (idleSlot === -1) {
     const pendingSession: FinancialSummarySession = {
       sessionId, status: "queued", branchId, initiatedByUserId,
-      startedAt: new Date().toISOString(), jobResults: [], pendingJobs: jobs,
+      startedAt: new Date().toISOString(), jobResults: [], pendingJobs: jobs, runId,
     };
     financialSummarySessions.set(sessionId, pendingSession);
     financialSummaryQueue.push(sessionId);
@@ -610,7 +667,7 @@ export async function programmaticQueueFinancialSummarySync(
   reserveSlot(idleSlot, sessionId);
   const newSession: FinancialSummarySession = {
     sessionId, status: "running", branchId, initiatedByUserId,
-    startedAt: new Date().toISOString(), jobResults: [], slotArrayIndex: idleSlot,
+    startedAt: new Date().toISOString(), jobResults: [], slotArrayIndex: idleSlot, runId,
   };
   financialSummarySessions.set(sessionId, newSession);
 
@@ -1263,15 +1320,16 @@ export function registerPeoplePlannerRoutes(app: Express): void {
   // POST /api/day-rate/automation/run — manually trigger the Financial Summary automation
   // for every tracked franchise/office (current + forward month). Admin-only; mirrors the
   // ad-hoc trigger pattern of /api/pp/run-multi-week.
-  app.post("/api/day-rate/automation/run", requireAuth, requireRoleAtLeast("admin"), async (_req, res) => {
+  app.post("/api/day-rate/automation/run", requireAuth, requireRoleAtLeast("admin"), async (req, res) => {
     if (!process.env.ACCESS_EMAIL || !process.env.ACCESS_PASSWORD) {
       return res.status(503).json({ error: "People Planner credentials not configured." });
     }
     try {
       const { runDayRateAutomation } = await import("./day-rate-scheduler");
+      const triggeredBy = req.session?.userId ? `manual:${req.session.userId}` : "manual";
       // Fire-and-forget: sessions run in the background exactly like the cron trigger;
       // status is polled via GET /api/day-rate/automation/status.
-      runDayRateAutomation().catch(err => {
+      runDayRateAutomation(new Date(), triggeredBy).catch(err => {
         logger.error("Manual day-rate automation run failed", err instanceof Error ? err : undefined);
       });
       return res.status(202).json({ started: true });
@@ -1283,22 +1341,45 @@ export function registerPeoplePlannerRoutes(app: Express): void {
 
   // GET /api/day-rate/automation/status — Financial Summary automation health,
   // surfaced the same way the weekly People Planner sync status is (admin-only).
-  app.get("/api/day-rate/automation/status", requireAuth, requireRoleAtLeast("admin"), (_req, res) => {
-    const sessions = listFinancialSummarySessions();
-    const allJobResults = sessions.flatMap(s => s.jobResults.map(j => ({ ...j, branchId: s.branchId })));
-    const completed = allJobResults.filter(j => j.status === "completed").length;
-    const failed = allJobResults.filter(j => j.status === "failed").length;
-    const lastErrors = allJobResults
-      .filter(j => j.status === "failed")
-      .map(j => ({ branchId: j.branchId, franchiseName: j.franchiseName, reportingMonth: j.reportingMonth, error: j.error ?? "Unknown error" }))
-      .slice(0, 20);
+  //
+  // Reads from the persisted day_rate_automation_runs/job_results tables rather
+  // than in-process memory: the cron that actually runs this automation lives in
+  // a separate PM2 process (care-capacity-worker) from the one serving this API
+  // route (care-capacity-api), so in-memory-only state here would always show
+  // "not yet run" for cron-triggered runs even when they completed successfully.
+  app.get("/api/day-rate/automation/status", requireAuth, requireRoleAtLeast("admin"), async (_req, res) => {
+    try {
+      const { getLatestAutomationRun } = await import("../../repositories/day-rate-automation.repository");
+      const latestRun = await getLatestAutomationRun();
+      const sessions = listFinancialSummarySessions();
 
-    res.json({
-      ...getDayRateAutomationStatus(),
-      lastRunSummary: { total: allJobResults.length, completed, failed },
-      lastErrors,
-      recentSessions: sessions,
-    });
+      if (!latestRun) {
+        return res.json({
+          enabled: false,
+          lastRunAt: null,
+          lastRunSummary: null,
+          lastErrors: [],
+          recentSessions: sessions,
+        });
+      }
+
+      // A run still in progress (no completedAt yet) reports its live totals from
+      // job results persisted so far, so the banner can show "in progress" state.
+      res.json({
+        enabled: true,
+        lastRunAt: latestRun.startedAt,
+        lastRunCompletedAt: latestRun.completedAt,
+        inProgress: latestRun.completedAt === null,
+        triggeredBy: latestRun.triggeredBy,
+        lastRunSummary: { total: latestRun.totalJobs, completed: latestRun.completedJobs, failed: latestRun.failedJobs },
+        lastErrors: latestRun.errors,
+        unmappedFranchises: latestRun.unmappedFranchises,
+        recentSessions: sessions,
+      });
+    } catch (error) {
+      logger.error("Failed to read day-rate automation status", error instanceof Error ? error : undefined);
+      res.status(500).json({ error: "Failed to read automation status" });
+    }
   });
 
   // POST /api/cron/sync?label=previous|current|next — cron-job.org friendly alias

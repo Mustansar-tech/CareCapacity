@@ -70,9 +70,12 @@ interface DayRateAutomationSession {
 interface DayRateAutomationStatus {
   enabled: boolean;
   lastRunAt: string | null;
-  lastRunSessionIds: string[];
+  lastRunCompletedAt?: string | null;
+  inProgress?: boolean;
+  lastRunSessionIds?: string[];
   lastRunSummary: { total: number; completed: number; failed: number } | null;
   lastErrors: { branchId: string; franchiseName: string; reportingMonth: string; error: string }[];
+  unmappedFranchises?: string[];
   recentSessions: DayRateAutomationSession[];
 }
 
@@ -635,19 +638,23 @@ export default function DayRateTrackerPage() {
           )}
 
           {automationStatus && (
-            <Card className={`shadow-sm ${automationStatus.lastRunSummary && automationStatus.lastRunSummary.failed > 0 ? "border-rose-200 bg-rose-50/50 dark:border-rose-900/60 dark:bg-rose-950/20" : "border-emerald-200/80 bg-emerald-50/45 dark:border-emerald-900/60 dark:bg-emerald-950/20"}`} data-testid="card-automation-status">
+            <Card className={`shadow-sm ${automationStatus.inProgress ? "border-blue-200 bg-blue-50/50 dark:border-blue-900/60 dark:bg-blue-950/20" : automationStatus.lastRunSummary && automationStatus.lastRunSummary.failed > 0 ? "border-rose-200 bg-rose-50/50 dark:border-rose-900/60 dark:bg-rose-950/20" : "border-emerald-200/80 bg-emerald-50/45 dark:border-emerald-900/60 dark:bg-emerald-950/20"}`} data-testid="card-automation-status">
               <CardContent className="py-3 flex items-center gap-3 flex-wrap text-sm">
-                {automationStatus.lastRunSummary && automationStatus.lastRunSummary.failed > 0 ? (
+                {automationStatus.inProgress ? (
+                  <Loader2 className="h-4 w-4 animate-spin text-blue-600 shrink-0" />
+                ) : automationStatus.lastRunSummary && automationStatus.lastRunSummary.failed > 0 ? (
                   <AlertTriangle className="h-4 w-4 text-destructive shrink-0" />
                 ) : (
                   <CheckCircle2 className="h-4 w-4 text-green-600 shrink-0" />
                 )}
                 <span className="text-muted-foreground">
-                  Financial Summary automation last ran{" "}
+                  Financial Summary automation{" "}
+                  {automationStatus.inProgress ? "started" : "last ran"}{" "}
                   {automationStatus.lastRunAt
                     ? new Date(automationStatus.lastRunAt).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" })
                     : "— not yet run"}
-                  {automationStatus.lastRunSummary && (
+                  {automationStatus.inProgress && " · running now…"}
+                  {!automationStatus.inProgress && automationStatus.lastRunSummary && (
                     <>
                       {" · "}
                       {automationStatus.lastRunSummary.completed}/{automationStatus.lastRunSummary.total} succeeded

@@ -11,3 +11,4 @@
 - [Day Rate Tracker number formatting](day-rate-tracker-number-formatting.md) — never round monetary figures on this dashboard; always show exactly 2 decimal places.
 - [Travel time DB cache](travel-time-db-cache.md) — persistent ORS cache re-enabled with 21-day TTL + ors/ors-matrix-only trust; `orsMatrixBatch()` now requires `branchId` as first arg.
 - [Data House page structure](data-house-page-structure.md) — "Data House" nav = 3 tabs (Day Rate Tracker/KPI Tracker/Annual Roadmap); rolling 3-month window + archive dropdown for older months.
+- [Day Rate automation cross-process status](day-rate-automation-cross-process-status.md) — status/history for cron features must persist to Postgres, not module-level memory, since api/worker run as separate PM2 processes; also added job retry + kickoff stagger.
