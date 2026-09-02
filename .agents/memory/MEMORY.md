@@ -9,6 +9,6 @@
 - [People Planner automation architecture](people-planner-automation-architecture.md) — real cron scheduler is worker.ts not scheduler.ts; how to add a new export type (menuPath quirks, live-in-care selects, one-session-per-tenant).
 - [PP Financial Summary franchise dropdown quirks](people-planner-financial-summary-franchise-dropdown.md) — real dropdown text often diverges from stored franchise name; use exact overrides, never delete punctuation when normalizing.
 - [Day Rate Tracker number formatting](day-rate-tracker-number-formatting.md) — never round monetary figures on this dashboard; always show exactly 2 decimal places.
-- [Travel time DB cache](travel-time-db-cache.md) — persistent ORS cache re-enabled with 21-day TTL + ors/ors-matrix-only trust; `orsMatrixBatch()` now requires `branchId` as first arg.
 - [Data House page structure](data-house-page-structure.md) — "Data House" nav = 3 tabs (Day Rate Tracker/KPI Tracker/Annual Roadmap); rolling 3-month window + archive dropdown for older months.
 - [Day Rate automation cross-process status](day-rate-automation-cross-process-status.md) — status/history for cron features must persist to Postgres, not module-level memory, since api/worker run as separate PM2 processes; also added job retry + kickoff stagger.
+- [Enquiry matcher travel cache reverted](enquiry-matcher-travel-cache-reverted.md) — persistent DB travel-time cache for the BD/enquiry matcher was tried and reverted; matcher now always hits ORS live, no branchId-keyed DB cache.

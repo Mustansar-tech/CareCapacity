@@ -142,8 +142,6 @@ export interface IStorage {
 
   getTravelTime(branchId: string, fromLat: string, fromLng: string, toLat: string, toLng: string, mode: string): Promise<TravelTimeCache | undefined>;
   saveTravelTime(travelTime: InsertTravelTimeCache): Promise<TravelTimeCache>;
-  getFreshTravelTimes(branchId: string, mode: string, cutoff: Date): Promise<TravelTimeCache[]>;
-  saveTravelTimesBulk(rows: InsertTravelTimeCache[]): Promise<void>;
 
   getBranchSchedulingPreference(branchId: string): Promise<BranchSchedulingPreference>;
   saveBranchSchedulingPreference(preference: InsertBranchSchedulingPreference): Promise<BranchSchedulingPreference>;
@@ -233,8 +231,6 @@ export class DatabaseStorage implements IStorage {
   clearRoutesAndVisits(branchId: string) { return geoRepo.clearRoutesAndVisits(branchId); }
   getTravelTime(branchId: string, fromLat: string, fromLng: string, toLat: string, toLng: string, mode: string) { return geoRepo.getTravelTime(branchId, fromLat, fromLng, toLat, toLng, mode); }
   saveTravelTime(insertTravelTime: InsertTravelTimeCache) { return geoRepo.saveTravelTime(insertTravelTime); }
-  getFreshTravelTimes(branchId: string, mode: string, cutoff: Date) { return geoRepo.getFreshTravelTimes(branchId, mode, cutoff); }
-  saveTravelTimesBulk(rows: InsertTravelTimeCache[]) { return geoRepo.saveTravelTimesBulk(rows); }
 
   // ─── Schedules / CP visits ────────────────────────────────────────────────────
   saveWeeklySchedule(schedule: InsertWeeklySchedule) { return scheduleRepo.saveWeeklySchedule(schedule); }
@@ -534,15 +530,6 @@ export class MemStorage implements IStorage {
     const result: TravelTimeCache = { ...travelTime, id, cachedAt: new Date(), distanceMeters: travelTime.distanceMeters ?? null, transportMode: travelTime.transportMode ?? null };
     this.travelTimeCache.set(`${travelTime.branchId}:${travelTime.fromLat}:${travelTime.fromLng}:${travelTime.toLat}:${travelTime.toLng}:${travelTime.transportMode}`, result);
     return result;
-  }
-  async getFreshTravelTimes(branchId: string, mode: string, cutoff: Date): Promise<TravelTimeCache[]> {
-    return Array.from(this.travelTimeCache.values()).filter(t =>
-      t.branchId === branchId && t.transportMode === mode &&
-      (t.source === 'ors' || t.source === 'ors-matrix') && t.cachedAt >= cutoff,
-    );
-  }
-  async saveTravelTimesBulk(rows: InsertTravelTimeCache[]): Promise<void> {
-    for (const row of rows) await this.saveTravelTime(row);
   }
 
   async getBranchSchedulingPreference(branchId: string): Promise<BranchSchedulingPreference> {

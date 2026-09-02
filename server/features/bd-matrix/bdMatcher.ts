@@ -1100,7 +1100,7 @@ async function buildTravelTimeMap(
   if (allCarSources.length > 0) {
     try {
       logger.info(`BD Matcher: ORS Matrix pre-warm — ${allCarSources.length} car sources → enquiry (1 batch call)`);
-      await travelTimeService.orsMatrixBatch(branchId, allCarSources, [clientCoords]);
+      await travelTimeService.orsMatrixBatch(allCarSources, [clientCoords]);
       logger.info(`BD Matcher: ORS Matrix pre-warm complete — cache ready for ${allCarSources.length} routes`);
     } catch (err) {
       logger.warn(`BD Matcher: ORS Matrix batch failed, affected cars will be marked unreachable: ${err}`);
