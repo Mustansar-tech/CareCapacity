@@ -927,6 +927,19 @@ export class TravelTimeService {
     destinations: Array<{ lat: number; lng: number; id?: string }>,
     skipSameCoords: boolean
   ): Promise<number> {
+    // A chunk can land on exactly one source and one destination (e.g. a trailing
+    // remainder after 12-per-request chunking) — Mapbox's Matrix API rejects any
+    // request resolving to fewer than 2 elements. Use Directions for that single pair.
+    if (sources.length === 1 && destinations.length === 1) {
+      const src = sources[0];
+      const dst = destinations[0];
+      if (skipSameCoords && src.lat === dst.lat && src.lng === dst.lng) return 0;
+      const mb = await this.fetchMapboxDirections(src, dst);
+      if (!mb) return 0;
+      const sk = this.sessionKey(src.lat.toString(), src.lng.toString(), dst.lat.toString(), dst.lng.toString(), 'car');
+      this._sessionCache.set(sk, { durationMinutes: mb.durationMinutes, distanceMeters: mb.distanceMeters, source: 'mapbox' });
+      return 1;
+    }
     let added = 0;
     try {
       const allLocations = [...sources, ...destinations];
