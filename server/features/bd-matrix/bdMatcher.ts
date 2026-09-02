@@ -1096,14 +1096,14 @@ async function buildTravelTimeMap(
     }
   }
 
-  // 3. ONE ORS Matrix batch: all car sources → enquiry postcode
+  // 3. ONE car matrix batch (Mapbox primary, ORS backup): all car sources → enquiry postcode
   if (allCarSources.length > 0) {
     try {
-      logger.info(`BD Matcher: ORS Matrix pre-warm — ${allCarSources.length} car sources → enquiry (1 batch call)`);
-      await travelTimeService.orsMatrixBatch(allCarSources, [clientCoords]);
-      logger.info(`BD Matcher: ORS Matrix pre-warm complete — cache ready for ${allCarSources.length} routes`);
+      logger.info(`BD Matcher: car matrix pre-warm — ${allCarSources.length} car sources → enquiry (1 batch call)`);
+      await travelTimeService.carMatrixBatch(allCarSources, [clientCoords]);
+      logger.info(`BD Matcher: car matrix pre-warm complete — cache ready for ${allCarSources.length} routes`);
     } catch (err) {
-      logger.warn(`BD Matcher: ORS Matrix batch failed, affected cars will be marked unreachable: ${err}`);
+      logger.warn(`BD Matcher: car matrix batch failed, affected cars will be marked unreachable: ${err}`);
     }
   }
 

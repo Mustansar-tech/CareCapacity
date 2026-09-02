@@ -88,10 +88,10 @@ export async function refineForwardTravelWithORS(
     }
   }
 
-  if (orsQueue.length > 0 && travelTimeService.hasORSKey()) {
+  if (orsQueue.length > 0 && travelTimeService.hasCarMatrixKey()) {
     const destinations = orsQueue.map(p => p.resolvedCoords!);
     try {
-      await travelTimeService.orsMatrixBatch([clientCoords], destinations);
+      await travelTimeService.carMatrixBatch([clientCoords], destinations);
       for (const p of orsQueue) {
         const cached = travelTimeService.getCachedTravelTime(clientCoords, p.resolvedCoords!, 'car');
         if (cached) {
@@ -151,10 +151,10 @@ export async function refineReturnHomeTravelWithORS(
     orsQueue.push(p);
   }
 
-  if (orsQueue.length > 0 && travelTimeService.hasORSKey()) {
+  if (orsQueue.length > 0 && travelTimeService.hasCarMatrixKey()) {
     const destinations = orsQueue.map(p => p.homeCoords);
     try {
-      await travelTimeService.orsMatrixBatch([clientCoords], destinations);
+      await travelTimeService.carMatrixBatch([clientCoords], destinations);
       for (const p of orsQueue) {
         const cached = travelTimeService.getCachedTravelTime(clientCoords, p.homeCoords, 'car');
         if (cached) {

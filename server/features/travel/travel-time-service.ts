@@ -2,8 +2,8 @@
  * Travel Time Service for Route Optimization
  *
  * Car employees:
- *   1. ORS Matrix API (batch pre-warm, all-pairs including client→client)
- *   2. ORS Directions API (individual fallback)
+ *   1. Mapbox Matrix / Directions API (primary)
+ *   2. ORS Matrix / Directions API (backup — used only if Mapbox has no key or fails)
  *   [Heuristic DISABLED — unreachable pairs go to unallocated]
  *
  * Walker employees:
@@ -36,6 +36,8 @@ export interface TravelMatrix {
 }
 
 export interface TravelSourceStats {
+  mapbox: number;
+  'mapbox-matrix': number;
   ors: number;
   'ors-matrix': number;
   traveltime: number;
@@ -48,6 +50,9 @@ export interface TravelSourceStats {
 export type TransportMode = "car" | "walking" | "public";
 
 const ORS_MATRIX_BATCH_SIZE = 50;
+// Mapbox's driving-profile Matrix API caps requests at 25 total coordinates
+// (sources + destinations combined). 12+12 stays comfortably under that.
+const MAPBOX_MATRIX_CHUNK = 12;
 const TRAVELTIME_MATRIX_BATCH_SIZE = 100;
 const TRAVELTIME_TIMEOUT_MS = 10000;
 
@@ -62,11 +67,12 @@ export class TravelTimeService {
 
   private readonly maxTravelMinutes: number;
   private readonly softLimitMinutes: number;
+  private readonly MAPBOX_API_KEY = process.env.MAPBOX_API_KEY;
   private readonly ORS_API_KEY = process.env.ORS_API_KEY;
   private readonly TRAVELTIME_APP_ID = process.env.TRAVELTIME_APP_ID;
   private readonly TRAVELTIME_API_KEY = process.env.TRAVELTIME_API_KEY;
 
-  private _sourceStats: TravelSourceStats = { ors: 0, 'ors-matrix': 0, traveltime: 0, 'traveltime-matrix': 0, heuristic: 0, unreachable: 0, total: 0 };
+  private _sourceStats: TravelSourceStats = { mapbox: 0, 'mapbox-matrix': 0, ors: 0, 'ors-matrix': 0, traveltime: 0, 'traveltime-matrix': 0, heuristic: 0, unreachable: 0, total: 0 };
   private _sessionCache: Map<string, { durationMinutes: number; distanceMeters: number; source: string }> = new Map();
   private _ttGeoCache: Map<string, { lat: number; lng: number } | null> = new Map();
 
@@ -92,7 +98,7 @@ export class TravelTimeService {
   }
 
   resetSourceStats(): void {
-    this._sourceStats = { ors: 0, 'ors-matrix': 0, traveltime: 0, 'traveltime-matrix': 0, heuristic: 0, unreachable: 0, total: 0 };
+    this._sourceStats = { mapbox: 0, 'mapbox-matrix': 0, ors: 0, 'ors-matrix': 0, traveltime: 0, 'traveltime-matrix': 0, heuristic: 0, unreachable: 0, total: 0 };
     this._sessionCache.clear();
   }
 
@@ -135,6 +141,45 @@ export class TravelTimeService {
   /** Returns true if an ORS API key is configured (Matrix calls will succeed). */
   hasORSKey(): boolean {
     return !!this.ORS_API_KEY;
+  }
+
+  /** Returns true if a Mapbox API key is configured (primary car routing provider). */
+  hasMapboxKey(): boolean {
+    return !!this.MAPBOX_API_KEY;
+  }
+
+  /** Returns true if either car routing provider (Mapbox primary, ORS backup) is configured. */
+  hasCarMatrixKey(): boolean {
+    return this.hasMapboxKey() || this.hasORSKey();
+  }
+
+  /**
+   * Direct Mapbox Directions API call (driving profile).
+   * Returns null if the Mapbox API key is missing or the call fails.
+   */
+  async fetchMapboxDirections(from: Location, to: Location): Promise<{ durationMinutes: number; distanceMeters: number } | null> {
+    if (!this.MAPBOX_API_KEY) return null;
+    try {
+      const url = `https://api.mapbox.com/directions/v5/mapbox/driving/${from.lng},${from.lat};${to.lng},${to.lat}?overview=false&access_token=${this.MAPBOX_API_KEY}`;
+      const response = await fetch(url);
+      if (response.ok) {
+        const data = await response.json();
+        const route = data.routes?.[0];
+        if (route) {
+          const durationMinutes = Math.max(2, Math.round(route.duration / 60));
+          const distanceMeters = Math.round(route.distance);
+          this.trackSource('mapbox');
+          return { durationMinutes, distanceMeters };
+        }
+        logger.warn('[Mapbox Directions] No route returned');
+        return null;
+      }
+      const errorText = await response.text();
+      logger.warn(`[Mapbox Directions] API error (${response.status}): ${errorText.slice(0, 200)}`);
+    } catch (err) {
+      logger.warn('[Mapbox Directions] request failed', { error: String(err) });
+    }
+    return null;
   }
 
   /**
@@ -591,7 +636,26 @@ export class TravelTimeService {
       };
     }
 
-    // 3. Car — ORS Directions API
+    // 3. Car — Mapbox Directions API (primary)
+    if (this.MAPBOX_API_KEY) {
+      const mb = await this.fetchMapboxDirections(from, to);
+      if (mb) {
+        logger.debug(`Mapbox result: ${mb.durationMinutes} min, ${mb.distanceMeters} m`);
+        this._sessionCache.set(sKey, { durationMinutes: mb.durationMinutes, distanceMeters: mb.distanceMeters, source: 'mapbox' });
+        return {
+          fromLocation: from,
+          toLocation: to,
+          distanceKm: mb.distanceMeters / 1000,
+          travelTimeMinutes: mb.durationMinutes,
+          feasible: mb.durationMinutes <= currentMaxTravel,
+          penaltyScore: this.calculatePenalty(mb.durationMinutes),
+          source: 'mapbox',
+        };
+      }
+      logger.warn(`Mapbox unavailable for ${fromLat},${fromLng} → ${toLat},${toLng} — falling back to ORS`);
+    }
+
+    // 3b. Car — ORS Directions API (backup)
     if (this.ORS_API_KEY) {
       try {
         logger.debug(`Requesting ORS directions for ${fromLat},${fromLng} → ${toLat},${toLng}`);
@@ -737,14 +801,14 @@ export class TravelTimeService {
       logger.info(`[Cache Pre-warm] Phase 1a: ${nonCarEmployees.length} walker/public employees → ${clientLocations.length} clients — Haversine heuristic`);
     }
 
-    // ── PHASE 1b: Car employee → client (ORS Matrix) ──────────────────────────
+    // ── PHASE 1b: Car employee → client (Mapbox Matrix primary, ORS backup) ────
     if (carEmployees.length > 0) {
-      logger.info(`[Cache Pre-warm] Phase 1b: ${carEmployees.length} car employees → ${clientLocations.length} clients (ORS Matrix)`);
+      logger.info(`[Cache Pre-warm] Phase 1b: ${carEmployees.length} car employees → ${clientLocations.length} clients (car matrix)`);
       for (let ei = 0; ei < carEmployees.length; ei += ORS_MATRIX_BATCH_SIZE) {
         const empBatch = carEmployees.slice(ei, ei + ORS_MATRIX_BATCH_SIZE);
         for (let ci = 0; ci < clientLocations.length; ci += ORS_MATRIX_BATCH_SIZE) {
           const clientBatch = clientLocations.slice(ci, ci + ORS_MATRIX_BATCH_SIZE);
-          const added = await this.orsMatrixBatch(empBatch, clientBatch);
+          const added = await this.carMatrixBatch(empBatch, clientBatch);
           totalNew += added;
         }
       }
@@ -752,9 +816,9 @@ export class TravelTimeService {
 
     // ── PHASE 2: Client → Client all-pairs ─────────────────────────────────────
     if (clientLocations.length > 1) {
-      // Phase 2a: Car client→client via ORS Matrix (all-pairs: clients + car employee homes)
-      if (carEmployees.length > 0 && this.ORS_API_KEY) {
-        logger.info(`[Cache Pre-warm] Phase 2a: client→client car (ORS Matrix all-pairs, ${clientLocations.length} clients + ${carEmployees.length} employee homes)`);
+      // Phase 2a: Car client→client via car matrix (all-pairs: clients + car employee homes)
+      if (carEmployees.length > 0 && this.hasCarMatrixKey()) {
+        logger.info(`[Cache Pre-warm] Phase 2a: client→client car (matrix all-pairs, ${clientLocations.length} clients + ${carEmployees.length} employee homes)`);
         const carUniqueLocations: Array<{ lat: number; lng: number; id: string }> = [
           ...clientLocations.map((c, i) => ({ lat: c.lat, lng: c.lng, id: `c${i}` })),
           ...carEmployees.map((e) => ({ lat: e.lat, lng: e.lng, id: `e${e.id}` })),
@@ -763,7 +827,7 @@ export class TravelTimeService {
           const srcBatch = carUniqueLocations.slice(si, si + ORS_MATRIX_BATCH_SIZE);
           for (let di = 0; di < carUniqueLocations.length; di += ORS_MATRIX_BATCH_SIZE) {
             const dstBatch = carUniqueLocations.slice(di, di + ORS_MATRIX_BATCH_SIZE);
-            const added = await this.orsMatrixBatch(srcBatch, dstBatch, true);
+            const added = await this.carMatrixBatch(srcBatch, dstBatch, true);
             totalNew += added;
           }
         }
@@ -779,20 +843,22 @@ export class TravelTimeService {
   }
 
   /**
-   * Helper: run one ORS Matrix batch (sources × destinations) and store in session cache.
+   * Run one car matrix batch (sources × destinations) and store results in the
+   * session cache. Tries Mapbox Matrix first (primary); falls back to ORS
+   * Matrix (backup) only if Mapbox has no key configured or returns nothing.
    * @param skipSameCoords When true, skips entries where source and destination coords are identical.
    * Returns count of new entries stored.
    */
-  async orsMatrixBatch(
+  async carMatrixBatch(
     sources: Array<{ lat: number; lng: number; id?: string }>,
     destinations: Array<{ lat: number; lng: number; id?: string }>,
     skipSameCoords = false
   ): Promise<number> {
-    if (!this.ORS_API_KEY || sources.length === 0 || destinations.length === 0) return 0;
+    if ((!this.MAPBOX_API_KEY && !this.ORS_API_KEY) || sources.length === 0 || destinations.length === 0) return 0;
 
     // Cache-aware: only include sources/destinations that still have at least one
     // uncached pair. When a repeat request (e.g. the same enquiry matched across
-    // multiple weeks) is fully covered by the session cache, skip ORS entirely —
+    // multiple weeks) is fully covered by the session cache, skip the API entirely —
     // no rate-limit sleep, no API call.
     const pairUncached = (s: { lat: number; lng: number }, d: { lat: number; lng: number }) => {
       if (skipSameCoords && s.lat === d.lat && s.lng === d.lng) return false;
@@ -804,6 +870,91 @@ export class TravelTimeService {
     destinations = destinations.filter(d => sources.some(s => pairUncached(s, d)));
     if (destinations.length === 0) return 0;
 
+    if (this.MAPBOX_API_KEY) {
+      const added = await this.mapboxMatrixBatch(sources, destinations, skipSameCoords);
+      if (added > 0) return added;
+      if (this.ORS_API_KEY) {
+        logger.warn('[Cache Pre-warm] Mapbox Matrix returned no results — falling back to ORS Matrix');
+      }
+    }
+    if (this.ORS_API_KEY) {
+      return await this.orsMatrixBatch(sources, destinations, skipSameCoords);
+    }
+    return 0;
+  }
+
+  /** Mapbox Matrix API (driving profile) — chunked to respect the 25-coordinate-per-request limit. */
+  private async mapboxMatrixBatch(
+    sources: Array<{ lat: number; lng: number; id?: string }>,
+    destinations: Array<{ lat: number; lng: number; id?: string }>,
+    skipSameCoords: boolean
+  ): Promise<number> {
+    let added = 0;
+    for (let si = 0; si < sources.length; si += MAPBOX_MATRIX_CHUNK) {
+      const srcChunk = sources.slice(si, si + MAPBOX_MATRIX_CHUNK);
+      for (let di = 0; di < destinations.length; di += MAPBOX_MATRIX_CHUNK) {
+        const dstChunk = destinations.slice(di, di + MAPBOX_MATRIX_CHUNK);
+        added += await this.mapboxMatrixRequest(srcChunk, dstChunk, skipSameCoords);
+      }
+    }
+    return added;
+  }
+
+  private async mapboxMatrixRequest(
+    sources: Array<{ lat: number; lng: number; id?: string }>,
+    destinations: Array<{ lat: number; lng: number; id?: string }>,
+    skipSameCoords: boolean
+  ): Promise<number> {
+    let added = 0;
+    try {
+      const allLocations = [...sources, ...destinations];
+      const coordsStr = allLocations.map(l => `${l.lng},${l.lat}`).join(';');
+      const srcIndices = sources.map((_, i) => i).join(';');
+      const dstIndices = destinations.map((_, i) => sources.length + i).join(';');
+
+      // Mapbox free tier: 60 requests/min for the driving profile — 1100ms keeps well within that.
+      await new Promise(resolve => setTimeout(resolve, 1100));
+
+      const url = `https://api.mapbox.com/directions-matrix/v1/mapbox/driving/${coordsStr}?sources=${srcIndices}&destinations=${dstIndices}&annotations=duration,distance&access_token=${this.MAPBOX_API_KEY}`;
+      const response = await fetch(url);
+
+      if (response.ok) {
+        const data = await response.json();
+        const durations: (number | null)[][] = data.durations;
+        const distances: (number | null)[][] = data.distances;
+        for (let si = 0; si < sources.length; si++) {
+          for (let di = 0; di < destinations.length; di++) {
+            const src = sources[si];
+            const dst = destinations[di];
+            if (skipSameCoords && src.lat === dst.lat && src.lng === dst.lng) continue;
+            const durationSec = durations?.[si]?.[di];
+            const distMeters = distances?.[si]?.[di];
+            if (durationSec == null || distMeters == null) continue;
+            const dMin = Math.max(2, Math.round(durationSec / 60));
+            const sk = this.sessionKey(src.lat.toString(), src.lng.toString(), dst.lat.toString(), dst.lng.toString(), 'car');
+            this._sessionCache.set(sk, { durationMinutes: dMin, distanceMeters: Math.round(distMeters), source: 'mapbox-matrix' });
+            this.trackSource('mapbox-matrix');
+            added++;
+          }
+        }
+        logger.info(`[Cache Pre-warm] Mapbox Matrix: ${sources.length}×${destinations.length} batch → ${added} entries cached`);
+      } else {
+        const errText = await response.text();
+        logger.warn(`[Cache Pre-warm] Mapbox Matrix batch failed (${response.status}): ${errText.slice(0, 200)}`);
+      }
+    } catch (err) {
+      logger.warn('[Cache Pre-warm] Mapbox Matrix exception:', err instanceof Error ? err.message : err);
+    }
+    return added;
+  }
+
+  /** ORS Matrix API (backup) — same batch shape as Mapbox, used when Mapbox is unavailable or fails. */
+  private async orsMatrixBatch(
+    sources: Array<{ lat: number; lng: number; id?: string }>,
+    destinations: Array<{ lat: number; lng: number; id?: string }>,
+    skipSameCoords: boolean
+  ): Promise<number> {
+    if (!this.ORS_API_KEY) return 0;
     let added = 0;
     try {
       const allLocations = [

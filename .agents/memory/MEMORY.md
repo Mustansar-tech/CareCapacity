@@ -12,3 +12,4 @@
 - [Data House page structure](data-house-page-structure.md) — "Data House" nav = 3 tabs (Day Rate Tracker/KPI Tracker/Annual Roadmap); rolling 3-month window + archive dropdown for older months.
 - [Day Rate automation cross-process status](day-rate-automation-cross-process-status.md) — status/history for cron features must persist to Postgres, not module-level memory, since api/worker run as separate PM2 processes; also added job retry + kickoff stagger.
 - [Enquiry matcher travel cache reverted](enquiry-matcher-travel-cache-reverted.md) — persistent DB travel-time cache for the BD/enquiry matcher was tried and reverted; matcher now always hits ORS live, no branchId-keyed DB cache.
+- [Car travel routing provider order](car-travel-routing-provider-order.md) — Mapbox Matrix/Directions is now primary for car routes, ORS is backup-only; Mapbox's matrix batch cap is 25 combined coords vs ORS's 50.
