@@ -51,19 +51,6 @@ const ORS_MATRIX_BATCH_SIZE = 50;
 const TRAVELTIME_MATRIX_BATCH_SIZE = 100;
 const TRAVELTIME_TIMEOUT_MS = 10000;
 
-/**
- * ORS free-tier Matrix V2 limits (see openrouteservice.org dashboard → "Remaining Key Quotas"):
- *   - 40 requests/minute
- *   - 500 requests/day (resets daily)
- * These are enforced process-wide (not per-request) so concurrent enquiry/BD-matcher
- * searches can never collectively burst past the real ORS limits.
- */
-const ORS_MATRIX_PER_MINUTE_LIMIT = 40;
-const ORS_MATRIX_MIN_INTERVAL_MS = Math.ceil(60_000 / ORS_MATRIX_PER_MINUTE_LIMIT); // 1500ms
-const ORS_MATRIX_DAILY_LIMIT = 500;
-/** Stop calling ORS proactively before hitting the hard daily cap, so we degrade gracefully instead of erroring. */
-const ORS_MATRIX_DAILY_SAFETY_MARGIN = 20;
-
 export class TravelTimeService {
   private readonly ROAD_FACTOR = 1.2;
 
@@ -82,74 +69,6 @@ export class TravelTimeService {
   private _sourceStats: TravelSourceStats = { ors: 0, 'ors-matrix': 0, traveltime: 0, 'traveltime-matrix': 0, heuristic: 0, unreachable: 0, total: 0 };
   private _sessionCache: Map<string, { durationMinutes: number; distanceMeters: number; source: string }> = new Map();
   private _ttGeoCache: Map<string, { lat: number; lng: number } | null> = new Map();
-
-  // ── Process-wide ORS Matrix rate/quota guard (shared by ALL concurrent callers) ──
-  /** Chain used to serialize ORS Matrix calls so concurrent requests can't burst past the per-minute limit together. */
-  private static _orsQueue: Promise<void> = Promise.resolve();
-  private static _orsLastCallAt = 0;
-  private static _orsDailyCount = 0;
-  private static _orsDailyResetAt = TravelTimeService.nextMidnightUTC();
-  /** Set once we proactively stop calling ORS for the day — surfaced via getOrsQuotaStatus() for logging/monitoring. */
-  private static _orsQuotaHalted = false;
-
-  private static nextMidnightUTC(): number {
-    const d = new Date();
-    d.setUTCHours(24, 0, 0, 0);
-    return d.getTime();
-  }
-
-  /** Current process-wide ORS Matrix quota usage — for logging/status endpoints. */
-  static getOrsQuotaStatus(): { callsToday: number; dailyLimit: number; halted: boolean; resetsAt: string } {
-    if (Date.now() >= TravelTimeService._orsDailyResetAt) {
-      TravelTimeService._orsDailyCount = 0;
-      TravelTimeService._orsQuotaHalted = false;
-      TravelTimeService._orsDailyResetAt = TravelTimeService.nextMidnightUTC();
-    }
-    return {
-      callsToday: TravelTimeService._orsDailyCount,
-      dailyLimit: ORS_MATRIX_DAILY_LIMIT,
-      halted: TravelTimeService._orsQuotaHalted,
-      resetsAt: new Date(TravelTimeService._orsDailyResetAt).toISOString(),
-    };
-  }
-
-  /**
-   * Reserve a slot to make one ORS Matrix API call: enforces the 40/min pace across
-   * ALL concurrent callers (not just within one request) and proactively halts once
-   * the daily quota is nearly exhausted, so we fail soft (heuristic/unreachable) instead
-   * of burning through 429s. Returns false if the call should be skipped entirely.
-   */
-  private async reserveOrsMatrixSlot(): Promise<boolean> {
-    // Daily reset check
-    if (Date.now() >= TravelTimeService._orsDailyResetAt) {
-      TravelTimeService._orsDailyCount = 0;
-      TravelTimeService._orsQuotaHalted = false;
-      TravelTimeService._orsDailyResetAt = TravelTimeService.nextMidnightUTC();
-    }
-    if (TravelTimeService._orsDailyCount >= ORS_MATRIX_DAILY_LIMIT - ORS_MATRIX_DAILY_SAFETY_MARGIN) {
-      if (!TravelTimeService._orsQuotaHalted) {
-        TravelTimeService._orsQuotaHalted = true;
-        logger.warn(`[ORS Quota] Daily Matrix quota nearly exhausted (${TravelTimeService._orsDailyCount}/${ORS_MATRIX_DAILY_LIMIT}) — halting ORS calls until reset, falling back to heuristic/unreachable for remaining routes.`);
-      }
-      return false;
-    }
-
-    // Serialize against every other concurrent caller so the real 40/min pace is respected globally.
-    let release: () => void;
-    const gate = new Promise<void>(resolve => { release = resolve; });
-    const prior = TravelTimeService._orsQueue;
-    TravelTimeService._orsQueue = prior.then(() => gate);
-    await prior;
-
-    const elapsed = Date.now() - TravelTimeService._orsLastCallAt;
-    if (elapsed < ORS_MATRIX_MIN_INTERVAL_MS) {
-      await new Promise(resolve => setTimeout(resolve, ORS_MATRIX_MIN_INTERVAL_MS - elapsed));
-    }
-    TravelTimeService._orsLastCallAt = Date.now();
-    TravelTimeService._orsDailyCount++;
-    release!();
-    return true;
-  }
 
   constructor(maxTravelMinutes: number = 45, softLimitMinutes?: number) {
     this.maxTravelMinutes = maxTravelMinutes;
@@ -894,10 +813,9 @@ export class TravelTimeService {
       const srcIndices = sources.map((_, i) => i);
       const dstIndices = destinations.map((_, i) => sources.length + i);
 
-      // Process-wide gate: enforces the real 40/min ORS pace across ALL concurrent
-      // requests, and proactively halts once the 500/day quota is nearly exhausted.
-      const allowed = await this.reserveOrsMatrixSlot();
-      if (!allowed) return added;
+      // Add delay to respect ORS Free Tier rate limits (40 requests per minute = 1500ms per request)
+      // 800ms is conservative; use 1500ms for strict compliance at ~40/min
+      await new Promise(resolve => setTimeout(resolve, 1500));
 
       const response = await fetch('https://api.openrouteservice.org/v2/matrix/driving-car', {
         method: 'POST',
@@ -927,15 +845,7 @@ export class TravelTimeService {
         logger.info(`[Cache Pre-warm] ORS Matrix: ${sources.length}×${destinations.length} batch → ${added} entries cached`);
       } else {
         const errText = await response.text();
-        if (response.status === 429 || response.status === 403) {
-          // Quota/rate-limit hit despite our own pacing (e.g. another key user, or a burst
-          // right at the boundary) — halt proactively for the rest of the day rather than
-          // hammering ORS with more calls that will also fail.
-          TravelTimeService._orsQuotaHalted = true;
-          logger.warn(`[ORS Quota] Matrix batch got ${response.status} (quota/rate-limit) — halting further ORS calls today. Body: ${errText.slice(0, 200)}`);
-        } else {
-          logger.warn(`[Cache Pre-warm] ORS Matrix batch failed (${response.status}): ${errText.slice(0, 200)}`);
-        }
+        logger.warn(`[Cache Pre-warm] ORS Matrix batch failed (${response.status}): ${errText.slice(0, 200)}`);
         return added;
       }
     } catch (err) {
