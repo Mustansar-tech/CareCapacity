@@ -87,9 +87,10 @@ export async function batchTravelTimes(req: Request, res: Response): Promise<voi
 
   const sessionResults = travelTimeService.getSessionResults();
   const travelSources = travelTimeService.getSourceStats();
+  const orsQuota = TravelTimeService.getOrsQuotaStatus();
 
-  logger.info(`[Travel Batch] Returned ${sessionResults.length} travel times for ${validEmployees.length} employees × ${validClients.length} clients. Sources: ${JSON.stringify(travelSources)}`);
-  res.json({ results: sessionResults, travelSources });
+  logger.info(`[Travel Batch] Returned ${sessionResults.length} travel times for ${validEmployees.length} employees × ${validClients.length} clients. Sources: ${JSON.stringify(travelSources)}. ORS Matrix quota: ${orsQuota.callsToday}/${orsQuota.dailyLimit} today${orsQuota.halted ? ' (HALTED)' : ''}`);
+  res.json({ results: sessionResults, travelSources, orsQuota });
 }
 
 export async function debugSingleTravelTime(req: Request, res: Response): Promise<void> {
