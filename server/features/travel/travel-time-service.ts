@@ -870,6 +870,28 @@ export class TravelTimeService {
     destinations = destinations.filter(d => sources.some(s => pairUncached(s, d)));
     if (destinations.length === 0) return 0;
 
+    // Matrix APIs (both Mapbox and ORS) reject a request that resolves to a single
+    // element (Mapbox: "minimum number of matrix elements is 2"). When dedup filtering
+    // narrows a batch down to exactly one source and one destination, use the
+    // single-pair Directions endpoints instead — they have no such minimum.
+    if (sources.length === 1 && destinations.length === 1) {
+      const src = sources[0];
+      const dst = destinations[0];
+      if (skipSameCoords && src.lat === dst.lat && src.lng === dst.lng) return 0;
+      const sk = this.sessionKey(src.lat.toString(), src.lng.toString(), dst.lat.toString(), dst.lng.toString(), 'car');
+      const mb = await this.fetchMapboxDirections(src, dst);
+      if (mb) {
+        this._sessionCache.set(sk, { durationMinutes: mb.durationMinutes, distanceMeters: mb.distanceMeters, source: 'mapbox' });
+        return 1;
+      }
+      const ors = await this.fetchORSDirections(src, dst);
+      if (ors) {
+        this._sessionCache.set(sk, { durationMinutes: ors.durationMinutes, distanceMeters: ors.distanceMeters, source: 'ors' });
+        return 1;
+      }
+      return 0;
+    }
+
     if (this.MAPBOX_API_KEY) {
       const added = await this.mapboxMatrixBatch(sources, destinations, skipSameCoords);
       if (added > 0) return added;
