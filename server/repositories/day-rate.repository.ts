@@ -26,6 +26,11 @@ export interface DayRateGrid {
   dates: string[];
   franchises: DayRateGridFranchise[];
   totals: Record<string, DayRateGridEntry>;
+  // Names of tracked franchises with no entry for today's date within this
+  // grid's month — lets the UI flag today's total as understated rather than
+  // silently showing a lower total as if every franchise had reported in.
+  todayDate: string;
+  missingTodayFranchises: string[];
 }
 
 /**
@@ -141,11 +146,25 @@ export async function getDayRateGrid(reportingMonth: string): Promise<DayRateGri
     };
   }
 
+  // Only flag missing franchises for today's date within this month's grid —
+  // past dates are treated as settled, and the automation only ever writes
+  // today's date, so this is where a partial-failure day would otherwise
+  // silently understate the total with no visible sign.
+  const todayDate = new Date().toISOString().slice(0, 10);
+  let missingTodayFranchises: string[] = [];
+  if (dates.includes(todayDate)) {
+    missingTodayFranchises = franchises
+      .filter(f => !entriesByFranchise.get(f.id)?.[todayDate])
+      .map(f => f.franchiseName);
+  }
+
   return {
     reportingMonth,
     daysInMonth,
     dates,
     franchises: gridFranchises,
     totals: totalsOut,
+    todayDate,
+    missingTodayFranchises,
   };
 }

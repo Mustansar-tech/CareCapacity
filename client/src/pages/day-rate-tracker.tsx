@@ -48,6 +48,8 @@ interface DayRateGrid {
   dates: string[];
   franchises: DayRateGridFranchise[];
   totals: Record<string, DayRateGridEntry>;
+  todayDate: string;
+  missingTodayFranchises: string[];
 }
 
 interface DayRateAutomationJobResult {
@@ -235,6 +237,19 @@ function MonthGrid({
     return filteredTotals[lastDate];
   }, [grid, filteredTotals]);
 
+  // The automation only ever writes today's date; if it's the most recent
+  // column shown and one or more tracked franchises have no entry for it yet,
+  // the total above is understated rather than final — flag it rather than
+  // let it look like a complete day's figure.
+  const missingTodayForView = useMemo(() => {
+    if (!grid || grid.missingTodayFranchises.length === 0) return [];
+    const lastDate = grid.dates[grid.dates.length - 1];
+    if (lastDate !== grid.todayDate) return [];
+    if (selectedOffice === ALL_FRANCHISES_FILTER) return grid.missingTodayFranchises;
+    const visibleNames = new Set(officeGroups.flatMap(([, rows]) => rows).map(f => f.franchiseName));
+    return grid.missingTodayFranchises.filter(name => visibleNames.has(name));
+  }, [grid, officeGroups, selectedOffice]);
+
   const grandTotalTrend = useMemo(() => {
     if (!grid || grid.dates.length < 2) return null;
     const lastIndex = grid.dates.length - 1;
@@ -286,12 +301,29 @@ function MonthGrid({
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                 <div className="text-3xl font-semibold tracking-tight">{grandTotal ? gbp.format(grandTotal.revenue) : "—"}</div>
+                 <div className="flex items-center gap-2">
+                   <div className="text-3xl font-semibold tracking-tight">{grandTotal ? gbp.format(grandTotal.revenue) : "—"}</div>
+                   {missingTodayForView.length > 0 && (
+                     <span
+                       className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800 dark:bg-amber-950/40 dark:text-amber-400"
+                       title={`Missing today's figures: ${missingTodayForView.join(", ")}`}
+                       data-testid="badge-total-incomplete"
+                     >
+                       <AlertTriangle className="h-3 w-3" />
+                       Incomplete
+                     </span>
+                   )}
+                 </div>
                  <div className={`mt-1 flex items-center gap-1.5 text-sm font-medium ${trendClasses(grandTotalTrend)}`} title={getTrendLabel(grandTotalTrend)}>
                    <span>Day rate: {grandTotal ? gbpPrecise.format(grandTotal.dayRate) : "—"}</span>
                    <TrendIcon trend={grandTotalTrend} />
                    {grandTotalTrend && <span className="sr-only">{getTrendLabel(grandTotalTrend)}</span>}
                 </div>
+                {missingTodayForView.length > 0 && (
+                  <div className="mt-1.5 text-xs text-amber-700 dark:text-amber-500">
+                    {missingTodayForView.length} franchise{missingTodayForView.length === 1 ? "" : "s"} missing today's figures — total is understated
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>
@@ -380,10 +412,19 @@ function MonthGrid({
                              const previousEntry = dateIndex > 0 ? f.entries[grid.dates[dateIndex - 1]] : undefined;
                              const dayRateTrend = getTrend(e?.dayRate, previousEntry?.dayRate);
                              const isLatestDate = date === grid.dates[grid.dates.length - 1];
+                             const isMissingToday = !e && date === grid.todayDate;
                             return (
                               <Fragment key={date}>
-                                 <td className={`border-b border-r px-2 py-1.5 text-right tabular-nums ${isLatestDate ? "bg-primary/[0.025]" : ""}`}>
-                                  {e ? gbp.format(e.revenue) : <span className="text-muted-foreground">—</span>}
+                                 <td className={`border-b border-r px-2 py-1.5 text-right tabular-nums ${isLatestDate ? "bg-primary/[0.025]" : ""} ${isMissingToday ? "bg-amber-50 dark:bg-amber-950/20" : ""}`}>
+                                  {e ? (
+                                    gbp.format(e.revenue)
+                                  ) : isMissingToday ? (
+                                    <span className="inline-flex items-center gap-1 text-amber-700 dark:text-amber-500" title="Automation hasn't reported today's figure for this franchise yet">
+                                      <AlertTriangle className="h-3 w-3" /> Missing
+                                    </span>
+                                  ) : (
+                                    <span className="text-muted-foreground">—</span>
+                                  )}
                                 </td>
                                  <td
                                    className={`border-b border-r px-2 py-1.5 text-right tabular-nums font-medium transition-colors ${trendClasses(dayRateTrend)} ${isLatestDate ? "ring-1 ring-inset ring-primary/10" : ""}`}
