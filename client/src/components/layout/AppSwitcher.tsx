@@ -41,11 +41,18 @@ export function AppSwitcher({ current, collapsed, showBi }: AppSwitcherProps) {
             collapsed ? "p-1.5 justify-center" : "flex-1 px-1.5 py-1.5",
           ].join(" ")}
         >
-          <img
-            src={homeInsteadLogo}
-            alt="Home Instead"
-            className={`object-contain rounded-md shrink-0 opacity-95 ring-1 ring-white/10 bg-white/95 p-[3px] ${collapsed ? "h-7 w-7" : "h-6 w-6"}`}
-          />
+          <span
+            className={[
+              "flex items-center justify-center rounded-md bg-white shrink-0 shadow-sm ring-1 ring-black/5",
+              collapsed ? "h-8 w-8 p-1" : "h-8 w-9 p-1",
+            ].join(" ")}
+          >
+            <img
+              src={homeInsteadLogo}
+              alt="Home Instead"
+              className="w-full h-full object-contain"
+            />
+          </span>
           {!collapsed && (
             <>
               <div className="min-w-0 text-left">
