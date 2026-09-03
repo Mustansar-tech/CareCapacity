@@ -37,22 +37,22 @@ export function AppSwitcher({ current, collapsed, showBi }: AppSwitcherProps) {
       <DropdownMenuTrigger asChild>
         <button
           className={[
-            "flex items-center gap-2 rounded-md outline-none min-w-0 transition-colors hover:bg-white/10",
-            collapsed ? "p-1.5 justify-center" : "flex-1 px-1 py-1",
+            "flex items-center gap-2 rounded-lg outline-none min-w-0 transition-colors hover:bg-white/[0.08]",
+            collapsed ? "p-1.5 justify-center" : "flex-1 px-1.5 py-1.5",
           ].join(" ")}
         >
           <img
             src={homeInsteadLogo}
             alt="Home Instead"
-            className={`object-contain rounded shrink-0 opacity-90 ${collapsed ? "h-7 w-7" : "h-6 w-6"}`}
+            className={`object-contain rounded-md shrink-0 opacity-95 ring-1 ring-white/10 bg-white/95 p-[3px] ${collapsed ? "h-7 w-7" : "h-6 w-6"}`}
           />
           {!collapsed && (
             <>
               <div className="min-w-0 text-left">
-                <div className="text-sm font-semibold text-white truncate leading-tight">{active.label}</div>
-                <div className="text-[10px] text-white/50 truncate leading-tight">{active.subtitle}</div>
+                <div className="text-[13px] font-semibold text-white truncate leading-tight tracking-[-0.01em]">{active.label}</div>
+                <div className="text-[10px] text-white/45 truncate leading-tight">{active.subtitle}</div>
               </div>
-              {options.length > 1 && <ChevronsUpDown className="w-3.5 h-3.5 text-white/40 shrink-0 ml-auto" />}
+              {options.length > 1 && <ChevronsUpDown className="w-3.5 h-3.5 text-white/35 shrink-0 ml-auto" />}
             </>
           )}
         </button>

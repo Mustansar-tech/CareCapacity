@@ -103,7 +103,7 @@ export function BranchSelector({ compact = false, iconOnly = false }: BranchSele
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <button
-            className="flex items-center gap-2 w-full rounded-lg border border-border bg-background px-2.5 py-1.5 text-sm text-foreground hover:bg-muted transition-colors outline-none"
+            className="flex items-center gap-2 w-full rounded-lg border border-black/5 bg-white shadow-[0_1px_2px_rgba(0,0,0,0.08)] px-2.5 py-[7px] text-sm text-foreground hover:shadow-[0_2px_6px_rgba(0,0,0,0.12)] hover:-translate-y-px transition-all outline-none"
             data-testid="branch-selector"
             aria-label="Switch branch"
           >
@@ -111,10 +111,13 @@ export function BranchSelector({ compact = false, iconOnly = false }: BranchSele
               {abbrev}
             </div>
             <div className="flex-1 text-left min-w-0">
-              <div className="text-xs font-medium text-foreground truncate leading-tight">
+              <div className="text-[13px] font-medium text-foreground truncate leading-tight">
                 {selectedBranch?.displayName ?? 'Select branch…'}
               </div>
-              <div className="text-[10px] text-muted-foreground leading-tight">Franchise · Live</div>
+              <div className="text-[10px] text-muted-foreground leading-tight flex items-center gap-1">
+                <span className="w-1 h-1 rounded-full bg-emerald-500 inline-block" />
+                Franchise · Live
+              </div>
             </div>
             <ChevronDown className="w-3 h-3 text-muted-foreground shrink-0" />
           </button>
