@@ -4,11 +4,11 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useBranch } from "@/contexts/BranchContext";
 import { BranchSelector } from "@/components/BranchSelector";
 import { HelpPanel } from "@/components/HelpPanel";
-import homeInsteadLogo from "@/assets/logo.png";
+import { AppSwitcher } from "@/components/layout/AppSwitcher";
 import {
   LayoutDashboard, CalendarDays, Users, TrendingUp, UserCheck,
   Star, Search, PanelLeftClose, PanelLeftOpen, LogOut, Shield,
-  BookOpen, HelpCircle, Calendar, X, ChevronDown, PoundSterling,
+  BookOpen, HelpCircle, Calendar, X, ChevronDown,
 } from "lucide-react";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem,
@@ -53,12 +53,6 @@ const NAV_GROUPS: NavGroup[] = [
     label: "RECRUITMENT",
     items: [
       { id: "outlook", label: "Outlook", path: "/app/capacity-outlook", icon: TrendingUp },
-    ],
-  },
-  {
-    label: "BUSINESS INTELLIGENCE",
-    items: [
-      { id: "sur-group-bi", label: "SUR Group BI", path: "/sur-group-bi/data-house", icon: PoundSterling, adminOnly: true },
     ],
   },
 ];
@@ -359,7 +353,6 @@ export function Sidebar() {
   const [helpOpen, setHelpOpen] = useState(false);
   const isActive = useIsActive();
   const { isAdmin } = useAuth();
-  const [, navigate] = useLocation();
 
   const toggleCollapsed = () => {
     setCollapsed(c => {
@@ -412,22 +405,7 @@ export function Sidebar() {
           "flex items-center shrink-0 px-3 py-3 gap-2",
           collapsed ? "justify-center" : "justify-between",
         ].join(" ")}>
-          <button
-            onClick={() => navigate("/app/dashboard")}
-            className="flex items-center gap-2 min-w-0 outline-none"
-          >
-            <img
-              src={homeInsteadLogo}
-              alt="Home Instead"
-              className={`object-contain rounded shrink-0 opacity-90 ${collapsed ? "h-7 w-7" : "h-6 w-6"}`}
-            />
-            {!collapsed && (
-              <div className="min-w-0">
-                <div className="text-sm font-semibold text-white truncate leading-tight">Care Capacity</div>
-                <div className="text-[10px] text-white/50 truncate leading-tight">Home Instead</div>
-              </div>
-            )}
-          </button>
+          <AppSwitcher current="care-capacity" collapsed={collapsed} showBi={isAdmin} />
           {!collapsed && (
             <button
               onClick={toggleCollapsed}

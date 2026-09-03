@@ -1,7 +1,7 @@
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/contexts/AuthContext";
-import homeInsteadLogo from "@/assets/logo.png";
-import { PoundSterling, ArrowLeft, LogOut } from "lucide-react";
+import { AppSwitcher } from "@/components/layout/AppSwitcher";
+import { PoundSterling, LogOut } from "lucide-react";
 
 // ── SUR Group BI sidebar ─────────────────────────────────────────────────────
 // A deliberately separate, minimal nav shell for the SUR Group BI section.
@@ -35,24 +35,9 @@ export function SurGroupBiSidebar() {
       className="h-screen w-[220px] flex flex-col shrink-0 overflow-hidden"
       style={{ background: "#2c4f26" }}
     >
-      {/* ── Section header ── */}
-      <div className="flex items-center gap-2 px-3 py-3">
-        <img src={homeInsteadLogo} alt="Home Instead" className="h-6 w-6 object-contain rounded shrink-0 opacity-90" />
-        <div className="min-w-0">
-          <div className="text-sm font-semibold text-white truncate leading-tight">SUR Group BI</div>
-          <div className="text-[10px] text-white/50 truncate leading-tight">Business Intelligence</div>
-        </div>
-      </div>
-
-      {/* ── Back to Care Capacity ── */}
-      <div className="px-3 pb-2">
-        <Link
-          href="/app/dashboard"
-          className="flex items-center gap-2 rounded-md px-2.5 py-1.5 text-xs text-white/60 hover:bg-white/10 hover:text-white transition-colors"
-        >
-          <ArrowLeft className="w-3.5 h-3.5 shrink-0" />
-          <span>Back to Care Capacity</span>
-        </Link>
+      {/* ── Section header / app switcher ── */}
+      <div className="flex items-center px-3 py-3">
+        <AppSwitcher current="sur-group-bi" showBi />
       </div>
 
       <div className="mx-3 mb-2 border-t border-white/10" />
