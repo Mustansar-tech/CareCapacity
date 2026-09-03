@@ -54,6 +54,7 @@ const PeoplePlannerModule = lazy(() => import("@/pages/people-planner"));
 const DocsModule = lazy(() => import("@/pages/docs"));
 const WorkforceModule = lazy(() => import("@/pages/workforce"));
 const DayRateTrackerModule = lazy(() => import("@/pages/day-rate-tracker"));
+const SurGroupBiScoreboardsModule = lazy(() => import("@/pages/sur-group-bi-scoreboards"));
 
 // ─── Shared utilities ─────────────────────────────────────────────────────────
 
@@ -472,6 +473,13 @@ function App() {
                   <ProtectedRoute>
                     <SurGroupBiLayout>
                       <PageSuspense><DayRateTrackerModule /></PageSuspense>
+                    </SurGroupBiLayout>
+                  </ProtectedRoute>
+                </Route>
+                <Route path="/sur-group-bi/scoreboards">
+                  <ProtectedRoute>
+                    <SurGroupBiLayout>
+                      <PageSuspense><SurGroupBiScoreboardsModule /></PageSuspense>
                     </SurGroupBiLayout>
                   </ProtectedRoute>
                 </Route>

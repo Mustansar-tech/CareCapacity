@@ -1,7 +1,7 @@
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/contexts/AuthContext";
 import { AppSwitcher } from "@/components/layout/AppSwitcher";
-import { PoundSterling, LogOut } from "lucide-react";
+import { PoundSterling, Trophy, LogOut } from "lucide-react";
 
 // ── SUR Group BI sidebar ─────────────────────────────────────────────────────
 // A deliberately separate, minimal nav shell for the SUR Group BI section.
@@ -17,6 +17,7 @@ interface BiNavItem {
 
 const BI_NAV_ITEMS: BiNavItem[] = [
   { id: "data-house", label: "Data Warehouse", path: "/sur-group-bi/data-house", icon: PoundSterling },
+  { id: "scoreboards", label: "Scoreboards", path: "/sur-group-bi/scoreboards", icon: Trophy },
 ];
 
 export function SurGroupBiSidebar() {
