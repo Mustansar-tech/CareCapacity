@@ -58,7 +58,7 @@ const NAV_GROUPS: NavGroup[] = [
   {
     label: "BUSINESS INTELLIGENCE",
     items: [
-      { id: "day-rate-tracker", label: "Data House", path: "/app/day-rate-tracker", icon: PoundSterling, adminOnly: true },
+      { id: "sur-group-bi", label: "SUR Group BI", path: "/sur-group-bi/data-house", icon: PoundSterling, adminOnly: true },
     ],
   },
 ];

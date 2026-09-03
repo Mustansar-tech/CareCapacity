@@ -40,6 +40,7 @@ import { useLocation } from "wouter";
 import { useSessionTimeout } from "@/hooks/use-session-timeout";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Sidebar } from "@/components/layout/Sidebar";
+import { SurGroupBiLayout } from "@/components/layout/SurGroupBiLayout";
 import { SyncStatusBar } from "@/components/SyncStatusBar";
 
 // ─── Lazy page modules ────────────────────────────────────────────────────────
@@ -421,7 +422,7 @@ function Router() {
                 <AppLayout><PageSuspense><WorkforceModule /></PageSuspense></AppLayout>
               </Route>
               <Route path="/app/day-rate-tracker">
-                <AppLayout><PageSuspense><DayRateTrackerModule /></PageSuspense></AppLayout>
+                <Redirect to="/sur-group-bi/data-house" />
               </Route>
               <Route path="/app/docs">
                 <PageSuspense><DocsModule /></PageSuspense>
@@ -467,6 +468,16 @@ function App() {
                 <Route path="/docs"><Redirect to="/app/docs" /></Route>
                 <Route path="/login" component={LoginRoute} />
                 <Route path="/reset-password" component={ResetPasswordPage} />
+                <Route path="/sur-group-bi/data-house">
+                  <ProtectedRoute>
+                    <SurGroupBiLayout>
+                      <PageSuspense><DayRateTrackerModule /></PageSuspense>
+                    </SurGroupBiLayout>
+                  </ProtectedRoute>
+                </Route>
+                <Route path="/sur-group-bi">
+                  <Redirect to="/sur-group-bi/data-house" />
+                </Route>
                 <Route>
                   <ProtectedRoute>
                     <Router />
