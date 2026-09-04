@@ -10,6 +10,8 @@
  *
  * Franchises are grouped by the underlying People Planner branch/tenant so each
  * branch's franchises run in a single Playwright session (login once, iterate).
+ *
+ * Fires daily at 08:00 Europe/London (see worker.ts).
  */
 
 import { logger } from "../../infrastructure/logger";
@@ -36,7 +38,7 @@ function sleep(ms: number): Promise<void> {
  * All ~10 branches firing their initial AccessCloud login navigation in the
  * same instant (up to MAX_ACCOUNT_SLOTS concurrently) is what causes the
  * recurring "page.goto timeout" / "People Planner tile not found" failures
- * seen only on the 2am cron run — staggering the kickoff spreads that login
+ * seen only on the first cron run of the day — staggering the kickoff spreads that login
  * load out so the very first job of the day is no more likely to hit a slow
  * launcher page than a mid-run one.
  */

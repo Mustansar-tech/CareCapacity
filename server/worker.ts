@@ -159,12 +159,12 @@ if (process.env.ACCESS_EMAIL) {
     description: "Mon–Fri 01:00 BST/GMT — full forward-week multi-week sync",
   });
 
-  // ─── Day Rate Tracker — Financial Summary cron — 02:00 Europe/London, every day ──
+  // ─── Day Rate Tracker — Financial Summary cron — 08:00 Europe/London, every day ──
   // Runs after the capacity sync above so the two automations rarely contend for the
   // same Playwright account slots; if they do, the slot-reservation system queues one
   // behind the other automatically. Runs every day (not just weekdays) because revenue
   // keeps accruing daily.
-  cron.schedule("0 2 * * *", () => {
+  cron.schedule("0 8 * * *", () => {
     const now = new Date();
     logger.info("Worker: day-rate cron fired", { localTime: now.toISOString() });
     runDayRateAutomation(now).catch((err) => {
@@ -176,9 +176,9 @@ if (process.env.ACCESS_EMAIL) {
   }, { timezone: "Europe/London" });
 
   logger.info("Worker: day-rate cron armed", {
-    schedule: "0 2 * * *",
+    schedule: "0 8 * * *",
     timezone: "Europe/London",
-    description: "Every day 02:00 BST/GMT — Financial Summary export → Day Rate Tracker",
+    description: "Every day 08:00 BST/GMT — Financial Summary export → Day Rate Tracker",
   });
 } else {
   logger.warn("Worker: ACCESS_EMAIL not configured — daily scheduler not armed");
