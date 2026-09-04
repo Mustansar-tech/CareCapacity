@@ -57,31 +57,31 @@ const pct = (n: number) => (Number.isFinite(n) ? `${(n * 100).toFixed(0)}%` : "â
 // header colours â€” each owner's cluster of metrics gets a matching header
 // band and a soft tint across the column body so the grid reads at a glance.
 const OWNER_COLORS: Record<string, { header: string; col: string; colHeader: string; accent: string }> = {
-  Daniel: {
+  Finance: {
     header: "bg-blue-600 text-white",
     colHeader: "bg-blue-100/80 text-blue-900 dark:bg-blue-950/50 dark:text-blue-200 border-blue-200 dark:border-blue-900",
     col: "bg-blue-50/60 dark:bg-blue-950/20 border-blue-100 dark:border-blue-900/60",
     accent: "text-blue-700 dark:text-blue-300",
   },
-  Sandra: {
+  "Business Growth": {
     header: "bg-emerald-600 text-white",
     colHeader: "bg-emerald-100/80 text-emerald-900 dark:bg-emerald-950/50 dark:text-emerald-200 border-emerald-200 dark:border-emerald-900",
     col: "bg-emerald-50/60 dark:bg-emerald-950/20 border-emerald-100 dark:border-emerald-900/60",
     accent: "text-emerald-700 dark:text-emerald-300",
   },
-  Craig: {
+  Workforce: {
     header: "bg-red-600 text-white",
     colHeader: "bg-red-100/80 text-red-900 dark:bg-red-950/50 dark:text-red-200 border-red-200 dark:border-red-900",
     col: "bg-red-50/60 dark:bg-red-950/20 border-red-100 dark:border-red-900/60",
     accent: "text-red-700 dark:text-red-300",
   },
-  Sean: {
+  Scheduling: {
     header: "bg-amber-500 text-white",
     colHeader: "bg-amber-100/80 text-amber-900 dark:bg-amber-950/50 dark:text-amber-200 border-amber-200 dark:border-amber-900",
     col: "bg-amber-50/60 dark:bg-amber-950/20 border-amber-100 dark:border-amber-900/60",
     accent: "text-amber-700 dark:text-amber-300",
   },
-  Willie: {
+  "Care Quality": {
     header: "bg-purple-600 text-white",
     colHeader: "bg-purple-100/80 text-purple-900 dark:bg-purple-950/50 dark:text-purple-200 border-purple-200 dark:border-purple-900",
     col: "bg-purple-50/60 dark:bg-purple-950/20 border-purple-100 dark:border-purple-900/60",
@@ -89,14 +89,16 @@ const OWNER_COLORS: Record<string, { header: string; col: string; colHeader: str
   },
 };
 
-// Column groups mirror the "owner" header row in the source workbook (Daniel /
-// Sandra / Craig / Sean / Willie each accountable for one cluster of metrics).
+// Column groups mirror the "department" header row in the source workbook
+// (Finance / Business Growth / Workforce / Scheduling / Care Quality each
+// covering one cluster of metrics). Formerly labelled by the person
+// accountable for that cluster (Daniel / Sandra / Craig / Sean / Willie).
 const COLUMN_GROUPS: {
   owner: string;
   columns: { field: EditableField | "dayRate" | "enquiryConversion" | "hireConversion"; label: string; kind: "currency" | "number" | "hours" | "percent"; computed?: boolean }[];
 }[] = [
   {
-    owner: "Daniel",
+    owner: "Finance",
     columns: [
       { field: "monthlyRevenue", label: "Monthly Revenue", kind: "currency" },
       { field: "monthlyRevenueTarget", label: "Revenue Target", kind: "currency" },
@@ -105,7 +107,7 @@ const COLUMN_GROUPS: {
     ],
   },
   {
-    owner: "Sandra",
+    owner: "Business Growth",
     columns: [
       { field: "enquiries", label: "Enquiries", kind: "number" },
       { field: "enquiriesTarget", label: "Target", kind: "number" },
@@ -114,7 +116,7 @@ const COLUMN_GROUPS: {
     ],
   },
   {
-    owner: "Craig",
+    owner: "Workforce",
     columns: [
       { field: "applications", label: "Applications", kind: "number" },
       { field: "newHiresHeads", label: "New Hires (Heads)", kind: "number" },
@@ -123,7 +125,7 @@ const COLUMN_GROUPS: {
     ],
   },
   {
-    owner: "Sean",
+    owner: "Scheduling",
     columns: [
       { field: "guaranteedHourWastageLastWeek", label: "GH Wastage (Last Week)", kind: "hours" },
       { field: "guaranteedHourWastageWeekAhead", label: "GH Wastage (Week Ahead)", kind: "hours" },
@@ -131,7 +133,7 @@ const COLUMN_GROUPS: {
     ],
   },
   {
-    owner: "Willie",
+    owner: "Care Quality",
     columns: [
       { field: "hospitalisationsHeads", label: "Hospitalisations (Heads)", kind: "number" },
       { field: "hospitalisationsHours", label: "Hospitalisations Hours", kind: "hours" },
