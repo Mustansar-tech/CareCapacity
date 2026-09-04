@@ -47,6 +47,14 @@ interface KpiWeekSummary {
   daysInMonth: number;
 }
 
+interface CapacitySyncResponse {
+  rows: Record<string, {
+    guaranteedHourWastageLastWeek: number | null;
+    guaranteedHourWastageCurrentWeek: number | null;
+    absenceHoursLastWeek: number | null;
+  }>;
+}
+
 // Numeric fields a store row can hold — every field except identity/meta ones.
 type EditableField = Exclude<keyof KpiWeeklyEntry, "id" | "weekBeginning" | "weekNumber" | "qtrNumber" | "groupName" | "store">;
 
@@ -128,7 +136,7 @@ const COLUMN_GROUPS: {
     owner: "Scheduling",
     columns: [
       { field: "guaranteedHourWastageLastWeek", label: "GH Wastage (Last Week)", kind: "hours" },
-      { field: "guaranteedHourWastageWeekAhead", label: "GH Wastage (Week Ahead)", kind: "hours" },
+      { field: "guaranteedHourWastageWeekAhead", label: "GH Wastage (Current Week)", kind: "hours" },
       { field: "absenceHoursLastWeek", label: "Absence Hours (Last Week)", kind: "hours" },
     ],
   },
@@ -239,15 +247,39 @@ export function KpiWeeklyGrid() {
     staleTime: 10_000,
   });
 
+  const capacitySyncQuery = useQuery<CapacitySyncResponse>({
+    queryKey: ["/api/kpi-weekly/capacity-sync", selectedWeek],
+    queryFn: async () => {
+      const res = await fetch(
+        toAbsoluteUrl(`/api/kpi-weekly/capacity-sync/${selectedWeek}`),
+        { credentials: "include" },
+      );
+      if (!res.ok) throw new Error("Failed to sync Care Capacity KPI values");
+      return res.json();
+    },
+    enabled: !!selectedWeek,
+    staleTime: 30_000,
+  });
+
   useEffect(() => {
     if (!entriesQuery.data) return;
     const byStore: Record<string, KpiWeeklyEntry> = {};
     for (const store of stores) {
       const found = entriesQuery.data.find(e => e.store === store);
-      byStore[store] = found ?? emptyRow(store);
+      const row = found ?? emptyRow(store);
+      const synced = capacitySyncQuery.data?.rows[store];
+      byStore[store] = synced ? {
+        ...row,
+        guaranteedHourWastageLastWeek:
+          synced.guaranteedHourWastageLastWeek ?? row.guaranteedHourWastageLastWeek,
+        guaranteedHourWastageWeekAhead:
+          synced.guaranteedHourWastageCurrentWeek ?? row.guaranteedHourWastageWeekAhead,
+        absenceHoursLastWeek:
+          synced.absenceHoursLastWeek ?? row.absenceHoursLastWeek,
+      } : row;
     }
     setRows(byStore);
-  }, [entriesQuery.data, stores]);
+  }, [entriesQuery.data, capacitySyncQuery.data, stores]);
 
   const totalRow = useMemo(() => {
     const values = Object.values(rows);

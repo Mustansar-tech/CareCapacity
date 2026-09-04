@@ -235,6 +235,7 @@ export async function processCapacity(req: Request, res: Response): Promise<void
         employeesByDate: result.employeesByDate,
         employeeSummaryByDate: result.employeeSummaryByDate || {},
         warnings: result.warnings || [],
+        ghLossRawSummary: result.ghLossRawSummary,
       });
       logger.info('Analysis persisted successfully', { weekStart, branchName: branch.name });
       capacityRepo.enforceRetentionLatestWeeks(requestedBranchId).catch((e) =>
