@@ -442,7 +442,7 @@ async function runJob(job: AutomationJob, slot: SlotState): Promise<void> {
       }
 
       addLog(job, "Opening People Planner from the Access launcher...");
-      slot.plannerPage = await openPeoplePlanner(slot.context, workspacePage);
+      slot.plannerPage = await openPeoplePlanner(slot.context, workspacePage, job.id);
       slot.plannerBranchUrl = branchUrl;
       addLog(job, "People Planner opened.");
 
@@ -635,9 +635,31 @@ async function selectWorkspaceBranch(page: Page, branchName: string): Promise<vo
 }
 
 // ─── Open People Planner tab ──────────────────────────────────────────────────
-async function openPeoplePlanner(context: BrowserContext, page: Page): Promise<Page> {
+async function dismissCookiePreferences(page: Page): Promise<boolean> {
+  const choices = [
+    page.getByRole("button", { name: /^Required Only$/i }).first(),
+    page.getByRole("button", { name: /^Accept All$/i }).first(),
+    page.getByText(/^Required Only$/i).first(),
+  ];
+
+  for (const choice of choices) {
+    if (await choice.isVisible({ timeout: 1500 }).catch(() => false)) {
+      await choice.click({ force: true });
+      await page.waitForTimeout(500);
+      return true;
+    }
+  }
+  return false;
+}
+
+async function openPeoplePlanner(context: BrowserContext, page: Page, jobId: string): Promise<Page> {
   await page.keyboard.press("Escape");
   await page.waitForTimeout(800);
+
+  // Access Workspace can show a tenant-specific cookie consent modal after
+  // branch navigation. It sits above the launcher and makes the PP tile appear
+  // absent even though the account is correctly entitled.
+  await dismissCookiePreferences(page);
 
   const accessBtn = page.locator("access-button").first();
   if (await accessBtn.isVisible({ timeout: 5000 }).catch(() => false)) {
@@ -703,7 +725,7 @@ async function openPeoplePlanner(context: BrowserContext, page: Page): Promise<P
     }
 
     if (!ppTile) {
-      await debugScreenshot(page, "no-pp-tile");
+      await debugScreenshot(page, `no-pp-tile-${jobId}`);
       throw new Error("People Planner tile not found in launcher frame.");
     }
 
@@ -730,12 +752,12 @@ async function openPeoplePlanner(context: BrowserContext, page: Page): Promise<P
         await page.evaluate((url) => window.open(url, "_blank"), ppHref);
         plannerPage = await newTabPromise2;
       } else {
-        await debugScreenshot(page, "no-new-tab");
+        await debugScreenshot(page, `no-new-tab-${jobId}`);
         throw new Error("Clicked People Planner but no new tab opened.");
       }
     }
   } else {
-    await debugScreenshot(page, "no-launcher-frame");
+    await debugScreenshot(page, `no-launcher-frame-${jobId}`);
     const allFrameUrls = page.frames().map(f => f.url()).join(", ");
     throw new Error(
       `Could not find EVO launcher iframe after 30s. Available frames: ${allFrameUrls}`
