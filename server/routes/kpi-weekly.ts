@@ -98,22 +98,21 @@ const weekPayloadSchema = z.object({
 // manually entered/edited in-app after the initial historical import.
 // Admin-only, same access level as the rest of the Day Rate Tracker.
 export function registerKpiWeeklyRoutes(app: Express): void {
-  const biRead = requireRole('admin', 'bi_user');
-  const adminOnly = requireRole('admin');
+  const biAccess = requireRole('admin', 'bi_user');
 
   // GET /api/kpi-weekly/stores — canonical store list/order for the tab
-  app.get('/api/kpi-weekly/stores', biRead, asyncHandler(async (_req, res) => {
+  app.get('/api/kpi-weekly/stores', biAccess, asyncHandler(async (_req, res) => {
     res.json(KPI_STORE_ORDER);
   }));
 
   // GET /api/kpi-weekly/weeks — every week that has data, most recent first
-  app.get('/api/kpi-weekly/weeks', biRead, asyncHandler(async (_req, res) => {
+  app.get('/api/kpi-weekly/weeks', biAccess, asyncHandler(async (_req, res) => {
     const weeks = await getKpiWeeks();
     res.json(weeks);
   }));
 
   // Values synced from the Care Capacity cards for the selected KPI week.
-  app.get('/api/kpi-weekly/capacity-sync/:weekBeginning', biRead, asyncHandler(async (req, res) => {
+  app.get('/api/kpi-weekly/capacity-sync/:weekBeginning', biAccess, asyncHandler(async (req, res) => {
     const { weekBeginning } = req.params;
     if (!DATE_RE.test(weekBeginning)) {
       throw createAppError('weekBeginning must be YYYY-MM-DD', 400);
@@ -145,7 +144,7 @@ export function registerKpiWeeklyRoutes(app: Express): void {
   }));
 
   // GET /api/kpi-weekly/:weekBeginning — all store rows for one week
-  app.get('/api/kpi-weekly/:weekBeginning', biRead, asyncHandler(async (req, res) => {
+  app.get('/api/kpi-weekly/:weekBeginning', biAccess, asyncHandler(async (req, res) => {
     const { weekBeginning } = req.params;
     if (!DATE_RE.test(weekBeginning)) {
       throw createAppError('weekBeginning must be YYYY-MM-DD', 400);
@@ -155,7 +154,7 @@ export function registerKpiWeeklyRoutes(app: Express): void {
   }));
 
   // PUT /api/kpi-weekly/:weekBeginning — upsert every store row for one week in one go
-  app.put('/api/kpi-weekly/:weekBeginning', adminOnly, asyncHandler(async (req, res) => {
+  app.put('/api/kpi-weekly/:weekBeginning', biAccess, asyncHandler(async (req, res) => {
     const { weekBeginning } = req.params;
     if (!DATE_RE.test(weekBeginning)) {
       throw createAppError('weekBeginning must be YYYY-MM-DD', 400);
@@ -181,7 +180,7 @@ export function registerKpiWeeklyRoutes(app: Express): void {
   }));
 
   // DELETE /api/kpi-weekly/:weekBeginning — remove every row for one week
-  app.delete('/api/kpi-weekly/:weekBeginning', adminOnly, asyncHandler(async (req, res) => {
+  app.delete('/api/kpi-weekly/:weekBeginning', biAccess, asyncHandler(async (req, res) => {
     const { weekBeginning } = req.params;
     if (!DATE_RE.test(weekBeginning)) {
       throw createAppError('weekBeginning must be YYYY-MM-DD', 400);

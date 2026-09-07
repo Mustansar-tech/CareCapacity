@@ -2,7 +2,7 @@ import type { Express, Request } from "express";
 import { execSync } from "child_process";
 import fs from "fs";
 import path from "path";
-import { requireAuth, requireRoleAtLeast } from "../../features/auth/auth";
+import { requireAuth, requireRole, requireRoleAtLeast } from "../../features/auth/auth";
 import { storage } from "../../storage";
 import { logger } from "../../infrastructure/logger";
 import * as hrRepo from "../../repositories/hr.repository";
@@ -1339,15 +1339,15 @@ export function registerPeoplePlannerRoutes(app: Express): void {
     }
   });
 
-  // GET /api/day-rate/automation/status — Financial Summary automation health,
-  // surfaced the same way the weekly People Planner sync status is (admin-only).
+  // GET /api/day-rate/automation/status — Financial Summary automation health.
+  // BI users may inspect status and failures, but only admins may trigger a run.
   //
   // Reads from the persisted day_rate_automation_runs/job_results tables rather
   // than in-process memory: the cron that actually runs this automation lives in
   // a separate PM2 process (care-capacity-worker) from the one serving this API
   // route (care-capacity-api), so in-memory-only state here would always show
   // "not yet run" for cron-triggered runs even when they completed successfully.
-  app.get("/api/day-rate/automation/status", requireAuth, requireRoleAtLeast("admin"), async (_req, res) => {
+  app.get("/api/day-rate/automation/status", requireAuth, requireRole("admin", "bi_user"), async (_req, res) => {
     try {
       const { getLatestAutomationRun } = await import("../../repositories/day-rate-automation.repository");
       const latestRun = await getLatestAutomationRun();

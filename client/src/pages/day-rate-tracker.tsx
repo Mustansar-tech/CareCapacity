@@ -537,7 +537,7 @@ export default function DayRateTrackerPage() {
 
   // Hooks must run unconditionally on every render, so the admin gate below
   // (which returns early) comes after this query — it's simply disabled
-  // (enabled: isAdmin) rather than skipped, keeping hook order stable.
+  // (enabled: canAccessBi) rather than skipped, keeping hook order stable.
   const automationStatusQuery = useQuery<DayRateAutomationStatus>({
     queryKey: ["/api/day-rate/automation/status"],
     queryFn: async () => {
@@ -547,7 +547,7 @@ export default function DayRateTrackerPage() {
     },
     staleTime: 30_000,
     retry: false,
-    enabled: isAdmin,
+    enabled: canAccessBi,
     // Poll a bit faster while a manual run is likely in flight so the banner
     // and grid update without the admin needing to refresh the page.
     refetchInterval: (query) => {
@@ -786,10 +786,10 @@ export default function DayRateTrackerPage() {
         </TabsContent>
 
         <TabsContent value="kpi-tracker">
-          <KpiWeeklyGrid readOnly={!isAdmin} />
+          <KpiWeeklyGrid />
         </TabsContent>
         <TabsContent value="annual-roadmap">
-          <AnnualRoadmapGrid readOnly={!isAdmin} />
+          <AnnualRoadmapGrid />
         </TabsContent>
       </Tabs>
     </div>
