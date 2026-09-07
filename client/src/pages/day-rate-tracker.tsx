@@ -480,7 +480,7 @@ function MonthGrid({
 // ── Page ───────────────────────────────────────────────────────────────────────
 
 export default function DayRateTrackerPage() {
-  const { isAdmin } = useAuth();
+  const { isAdmin, canAccessBi } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [previousMonth, currentMonth, nextMonth] = useMemo(() => getComparisonMonths(new Date()), []);
@@ -495,7 +495,7 @@ export default function DayRateTrackerPage() {
       return res.json();
     },
     staleTime: 5 * 60_000,
-    enabled: isAdmin,
+    enabled: canAccessBi,
   });
 
   // Every closed month older than the rolling 3-month window — newest first —
@@ -515,7 +515,7 @@ export default function DayRateTrackerPage() {
       return res.json();
     },
     staleTime: 5 * 60_000,
-    enabled: isAdmin,
+    enabled: canAccessBi,
   });
 
   // One dropdown option per office, labelled with its base (non-LIC)
@@ -583,15 +583,15 @@ export default function DayRateTrackerPage() {
     },
   });
 
-  if (!isAdmin) {
+  if (!canAccessBi) {
     return (
       <div className="p-6" data-testid="page-day-rate-tracker-denied">
         <Card className="max-w-lg mx-auto mt-12">
           <CardContent className="pt-6 text-center space-y-3">
             <ShieldAlert className="h-8 w-8 text-muted-foreground mx-auto" />
-            <h1 className="text-lg font-semibold">Admin access required</h1>
+            <h1 className="text-lg font-semibold">BI access required</h1>
             <p className="text-sm text-muted-foreground">
-              The Day Rate Tracker is only available to admin users.
+              Your account does not have permission to access SUR Group BI.
             </p>
           </CardContent>
         </Card>
@@ -634,24 +634,26 @@ export default function DayRateTrackerPage() {
             <p className="max-w-3xl text-sm leading-6 text-muted-foreground">
               This comparison always tracks the last closed, current and next calendar month, so it rolls forward automatically each month.
             </p>
-            <Button
-              onClick={() => runAutomationMutation.mutate()}
-              disabled={runAutomationMutation.isPending || isAutomationRunning}
-              className="shadow-md shadow-primary/15 transition-all hover:-translate-y-0.5 hover:shadow-lg hover:shadow-primary/20"
-              data-testid="button-run-automation"
-            >
-              {runAutomationMutation.isPending || isAutomationRunning ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  {isAutomationRunning ? "Running…" : "Starting…"}
-                </>
-              ) : (
-                <>
-                  <PlayCircle className="h-4 w-4" />
-                  Run automation now
-                </>
-              )}
-            </Button>
+            {isAdmin && (
+              <Button
+                onClick={() => runAutomationMutation.mutate()}
+                disabled={runAutomationMutation.isPending || isAutomationRunning}
+                className="shadow-md shadow-primary/15 transition-all hover:-translate-y-0.5 hover:shadow-lg hover:shadow-primary/20"
+                data-testid="button-run-automation"
+              >
+                {runAutomationMutation.isPending || isAutomationRunning ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    {isAutomationRunning ? "Running…" : "Starting…"}
+                  </>
+                ) : (
+                  <>
+                    <PlayCircle className="h-4 w-4" />
+                    Run automation now
+                  </>
+                )}
+              </Button>
+            )}
           </div>
 
           {automationStatus && automationStatus.lastRunSummary && automationStatus.lastRunSummary.failed > 0 && (
@@ -784,10 +786,10 @@ export default function DayRateTrackerPage() {
         </TabsContent>
 
         <TabsContent value="kpi-tracker">
-          <KpiWeeklyGrid />
+          <KpiWeeklyGrid readOnly={!isAdmin} />
         </TabsContent>
         <TabsContent value="annual-roadmap">
-          <AnnualRoadmapGrid />
+          <AnnualRoadmapGrid readOnly={!isAdmin} />
         </TabsContent>
       </Tabs>
     </div>

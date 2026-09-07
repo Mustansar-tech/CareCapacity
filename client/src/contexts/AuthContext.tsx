@@ -2,7 +2,7 @@ import { createContext, useContext, useState, useEffect, ReactNode, useCallback 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiRequest, toAbsoluteUrl } from '@/lib/queryClient';
 
-export type UserRole = 'admin' | 'scheduler' | 'viewer';
+export type UserRole = 'admin' | 'bi_user' | 'scheduler' | 'viewer';
 
 export interface AuthUser {
   id: string;
@@ -24,10 +24,12 @@ interface AuthContextType {
   canEdit: boolean;
   canGenerate: boolean;
   isAdmin: boolean;
+  canAccessBi: boolean;
 }
 
 const ROLE_HIERARCHY: Record<UserRole, number> = {
   admin: 3,
+  bi_user: 1,
   scheduler: 2,
   viewer: 1,
 };
@@ -125,6 +127,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const canEdit = hasRoleAtLeast('scheduler');
   const canGenerate = hasRoleAtLeast('scheduler');
   const isAdmin = hasRole('admin');
+  const canAccessBi = isAdmin || hasRole('bi_user');
 
   return (
     <AuthContext.Provider value={{
@@ -138,6 +141,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       canEdit,
       canGenerate,
       isAdmin,
+      canAccessBi,
     }}>
       {children}
     </AuthContext.Provider>

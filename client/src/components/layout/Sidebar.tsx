@@ -361,7 +361,7 @@ export function Sidebar() {
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
   const isActive = useIsActive();
-  const { isAdmin } = useAuth();
+  const { isAdmin, canAccessBi } = useAuth();
 
   const toggleCollapsed = () => {
     setCollapsed(c => {
@@ -417,7 +417,7 @@ export function Sidebar() {
           "flex items-center shrink-0 px-2.5 pt-3 pb-2 gap-1",
           collapsed ? "justify-center" : "justify-between",
         ].join(" ")}>
-          <AppSwitcher current="care-capacity" collapsed={collapsed} showBi={isAdmin} />
+          <AppSwitcher current="care-capacity" collapsed={collapsed} showBi={canAccessBi} />
           {!collapsed && (
             <button
               onClick={toggleCollapsed}

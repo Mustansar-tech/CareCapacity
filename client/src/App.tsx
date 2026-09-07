@@ -343,8 +343,8 @@ function LoginRoute() {
 
 
 
-function ProtectedRoute({ children }: { children: ReactNode }) {
-  const { isAuthenticated, isLoading, user } = useAuth();
+function ProtectedRoute({ children, requireBi = false }: { children: ReactNode; requireBi?: boolean }) {
+  const { isAuthenticated, isLoading, user, canAccessBi } = useAuth();
   const [, navigate] = useLocation();
   const needsConsent = isAuthenticated && user && user.legalConsentVersion !== CURRENT_LEGAL_VERSION;
 
@@ -366,6 +366,26 @@ function ProtectedRoute({ children }: { children: ReactNode }) {
   }
 
   if (!isAuthenticated) return null;
+
+  if (requireBi && !canAccessBi) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background p-6">
+        <div className="text-center p-8 bg-card rounded-lg border shadow-xl max-w-md">
+          <Shield className="h-16 w-16 text-red-600 mx-auto mb-4" />
+          <h1 className="text-2xl font-bold mb-2">Access Denied</h1>
+          <p className="text-muted-foreground mb-6">
+            Your account does not have permission to access SUR Group BI.
+          </p>
+          <button
+            onClick={() => navigate('/app/dashboard')}
+            className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
+          >
+            Return to Care Capacity
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <>
@@ -470,14 +490,14 @@ function App() {
                 <Route path="/login" component={LoginRoute} />
                 <Route path="/reset-password" component={ResetPasswordPage} />
                 <Route path="/sur-group-bi/data-house">
-                  <ProtectedRoute>
+                  <ProtectedRoute requireBi>
                     <SurGroupBiLayout>
                       <PageSuspense><DayRateTrackerModule /></PageSuspense>
                     </SurGroupBiLayout>
                   </ProtectedRoute>
                 </Route>
                 <Route path="/sur-group-bi/scoreboards">
-                  <ProtectedRoute>
+                  <ProtectedRoute requireBi>
                     <SurGroupBiLayout>
                       <PageSuspense><SurGroupBiScoreboardsModule /></PageSuspense>
                     </SurGroupBiLayout>

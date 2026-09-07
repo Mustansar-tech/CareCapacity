@@ -1,7 +1,7 @@
 import type { Express } from 'express';
 import { asyncHandler } from '../middleware/error-handler';
 import { createAppError } from '../middleware/error-handler';
-import { requireRoleAtLeast } from '../features/auth/auth';
+import { requireRole } from '../features/auth/auth';
 import {
   getRoadmapYears,
   getRoadmapEntriesForYear,
@@ -28,21 +28,22 @@ const assumptionsPayloadSchema = z.object({
 // to hold each franchise's (and the group's) yearly plan/growth-driver
 // targets, reused as KPI Tracker targets and reusable across future years.
 export function registerAnnualRoadmapRoutes(app: Express): void {
-  const adminOnly = requireRoleAtLeast('admin');
+  const biRead = requireRole('admin', 'bi_user');
+  const adminOnly = requireRole('admin');
 
   // GET /api/annual-roadmap/offices — canonical office list/order for the tab
-  app.get('/api/annual-roadmap/offices', adminOnly, asyncHandler(async (_req, res) => {
+  app.get('/api/annual-roadmap/offices', biRead, asyncHandler(async (_req, res) => {
     res.json(ROADMAP_OFFICE_ORDER);
   }));
 
   // GET /api/annual-roadmap/years — every year that has data, most recent first
-  app.get('/api/annual-roadmap/years', adminOnly, asyncHandler(async (_req, res) => {
+  app.get('/api/annual-roadmap/years', biRead, asyncHandler(async (_req, res) => {
     const years = await getRoadmapYears();
     res.json(years);
   }));
 
   // GET /api/annual-roadmap/:year — every office's 12 months for a year, plus assumptions
-  app.get('/api/annual-roadmap/:year', adminOnly, asyncHandler(async (req, res) => {
+  app.get('/api/annual-roadmap/:year', biRead, asyncHandler(async (req, res) => {
     const year = parseInt(req.params.year, 10);
     if (!Number.isFinite(year)) throw createAppError('year must be a number', 400);
     const [entries, assumptions] = await Promise.all([
@@ -53,7 +54,7 @@ export function registerAnnualRoadmapRoutes(app: Express): void {
   }));
 
   // GET /api/annual-roadmap/:year/:office/:month — single entry, used to prefill KPI Tracker targets
-  app.get('/api/annual-roadmap/:year/:office/:month', adminOnly, asyncHandler(async (req, res) => {
+  app.get('/api/annual-roadmap/:year/:office/:month', biRead, asyncHandler(async (req, res) => {
     const year = parseInt(req.params.year, 10);
     const month = parseInt(req.params.month, 10);
     if (!Number.isFinite(year) || !Number.isFinite(month)) throw createAppError('year and month must be numbers', 400);

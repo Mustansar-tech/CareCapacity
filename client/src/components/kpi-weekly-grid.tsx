@@ -194,7 +194,7 @@ function formatWeekLabel(w: KpiWeekSummary): string {
   return `Wk ${w.weekNumber} (Qtr ${w.qtrNumber}) — ${dateStr}`;
 }
 
-export function KpiWeeklyGrid() {
+export function KpiWeeklyGrid({ readOnly = false }: { readOnly?: boolean }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [selectedWeek, setSelectedWeek] = useState<string | null>(null);
@@ -426,7 +426,7 @@ export function KpiWeeklyGrid() {
             </SelectContent>
           </Select>
 
-          <Dialog open={addOpen} onOpenChange={setAddOpen}>
+          {!readOnly && <Dialog open={addOpen} onOpenChange={setAddOpen}>
             <DialogTrigger asChild>
               <Button variant="outline" size="sm" data-testid="button-add-kpi-week">
                 <Plus className="h-4 w-4" />
@@ -467,13 +467,15 @@ export function KpiWeeklyGrid() {
                 </Button>
               </DialogFooter>
             </DialogContent>
-          </Dialog>
+          </Dialog>}
         </div>
 
-        <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending || !selectedWeek} data-testid="button-save-kpi-week">
-          {saveMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-          Save changes
-        </Button>
+        {!readOnly && (
+          <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending || !selectedWeek} data-testid="button-save-kpi-week">
+            {saveMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+            Save changes
+          </Button>
+        )}
       </div>
 
       {isLoading && (
@@ -541,6 +543,7 @@ export function KpiWeeklyGrid() {
                             <td key={field} className={`border-b border-r p-0 min-w-[88px] ${palette.col}`}>
                               <Input
                                 type="number"
+                                readOnly={readOnly}
                                 className={`h-8 border-none rounded-none text-right tabular-nums shadow-none focus-visible:ring-1 focus-visible:z-10 relative bg-transparent px-2 ${palette.col}`}
                                 value={rawValue === null ? "" : (rawValue as number)}
                                 onChange={e => updateCell(store, field, e.target.value)}

@@ -93,7 +93,7 @@ function formatValue(kind: "currency" | "currency2" | "hours" | "number", value:
   return value.toLocaleString("en-GB", { maximumFractionDigits: 1 });
 }
 
-export function AnnualRoadmapGrid() {
+export function AnnualRoadmapGrid({ readOnly = false }: { readOnly?: boolean }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const currentYear = new Date().getFullYear();
@@ -230,10 +230,12 @@ export function AnnualRoadmapGrid() {
           </Select>
         </div>
 
-        <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending || !office} data-testid="button-save-roadmap">
-          {saveMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-          Save changes
-        </Button>
+        {!readOnly && (
+          <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending || !office} data-testid="button-save-roadmap">
+            {saveMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+            Save changes
+          </Button>
+        )}
       </div>
 
       {isLoading && (
@@ -277,6 +279,7 @@ export function AnnualRoadmapGrid() {
                               <td key={month} className="border-b border-r p-0">
                                 <Input
                                   type="number"
+                                   readOnly={readOnly}
                                   className="h-8 border-none rounded-none text-right tabular-nums shadow-none focus-visible:ring-1 focus-visible:z-10 relative bg-transparent"
                                   value={value === null ? "" : (value as number)}
                                   onChange={e => updateCell(month, row.field, e.target.value)}
@@ -300,10 +303,12 @@ export function AnnualRoadmapGrid() {
         <CardContent className="p-4 space-y-3">
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-semibold">Key Player Hiring Assumptions ({year})</h3>
-            <Button size="sm" variant="outline" onClick={() => saveAssumptionsMutation.mutate()} disabled={saveAssumptionsMutation.isPending} data-testid="button-save-assumptions">
-              {saveAssumptionsMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-              Save
-            </Button>
+            {!readOnly && (
+              <Button size="sm" variant="outline" onClick={() => saveAssumptionsMutation.mutate()} disabled={saveAssumptionsMutation.isPending} data-testid="button-save-assumptions">
+                {saveAssumptionsMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                Save
+              </Button>
+            )}
           </div>
           <p className="text-xs text-muted-foreground">Group-wide thresholds — not per branch. Reused every year unless you change them here.</p>
           <div className="overflow-x-auto">
@@ -319,15 +324,15 @@ export function AnnualRoadmapGrid() {
                 {assumptions.map(a => (
                   <tr key={a.id}>
                     <td className="border-b border-r p-0">
-                      <Input type="number" className="h-8 w-[100px] border-none rounded-none text-right tabular-nums shadow-none bg-transparent"
+                      <Input type="number" readOnly={readOnly} className="h-8 w-[100px] border-none rounded-none text-right tabular-nums shadow-none bg-transparent"
                         value={a.headcountThreshold} onChange={e => updateAssumption(a.id, "headcountThreshold", e.target.value)} data-testid={`input-assumption-headcount-${a.displayOrder}`} />
                     </td>
                     <td className="border-b border-r p-0">
-                      <Input type="number" className="h-8 w-[140px] border-none rounded-none text-right tabular-nums shadow-none bg-transparent"
+                      <Input type="number" readOnly={readOnly} className="h-8 w-[140px] border-none rounded-none text-right tabular-nums shadow-none bg-transparent"
                         value={a.revenueTrigger} onChange={e => updateAssumption(a.id, "revenueTrigger", e.target.value)} data-testid={`input-assumption-trigger-${a.displayOrder}`} />
                     </td>
                     <td className="border-b p-0">
-                      <Input type="number" className="h-8 w-[140px] border-none rounded-none text-right tabular-nums shadow-none bg-transparent"
+                      <Input type="number" readOnly={readOnly} className="h-8 w-[140px] border-none rounded-none text-right tabular-nums shadow-none bg-transparent"
                         value={a.revenuePerKeyPlayer} onChange={e => updateAssumption(a.id, "revenuePerKeyPlayer", e.target.value)} data-testid={`input-assumption-perplayer-${a.displayOrder}`} />
                     </td>
                   </tr>

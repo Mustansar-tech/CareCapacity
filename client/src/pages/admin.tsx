@@ -46,6 +46,7 @@ import {
 
 const ROLE_LABELS: Record<string, { label: string; color: string }> = {
   admin:      { label: 'Administrator', color: 'bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300' },
+  bi_user:    { label: 'BI User',       color: 'bg-violet-100 text-violet-700 dark:bg-violet-950 dark:text-violet-300' },
   scheduler:  { label: 'Scheduler',     color: 'bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300' },
   viewer:     { label: 'Viewer',        color: 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400' },
 };
@@ -88,7 +89,7 @@ const createUserSchema = z.object({
   email: z.string().email("Valid email required"),
   password: z.string().min(8, "At least 8 characters"),
   displayName: z.string().min(1, "Display name required"),
-  role: z.enum(['admin', 'scheduler', 'viewer']),
+  role: z.enum(['admin', 'bi_user', 'scheduler', 'viewer']),
   branchIds: z.array(z.string()).min(1, "Assign at least one branch"),
 });
 type CreateUserForm = z.infer<typeof createUserSchema>;
@@ -224,7 +225,7 @@ const SUPABASE_PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()
 
 const editUserSchema = z.object({
   displayName: z.string().min(1),
-  role: z.enum(['admin', 'scheduler', 'viewer']),
+  role: z.enum(['admin', 'bi_user', 'scheduler', 'viewer']),
   branchIds: z.array(z.string()).min(1),
   newPassword: z.union([
     z.literal(''),
