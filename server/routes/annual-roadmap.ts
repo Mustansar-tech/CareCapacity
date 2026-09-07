@@ -28,7 +28,7 @@ const assumptionsPayloadSchema = z.object({
 // to hold each franchise's (and the group's) yearly plan/growth-driver
 // targets, reused as KPI Tracker targets and reusable across future years.
 export function registerAnnualRoadmapRoutes(app: Express): void {
-  const biAccess = requireRole('admin', 'bi_user');
+  const biAccess = requireRole('admin', 'operations_director');
 
   // GET /api/annual-roadmap/offices — canonical office list/order for the tab
   app.get('/api/annual-roadmap/offices', biAccess, asyncHandler(async (_req, res) => {

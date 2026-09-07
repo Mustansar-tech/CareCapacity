@@ -1347,7 +1347,7 @@ export function registerPeoplePlannerRoutes(app: Express): void {
   // a separate PM2 process (care-capacity-worker) from the one serving this API
   // route (care-capacity-api), so in-memory-only state here would always show
   // "not yet run" for cron-triggered runs even when they completed successfully.
-  app.get("/api/day-rate/automation/status", requireAuth, requireRole("admin", "bi_user"), async (_req, res) => {
+  app.get("/api/day-rate/automation/status", requireAuth, requireRole("admin", "operations_director"), async (_req, res) => {
     try {
       const { getLatestAutomationRun } = await import("../../repositories/day-rate-automation.repository");
       const latestRun = await getLatestAutomationRun();

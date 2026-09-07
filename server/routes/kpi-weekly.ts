@@ -98,7 +98,7 @@ const weekPayloadSchema = z.object({
 // manually entered/edited in-app after the initial historical import.
 // Admin-only, same access level as the rest of the Day Rate Tracker.
 export function registerKpiWeeklyRoutes(app: Express): void {
-  const biAccess = requireRole('admin', 'bi_user');
+  const biAccess = requireRole('admin', 'operations_director');
 
   // GET /api/kpi-weekly/stores — canonical store list/order for the tab
   app.get('/api/kpi-weekly/stores', biAccess, asyncHandler(async (_req, res) => {

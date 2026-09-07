@@ -9,7 +9,7 @@ const MONTH_RE = /^\d{4}-\d{2}$/;
 // BI users can read franchise-level figures. Automation remains admin-only in
 // automation-routes.ts.
 export function registerDayRateRoutes(app: Express): void {
-  const biRead = requireRole('admin', 'bi_user');
+  const biRead = requireRole('admin', 'operations_director');
 
   // GET /api/day-rate/months — every reporting month with data, ascending
   app.get('/api/day-rate/months', biRead, asyncHandler(async (_req, res) => {

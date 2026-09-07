@@ -11,12 +11,33 @@ export function requireAuth(req: Request, res: Response, next: NextFunction) {
   next();
 }
 
+// Session role is set at login time. If an admin changes a user's role while
+// they're already logged in, req.session.userRole goes stale until they log
+// out and back in — the client picks up the new role immediately (it always
+// reads fresh from /api/auth/me), but the server would keep rejecting them.
+// So role checks re-fetch the live role from the DB and refresh the session
+// copy in lockstep, rather than trusting whatever was cached at login.
+async function getCurrentRole(req: Request): Promise<UserRole | null> {
+  if (!req.session?.userId) return null;
+  const user = await storage.getUserById(req.session.userId);
+  if (!user || !user.isActive) return null;
+  const role = user.role as UserRole;
+  if (req.session.userRole !== role) {
+    req.session.userRole = role;
+  }
+  return role;
+}
+
 export function requireRole(...roles: UserRole[]) {
   return async (req: Request, res: Response, next: NextFunction) => {
     if (!req.session?.userId) {
       return res.status(401).json({ message: 'Authentication required' });
     }
-    if (!roles.includes(req.session.userRole as UserRole)) {
+    const role = await getCurrentRole(req);
+    if (!role) {
+      return res.status(401).json({ message: 'Authentication required' });
+    }
+    if (!roles.includes(role)) {
       return res.status(403).json({ message: 'Insufficient permissions' });
     }
     next();
@@ -25,7 +46,7 @@ export function requireRole(...roles: UserRole[]) {
 
 export const roleHierarchy: Record<UserRole, number> = {
   admin: 3,
-  bi_user: 1,
+  operations_director: 1,
   scheduler: 2,
   viewer: 1,
 };
@@ -39,7 +60,11 @@ export function requireRoleAtLeast(role: UserRole) {
     if (!req.session?.userId) {
       return res.status(401).json({ message: 'Authentication required' });
     }
-    if (!hasRoleAtLeast(req.session.userRole as UserRole, role)) {
+    const currentRole = await getCurrentRole(req);
+    if (!currentRole) {
+      return res.status(401).json({ message: 'Authentication required' });
+    }
+    if (!hasRoleAtLeast(currentRole, role)) {
       return res.status(403).json({ message: 'Insufficient permissions' });
     }
     next();
