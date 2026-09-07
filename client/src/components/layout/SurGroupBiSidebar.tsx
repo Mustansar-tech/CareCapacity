@@ -17,7 +17,7 @@ interface BiNavItem {
 
 const BI_NAV_ITEMS: BiNavItem[] = [
   { id: "scoreboards", label: "Scoreboards", path: "/sur-group-bi/scoreboards", icon: Trophy },
-  { id: "data-house", label: "Data Warehouse", path: "/sur-group-bi/data-house", icon: PoundSterling },
+  { id: "data-house", label: "Data House", path: "/sur-group-bi/data-house", icon: PoundSterling },
 ];
 
 export function SurGroupBiSidebar() {
