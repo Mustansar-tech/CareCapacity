@@ -43,6 +43,26 @@ import {
   requireAuth,
   requireRoleAtLeast,
 } from '../../../server/features/auth/auth';
+import { storage } from '../../../server/storage';
+
+/**
+ * requireRoleAtLeast re-fetches the live role from storage.getUserById()
+ * rather than trusting the session (see auth.ts: session role can go stale
+ * after an admin changes a user's role while they're logged in), so tests
+ * that inject a fake session must stub getUserById to resolve a matching
+ * active user.
+ */
+function mockUserFor(session: { userId?: string; userRole?: string } | undefined) {
+  if (!session?.userId) {
+    vi.mocked(storage.getUserById).mockResolvedValue(null as any);
+    return;
+  }
+  vi.mocked(storage.getUserById).mockResolvedValue({
+    id: session.userId,
+    role: session.userRole,
+    isActive: 1,
+  } as any);
+}
 
 // ─── roleHierarchy ────────────────────────────────────────────────────────────
 
@@ -147,6 +167,7 @@ describe('requireRoleAtLeast middleware', () => {
     const req = { session: { userId: 'u1', userRole: 'admin' } } as any;
     const res = { status: vi.fn().mockReturnThis(), json: vi.fn() } as any;
     const next = vi.fn();
+    mockUserFor(req.session);
 
     await middleware(req, res, next);
 
@@ -159,6 +180,7 @@ describe('requireRoleAtLeast middleware', () => {
     const req = { session: { userId: 'u1', userRole: 'scheduler' } } as any;
     const res = { status: vi.fn().mockReturnThis(), json: vi.fn() } as any;
     const next = vi.fn();
+    mockUserFor(req.session);
 
     await middleware(req, res, next);
 
@@ -170,6 +192,7 @@ describe('requireRoleAtLeast middleware', () => {
     const req = { session: { userId: 'u1', userRole: 'viewer' } } as any;
     const res = { status: vi.fn().mockReturnThis(), json: vi.fn() } as any;
     const next = vi.fn();
+    mockUserFor(req.session);
 
     await middleware(req, res, next);
 
@@ -183,6 +206,7 @@ describe('requireRoleAtLeast middleware', () => {
     const req = { session: { userId: 'u1', userRole: 'scheduler' } } as any;
     const res = { status: vi.fn().mockReturnThis(), json: vi.fn() } as any;
     const next = vi.fn();
+    mockUserFor(req.session);
 
     await middleware(req, res, next);
 
@@ -194,6 +218,7 @@ describe('requireRoleAtLeast middleware', () => {
     const req = { session: undefined } as any;
     const res = { status: vi.fn().mockReturnThis(), json: vi.fn() } as any;
     const next = vi.fn();
+    mockUserFor(req.session);
 
     await middleware(req, res, next);
 

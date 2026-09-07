@@ -48,6 +48,7 @@ vi.mock('../../../server/storage', () => ({
 // ─── Imports (after mocks) ────────────────────────────────────────────────────
 
 import { requireAuth, requireRoleAtLeast } from '../../../server/features/auth/auth';
+import { storage } from '../../../server/storage';
 
 // ─── Test app factory ─────────────────────────────────────────────────────────
 
@@ -55,6 +56,11 @@ import { requireAuth, requireRoleAtLeast } from '../../../server/features/auth/a
  * Builds a minimal Express app with the real auth middleware.
  * @param sessionData — when provided, injected as req.session to simulate an
  *   authenticated request. Omit for unauthenticated request tests.
+ *
+ * Role checks re-fetch the live role from storage.getUserById() rather than
+ * trusting the session (see auth.ts: session role can go stale after an
+ * admin changes a user's role while they're logged in), so this stubs
+ * getUserById to resolve a matching active user for the injected session.
  */
 function buildTestApp(sessionData?: { userId: string; userRole: string }) {
   const app = express();
@@ -66,6 +72,13 @@ function buildTestApp(sessionData?: { userId: string; userRole: string }) {
       req.session = sessionData;
       next();
     });
+    vi.mocked(storage.getUserById).mockResolvedValue({
+      id: sessionData.userId,
+      role: sessionData.userRole,
+      isActive: 1,
+    } as any);
+  } else {
+    vi.mocked(storage.getUserById).mockResolvedValue(null as any);
   }
 
   // Public health endpoint
