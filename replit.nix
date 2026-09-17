@@ -1,5 +1,7 @@
 {pkgs}: {
   deps = [
+    pkgs.xvfb-run
+    pkgs.xorg.xorgserver
     pkgs.chromium
     pkgs.eudev
     pkgs.libxkbcommon

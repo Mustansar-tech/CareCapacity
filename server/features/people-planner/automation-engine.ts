@@ -84,9 +84,9 @@ async function getOrLaunchSharedBrowser(): Promise<Browser> {
       headless: true,
       // --disable-blink-features=AutomationControlled hides the most common
       // Playwright/Selenium fingerprint Cloudflare's bot management checks for.
-      // Without it, the Glasgow North tenant's login (which has Cloudflare Turnstile
-      // in front of it) gets stuck on an infinite "Verifying..." challenge that never
-      // resolves for an automated browser, even with correct credentials.
+      // (Tested against the Glasgow North tenant's Cloudflare Turnstile challenge
+      // alongside a full headed/Xvfb run — see automation-engine.ts module notes;
+      // neither passed the challenge, so this is kept only as a harmless baseline.)
       args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage", "--disable-blink-features=AutomationControlled"],
       ...(executablePath ? { executablePath } : {}),
     });
