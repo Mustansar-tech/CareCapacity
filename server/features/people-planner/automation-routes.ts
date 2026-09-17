@@ -355,11 +355,7 @@ function startNextQueuedSession(): void {
       }
       logger.error("Queued pipeline session failed", err instanceof Error ? err : undefined, { sessionId: nextId });
     }).finally(() => {
-      // Release whichever slot ended up in use — the session may have fallen back
-      // to slot 0 mid-run (see runExportJobWithRetry), so this can differ from
-      // the slot it was originally reserved on.
-      const finalSlot = activeSessions.get(nextId)?.slotArrayIndex ?? idleSlot;
-      releaseSlot(finalSlot);
+      releaseSlot(idleSlot);
       setImmediate(() => startNextQueuedSession());
     });
   }
@@ -440,86 +436,6 @@ function sleep(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-/** 1 initial attempt + 2 retries — covers common cold-login/launcher timeout flakiness. */
-const DEFAULT_MAX_JOB_ATTEMPTS = 3;
-
-/**
- * If a branch's dedicated People Planner account just failed to log in (not a one-off
- * timeout, an actual "stuck on the login page" failure) and the universal account
- * (slot 0 — ACCESS_EMAIL, which has access to every branch) is currently free, switch
- * this session onto it for the retry instead of hammering the same broken credentials
- * again. Returns the slot to keep using — unchanged if no switch happened.
- */
-function maybeFallbackToUniversalSlot(
-  sessionId: string,
-  currentSlot: number,
-  errorMessage: string,
-  logContext: Record<string, unknown>,
-): number {
-  if (currentSlot === 0) return currentSlot; // already on the universal account
-  if (!/still on login page/i.test(errorMessage)) return currentSlot; // not a login-credential failure
-  if (slotReservations.has(0)) return currentSlot; // universal slot busy — nothing to switch to
-
-  releaseSlot(currentSlot);
-  reserveSlot(0, sessionId);
-  logger.warn("Automation: dedicated account login failed — falling back to universal account (slot 0) for retry", {
-    ...logContext, previousSlot: currentSlot,
-  });
-  return 0;
-}
-
-/**
- * Runs one People Planner export job end-to-end (launch job, wait for completion, read the
- * downloaded file), retrying transient login/launcher failures and falling back from a
- * branch's dedicated account to the universal account if that dedicated login keeps failing.
- * `activeSlotRef` is mutated in place so later jobs in the same session keep using whichever
- * slot ended up working, and `onJobId` is called with every attempted job's id so callers can
- * keep their existing per-session job-id tracking (used by the status/history UI).
- */
-async function runExportJobWithRetry(
-  config: JobConfig,
-  activeSlotRef: { current: number },
-  sessionId: string,
-  waitTimeoutMs: number,
-  logContext: Record<string, unknown>,
-  onJobId?: (jobId: string) => void,
-): Promise<{ buffer: Buffer; attempts: number }> {
-  let attempt = 0;
-  let lastError: string | undefined;
-
-  while (attempt < DEFAULT_MAX_JOB_ATTEMPTS) {
-    attempt++;
-    try {
-      const jobId = await runAutomationJob(config, activeSlotRef.current);
-      onJobId?.(jobId);
-      const completedJob = await waitForJob(jobId, waitTimeoutMs);
-
-      if (completedJob.status === "failed") {
-        throw new Error(completedJob.error || `${config.reportType} download failed`);
-      }
-
-      const filePath = completedJob.filePath ?? getDownloadPath(jobId);
-      if (!filePath || !fs.existsSync(filePath)) {
-        throw new Error(`Downloaded file not found on disk for ${config.reportType}`);
-      }
-
-      return { buffer: fs.readFileSync(filePath), attempts: attempt };
-    } catch (err) {
-      lastError = err instanceof Error ? err.message : String(err);
-      const willRetry = attempt < DEFAULT_MAX_JOB_ATTEMPTS && isRetryableJobError(lastError);
-      logger.error(willRetry ? "PP export job failed — will retry" : "PP export job failed", err instanceof Error ? err : undefined, {
-        ...logContext, attempt, willRetry, slot: activeSlotRef.current,
-      });
-      if (!willRetry) throw err instanceof Error ? err : new Error(lastError);
-
-      activeSlotRef.current = maybeFallbackToUniversalSlot(sessionId, activeSlotRef.current, lastError, logContext);
-      await sleep(8000);
-    }
-  }
-
-  throw new Error(lastError ?? `${config.reportType} export failed after retries`);
-}
-
 const financialSummarySessions = new Map<string, FinancialSummarySession>();
 const financialSummaryQueue: string[] = [];
 
@@ -570,14 +486,10 @@ async function runFinancialSummarySession(
     : { sessionId, status: "running", branchId, initiatedByUserId, startedAt: new Date().toISOString(), jobResults: [], runId };
   financialSummarySessions.set(sessionId, session);
 
-  // The slot actually in use for this session. Starts as the branch's preferred/dedicated
-  // slot but can fall back to slot 0 (ACCESS_EMAIL — universal, all-branch access) mid-session
-  // if that dedicated account's login keeps failing (e.g. its password expired or it hit a
-  // tenant-specific re-auth wall) — see runExportJobWithRetry.
-  const activeSlotRef = { current: slotArrayIndex };
+  const MAX_ATTEMPTS = 3; // 1 initial + 2 retries — covers the common cold-login timeout flakiness
 
   try {
-    await resetSlotForNextSession(activeSlotRef.current);
+    await resetSlotForNextSession(slotArrayIndex);
 
     for (const job of jobs) {
       const jobResult: FinancialSummaryJobResult = {
@@ -588,53 +500,67 @@ async function runFinancialSummarySession(
       session.jobResults.push(jobResult);
       financialSummarySessions.set(sessionId, session);
 
+      let attempt = 0;
       let lastError: string | undefined;
-      let attempts = 1;
 
-      try {
-        const config: JobConfig = {
-          branchUrl: ppConfig.branchUrl,
-          startDate: job.startDate,
-          endDate: job.endDate,
-          reportType: "financialSummaryExport",
-          exportType: "",
-          exportTemplate: "",
-          financeFranchiseName: job.financeFranchiseName,
-          careGiverType: "Summary",
-          careGiverStatus: "All",
-          branchId,
-        };
+      while (attempt < MAX_ATTEMPTS) {
+        attempt++;
+        try {
+          const config: JobConfig = {
+            branchUrl: ppConfig.branchUrl,
+            startDate: job.startDate,
+            endDate: job.endDate,
+            reportType: "financialSummaryExport",
+            exportType: "",
+            exportTemplate: "",
+            financeFranchiseName: job.financeFranchiseName,
+            careGiverType: "Summary",
+            careGiverStatus: "All",
+            branchId,
+          };
 
-        const result = await runExportJobWithRetry(
-          config, activeSlotRef, sessionId, 600000,
-          { branchId, franchiseName: job.financeFranchiseName, reportingMonth: job.reportingMonth },
-        );
-        const buffer = result.buffer;
-        attempts = result.attempts;
-        session.slotArrayIndex = activeSlotRef.current;
-        financialSummarySessions.set(sessionId, session);
+          const jobId = await runAutomationJob(config, slotArrayIndex);
+          const completedJob = await waitForJob(jobId, 600000);
 
-        const totals = await parseFinancialSummaryWorkbook(buffer);
+          if (completedJob.status === "failed") {
+            throw new Error(completedJob.error || "Financial Summary download failed");
+          }
 
-        await upsertAutomatedEntry({
-          franchiseId: job.franchiseId,
-          date: job.date,
-          reportingMonth: job.reportingMonth,
-          daysInMonth: job.daysInMonth,
-          revenue: totals.revenue,
-        });
+          const filePath = completedJob.filePath ?? getDownloadPath(jobId);
+          if (!filePath || !fs.existsSync(filePath)) {
+            throw new Error("Downloaded Financial Summary file not found on disk");
+          }
 
-        jobResult.status = "completed";
-        jobResult.revenue = totals.revenue;
-        logger.info("Financial Summary job completed", {
-          branchId, franchiseName: job.financeFranchiseName, reportingMonth: job.reportingMonth,
-          revenue: totals.revenue,
-        });
-      } catch (jobErr) {
-        lastError = jobErr instanceof Error ? jobErr.message : String(jobErr);
-        logger.error("Financial Summary job failed", jobErr instanceof Error ? jobErr : undefined, {
-          branchId, franchiseName: job.financeFranchiseName, reportingMonth: job.reportingMonth,
-        });
+          const buffer = fs.readFileSync(filePath);
+          const totals = await parseFinancialSummaryWorkbook(buffer);
+
+          await upsertAutomatedEntry({
+            franchiseId: job.franchiseId,
+            date: job.date,
+            reportingMonth: job.reportingMonth,
+            daysInMonth: job.daysInMonth,
+            revenue: totals.revenue,
+          });
+
+          jobResult.status = "completed";
+          jobResult.revenue = totals.revenue;
+          logger.info("Financial Summary job completed", {
+            branchId, franchiseName: job.financeFranchiseName, reportingMonth: job.reportingMonth,
+            revenue: totals.revenue, attempt,
+          });
+          lastError = undefined;
+          break;
+        } catch (jobErr) {
+          lastError = jobErr instanceof Error ? jobErr.message : String(jobErr);
+          const willRetry = attempt < MAX_ATTEMPTS && isRetryableJobError(lastError);
+          logger.error(willRetry ? "Financial Summary job failed — will retry" : "Financial Summary job failed", jobErr instanceof Error ? jobErr : undefined, {
+            branchId, franchiseName: job.financeFranchiseName, reportingMonth: job.reportingMonth, attempt, willRetry,
+          });
+          if (!willRetry) break;
+          // Give the launcher/login flow a moment to recover before trying again —
+          // most failures at this point are transient AccessCloud login/launcher timeouts.
+          await sleep(8000);
+        }
       }
 
       if (lastError) {
@@ -653,7 +579,7 @@ async function runFinancialSummarySession(
           status: jobResult.status === "completed" ? "completed" : "failed",
           revenue: jobResult.revenue,
           error: jobResult.error,
-          attempts,
+          attempts: attempt,
         }).catch(err => logger.error("Failed to persist automation job result", err instanceof Error ? err : undefined));
       }
     }
@@ -701,11 +627,7 @@ function startNextQueuedFinancialSummarySession(): void {
         logger.error("Queued financial summary session failed", err instanceof Error ? err : undefined, { sessionId: nextId });
       })
       .finally(() => {
-        // Release whichever slot ended up in use — the session may have fallen back
-        // to slot 0 mid-run (see runFinancialSummarySession), so this can differ from
-        // the slot it was originally reserved on.
-        const finalSlot = financialSummarySessions.get(nextId)?.slotArrayIndex ?? idleSlot;
-        releaseSlot(finalSlot);
+        releaseSlot(idleSlot);
         setImmediate(() => {
           startNextQueuedFinancialSummarySession();
           startNextQueuedSession();
@@ -757,11 +679,7 @@ export async function programmaticQueueFinancialSummarySync(
       }
     })
     .finally(() => {
-      // Release whichever slot ended up in use — the session may have fallen back
-      // to slot 0 mid-run (see runFinancialSummarySession), so this can differ from
-      // the slot it was originally reserved on.
-      const finalSlot = financialSummarySessions.get(sessionId)?.slotArrayIndex ?? idleSlot;
-      releaseSlot(finalSlot);
+      releaseSlot(idleSlot);
       setImmediate(() => {
         startNextQueuedFinancialSummarySession();
         startNextQueuedSession();
@@ -889,11 +807,7 @@ export async function programmaticQueueSync(
     }
     logger.error("Programmatic pipeline session failed", err instanceof Error ? err : undefined, { sessionId });
   }).finally(() => {
-    // Release whichever slot ended up in use — the session may have fallen back
-    // to slot 0 mid-run (see runExportJobWithRetry), so this can differ from
-    // the slot it was originally reserved on.
-    const finalSlot = activeSessions.get(sessionId)?.slotArrayIndex ?? idleSlot;
-    releaseSlot(finalSlot);
+    releaseSlot(idleSlot);
     setImmediate(() => startNextQueuedSession());
   });
 
@@ -983,11 +897,7 @@ export async function programmaticQueueMultiWeekSync(
     }
     logger.error("Programmatic multi-week pipeline session failed", err instanceof Error ? err : undefined, { sessionId });
   }).finally(() => {
-    // Release whichever slot ended up in use — the session may have fallen back
-    // to slot 0 mid-run (see runExportJobWithRetry), so this can differ from
-    // the slot it was originally reserved on.
-    const finalSlot = activeSessions.get(sessionId)?.slotArrayIndex ?? idleSlot;
-    releaseSlot(finalSlot);
+    releaseSlot(idleSlot);
     setImmediate(() => startNextQueuedSession());
   });
 
@@ -1312,11 +1222,7 @@ export function registerPeoplePlannerRoutes(app: Express): void {
           });
         }
       }).finally(() => {
-        // Release whichever slot ended up in use — the session may have fallen back
-        // to slot 0 mid-run (see runExportJobWithRetry), so this can differ from
-        // the slot it was originally reserved on.
-        const finalSlot = activeSessions.get(sessionId)?.slotArrayIndex ?? idleSlot;
-        releaseSlot(finalSlot);
+        releaseSlot(idleSlot);
         setImmediate(() => startNextQueuedSession());
       });
 
@@ -1683,8 +1589,7 @@ async function runPipelineSession(
     // Resetting here (saving cookies first) gives each pipeline session a clean
     // context while still allowing the login step to be skipped via the saved
     // session file.
-    const activeSlotRef = { current: slotArrayIndex };
-    await resetSlotForNextSession(activeSlotRef.current);
+    await resetSlotForNextSession(slotArrayIndex);
 
     const downloadedBuffers: Record<string, Buffer> = {};
 
@@ -1707,16 +1612,23 @@ async function runPipelineSession(
         branchId,
       };
 
-      const { buffer } = await runExportJobWithRetry(
-        config, activeSlotRef, sessionId, 1800000,
-        { branchId, reportType },
-        jobId => { session.jobIds.push(jobId); activeSessions.set(sessionId, session); },
-      );
-      session.slotArrayIndex = activeSlotRef.current;
+      const jobId = await runAutomationJob(config, slotArrayIndex);
+      session.jobIds.push(jobId);
       activeSessions.set(sessionId, session);
 
-      downloadedBuffers[templateMap.fieldName] = buffer;
-      logger.info("File buffered", { reportType, fieldName: templateMap.fieldName, bytes: buffer.length });
+      const completedJob = await waitForJob(jobId, 1800000);
+
+      if (completedJob.status === "failed") {
+        throw new Error(`${reportType} download failed: ${completedJob.error}`);
+      }
+
+      const filePath = completedJob.filePath ?? getDownloadPath(jobId);
+      if (!filePath || !fs.existsSync(filePath)) {
+        throw new Error(`Downloaded file not found on disk for ${reportType}`);
+      }
+
+      downloadedBuffers[templateMap.fieldName] = fs.readFileSync(filePath);
+      logger.info("File buffered", { reportType, fieldName: templateMap.fieldName, bytes: downloadedBuffers[templateMap.fieldName].length });
     }
 
     session.phase = "processing";
@@ -1912,11 +1824,9 @@ async function runMultiWeekPipelineSession(
 
   const reportTypes = ["visitsExport", "careGiverExport", "careGiverAvailabilityExport"] as const;
 
-  const activeSlotRef = { current: slotArrayIndex };
-
   try {
     // Reset any leftover context from a previous session on this slot (once, at start).
-    await resetSlotForNextSession(activeSlotRef.current);
+    await resetSlotForNextSession(slotArrayIndex);
 
     logger.info("Multi-week pipeline session starting", { sessionId, branchId, weekCount: weekStartDates.length });
 
@@ -1955,22 +1865,26 @@ async function runMultiWeekPipelineSession(
             branchId,
           };
 
-          const { buffer } = await runExportJobWithRetry(
-            config, activeSlotRef, sessionId, 1800000,
-            { branchId, reportType, weekStartDate },
-            jobId => { session.jobIds.push(jobId); activeSessions.set(sessionId, session); },
-          );
+          const jobId = await runAutomationJob(config, slotArrayIndex);
+          session.jobIds.push(jobId);
           activeSessions.set(sessionId, session);
 
-          downloadedBuffers[templateMap.fieldName] = buffer;
+          const completedJob = await waitForJob(jobId, 1800000);
+          if (completedJob.status === "failed") {
+            throw new Error(`${reportType} download failed: ${completedJob.error}`);
+          }
+
+          const filePath = completedJob.filePath ?? getDownloadPath(jobId);
+          if (!filePath || !fs.existsSync(filePath)) {
+            throw new Error(`Downloaded file not found on disk for ${reportType}`);
+          }
+
+          downloadedBuffers[templateMap.fieldName] = fs.readFileSync(filePath);
           logger.info("File buffered", {
             reportType, weekStartDate, fieldName: templateMap.fieldName,
-            bytes: buffer.length,
+            bytes: downloadedBuffers[templateMap.fieldName].length,
           });
         }
-
-        session.slotArrayIndex = activeSlotRef.current;
-        activeSessions.set(sessionId, session);
 
         // Process this week's data.
         if (session.weeklyProgress) {

@@ -58,19 +58,6 @@ const WORKSPACE_URL = "https://go.accessacloud.com/";
 let sharedBrowser: Browser | null = null;
 let browserLaunchPromise: Promise<Browser> | null = null;
 
-// A realistic desktop Chrome UA — Playwright's default already omits "Headless" on
-// recent Chromium, but pinning an explicit, current desktop UA plus the webdriver-flag
-// override below reduces the automation fingerprint Cloudflare's bot management looks for.
-const DESKTOP_CHROME_UA =
-  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
-
-/** Applied to every new BrowserContext to mask the most common headless/automation tells. */
-async function applyStealth(context: BrowserContext): Promise<void> {
-  await context.addInitScript(() => {
-    Object.defineProperty(navigator, "webdriver", { get: () => undefined });
-  });
-}
-
 async function getOrLaunchSharedBrowser(): Promise<Browser> {
   if (sharedBrowser?.isConnected()) return sharedBrowser;
 
@@ -82,12 +69,7 @@ async function getOrLaunchSharedBrowser(): Promise<Browser> {
     const executablePath = getChromiumExecutablePath();
     const browser = await chromium.launch({
       headless: true,
-      // --disable-blink-features=AutomationControlled hides the most common
-      // Playwright/Selenium fingerprint Cloudflare's bot management checks for.
-      // (Tested against the Glasgow North tenant's Cloudflare Turnstile challenge
-      // alongside a full headed/Xvfb run — see automation-engine.ts module notes;
-      // neither passed the challenge, so this is kept only as a harmless baseline.)
-      args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage", "--disable-blink-features=AutomationControlled"],
+      args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"],
       ...(executablePath ? { executablePath } : {}),
     });
     browser.on("disconnected", () => {
@@ -396,9 +378,7 @@ async function runJob(job: AutomationJob, slot: SlotState): Promise<void> {
       slot.context = await browser.newContext({
         storageState: fs.existsSync(slot.sessionFile) ? slot.sessionFile : undefined,
         acceptDownloads: true,
-        userAgent: DESKTOP_CHROME_UA,
       });
-      await applyStealth(slot.context);
       slot.plannerPage = null;
       addLog(job, `Browser context ready for slot ${slot.index}.`);
     }
@@ -457,10 +437,6 @@ async function runJob(job: AutomationJob, slot: SlotState): Promise<void> {
         // One more safety check — if still on identity, throw clearly
         const urlAfter = workspacePage.url();
         if (urlAfter.includes("identity.accessacloud.com/auth/")) {
-          // slot.plannerPage is still null at this point (PP was never opened), so the
-          // generic failure-screenshot in the catch block below can't capture anything.
-          // Grab the workspace/login page itself here so a stuck-login failure is visible.
-          await debugScreenshot(workspacePage, `fail-${job.id}-stuck-login`).catch(() => {});
           throw new Error(`Still on login page after re-auth for branch ${branchUrl}: ${urlAfter}`);
         }
       }
@@ -1391,9 +1367,7 @@ export async function prewarmAllSlots(): Promise<void> {
           slot.context = await browser.newContext({
             storageState: fs.existsSync(slot.sessionFile) ? slot.sessionFile : undefined,
             acceptDownloads: false,
-            userAgent: DESKTOP_CHROME_UA,
           });
-          await applyStealth(slot.context);
           slot.plannerPage = null;
         }
 
