@@ -437,6 +437,10 @@ async function runJob(job: AutomationJob, slot: SlotState): Promise<void> {
         // One more safety check — if still on identity, throw clearly
         const urlAfter = workspacePage.url();
         if (urlAfter.includes("identity.accessacloud.com/auth/")) {
+          // slot.plannerPage is still null at this point (PP was never opened), so the
+          // generic failure-screenshot in the catch block below can't capture anything.
+          // Grab the workspace/login page itself here so a stuck-login failure is visible.
+          await debugScreenshot(workspacePage, `fail-${job.id}-stuck-login`).catch(() => {});
           throw new Error(`Still on login page after re-auth for branch ${branchUrl}: ${urlAfter}`);
         }
       }
