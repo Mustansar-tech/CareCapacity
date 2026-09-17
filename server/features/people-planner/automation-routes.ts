@@ -21,6 +21,7 @@ import {
   MAX_ACCOUNT_SLOTS,
   resetSlotForNextSession,
   type JobConfig,
+  type AutomationJob,
 } from "./automation-engine";
 import { parseFinancialSummaryWorkbook } from "./financial-summary-parser";
 import { upsertAutomatedEntry } from "../../repositories/day-rate.repository";
@@ -355,7 +356,7 @@ function startNextQueuedSession(): void {
       }
       logger.error("Queued pipeline session failed", err instanceof Error ? err : undefined, { sessionId: nextId });
     }).finally(() => {
-      releaseSlot(idleSlot);
+      releaseSlot(activeSessions.get(nextId)?.slotArrayIndex ?? idleSlot);
       setImmediate(() => startNextQueuedSession());
     });
   }
@@ -436,6 +437,75 @@ function sleep(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
+/**
+ * Run one automation job with retry, and — for retryable failures — automatic
+ * fallback to slot 0 (ACCESS_EMAIL, the universal account with access to every
+ * branch). A branch's dedicated account can get stuck on the login page (e.g. a
+ * Cloudflare challenge specific to that account's tenant re-auth) while the
+ * tenant itself and every other account are fine — retrying the same broken
+ * account just repeats the failure, so once slot 0 is confirmed idle we switch
+ * to it instead.
+ *
+ * Shared by all three automation paths (Financial Summary, single-week capacity
+ * sync, multi-week capacity sync) so the fallback behaves identically everywhere.
+ * Never throws — returns a discriminated result so callers can record attempts
+ * and errors without exception-based control flow.
+ */
+async function runExportJobWithRetry(
+  sessionId: string,
+  config: JobConfig,
+  initialSlot: number,
+  timeoutMs: number,
+  maxAttempts = 3,
+  onJobStarted?: (jobId: string) => void,
+): Promise<
+  | { ok: true; job: AutomationJob; slotUsed: number; attempts: number }
+  | { ok: false; error: string; slotUsed: number; attempts: number }
+> {
+  let slot = initialSlot;
+  let lastError = "Automation job failed";
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      const jobId = await runAutomationJob(config, slot);
+      onJobStarted?.(jobId);
+      const completedJob = await waitForJob(jobId, timeoutMs);
+      if (completedJob.status === "failed") {
+        throw new Error(completedJob.error || "Automation job failed");
+      }
+      return { ok: true, job: completedJob, slotUsed: slot, attempts: attempt };
+    } catch (err) {
+      lastError = err instanceof Error ? err.message : String(err);
+      const retryable = isRetryableJobError(lastError);
+      const isLastAttempt = attempt >= maxAttempts;
+      logger.error(
+        !retryable || isLastAttempt ? "Export job failed" : "Export job failed — will retry",
+        err instanceof Error ? err : undefined,
+        { sessionId, slot, attempt, retryable },
+      );
+      if (!retryable || isLastAttempt) {
+        return { ok: false, error: lastError, slotUsed: slot, attempts: attempt };
+      }
+
+      // Dedicated slot appears stuck. If the universal fallback account (slot 0)
+      // is idle, switch to it for the retry instead of hammering the same account.
+      if (slot !== 0 && !slotReservations.has(0)) {
+        reserveSlot(0, sessionId);
+        releaseSlot(slot);
+        await resetSlotForNextSession(0).catch(() => {});
+        logger.warn("Falling back to universal account slot after failure", { sessionId, previousSlot: slot, attempt });
+        slot = 0;
+      }
+
+      // Give the launcher/login flow a moment to recover before trying again —
+      // most failures at this point are transient AccessCloud login/launcher timeouts.
+      await sleep(8000);
+    }
+  }
+
+  return { ok: false, error: lastError, slotUsed: slot, attempts: maxAttempts };
+}
+
 const financialSummarySessions = new Map<string, FinancialSummarySession>();
 const financialSummaryQueue: string[] = [];
 
@@ -486,10 +556,10 @@ async function runFinancialSummarySession(
     : { sessionId, status: "running", branchId, initiatedByUserId, startedAt: new Date().toISOString(), jobResults: [], runId };
   financialSummarySessions.set(sessionId, session);
 
-  const MAX_ATTEMPTS = 3; // 1 initial + 2 retries — covers the common cold-login timeout flakiness
+  let currentSlot = slotArrayIndex;
 
   try {
-    await resetSlotForNextSession(slotArrayIndex);
+    await resetSlotForNextSession(currentSlot);
 
     for (const job of jobs) {
       const jobResult: FinancialSummaryJobResult = {
@@ -500,33 +570,26 @@ async function runFinancialSummarySession(
       session.jobResults.push(jobResult);
       financialSummarySessions.set(sessionId, session);
 
-      let attempt = 0;
-      let lastError: string | undefined;
+      const config: JobConfig = {
+        branchUrl: ppConfig.branchUrl,
+        startDate: job.startDate,
+        endDate: job.endDate,
+        reportType: "financialSummaryExport",
+        exportType: "",
+        exportTemplate: "",
+        financeFranchiseName: job.financeFranchiseName,
+        careGiverType: "Summary",
+        careGiverStatus: "All",
+        branchId,
+      };
 
-      while (attempt < MAX_ATTEMPTS) {
-        attempt++;
+      const outcome = await runExportJobWithRetry(sessionId, config, currentSlot, 600000);
+      currentSlot = outcome.slotUsed;
+      session.slotArrayIndex = currentSlot;
+
+      if (outcome.ok) {
         try {
-          const config: JobConfig = {
-            branchUrl: ppConfig.branchUrl,
-            startDate: job.startDate,
-            endDate: job.endDate,
-            reportType: "financialSummaryExport",
-            exportType: "",
-            exportTemplate: "",
-            financeFranchiseName: job.financeFranchiseName,
-            careGiverType: "Summary",
-            careGiverStatus: "All",
-            branchId,
-          };
-
-          const jobId = await runAutomationJob(config, slotArrayIndex);
-          const completedJob = await waitForJob(jobId, 600000);
-
-          if (completedJob.status === "failed") {
-            throw new Error(completedJob.error || "Financial Summary download failed");
-          }
-
-          const filePath = completedJob.filePath ?? getDownloadPath(jobId);
+          const filePath = outcome.job.filePath ?? getDownloadPath(outcome.job.id);
           if (!filePath || !fs.existsSync(filePath)) {
             throw new Error("Downloaded Financial Summary file not found on disk");
           }
@@ -546,26 +609,15 @@ async function runFinancialSummarySession(
           jobResult.revenue = totals.revenue;
           logger.info("Financial Summary job completed", {
             branchId, franchiseName: job.financeFranchiseName, reportingMonth: job.reportingMonth,
-            revenue: totals.revenue, attempt,
+            revenue: totals.revenue, attempts: outcome.attempts, slotUsed: currentSlot,
           });
-          lastError = undefined;
-          break;
-        } catch (jobErr) {
-          lastError = jobErr instanceof Error ? jobErr.message : String(jobErr);
-          const willRetry = attempt < MAX_ATTEMPTS && isRetryableJobError(lastError);
-          logger.error(willRetry ? "Financial Summary job failed — will retry" : "Financial Summary job failed", jobErr instanceof Error ? jobErr : undefined, {
-            branchId, franchiseName: job.financeFranchiseName, reportingMonth: job.reportingMonth, attempt, willRetry,
-          });
-          if (!willRetry) break;
-          // Give the launcher/login flow a moment to recover before trying again —
-          // most failures at this point are transient AccessCloud login/launcher timeouts.
-          await sleep(8000);
+        } catch (parseErr) {
+          jobResult.status = "failed";
+          jobResult.error = parseErr instanceof Error ? parseErr.message : String(parseErr);
         }
-      }
-
-      if (lastError) {
+      } else {
         jobResult.status = "failed";
-        jobResult.error = lastError;
+        jobResult.error = outcome.error;
         // Continue with remaining franchises/months rather than aborting the whole session.
       }
       financialSummarySessions.set(sessionId, session);
@@ -579,7 +631,7 @@ async function runFinancialSummarySession(
           status: jobResult.status === "completed" ? "completed" : "failed",
           revenue: jobResult.revenue,
           error: jobResult.error,
-          attempts: attempt,
+          attempts: outcome.attempts,
         }).catch(err => logger.error("Failed to persist automation job result", err instanceof Error ? err : undefined));
       }
     }
@@ -627,7 +679,7 @@ function startNextQueuedFinancialSummarySession(): void {
         logger.error("Queued financial summary session failed", err instanceof Error ? err : undefined, { sessionId: nextId });
       })
       .finally(() => {
-        releaseSlot(idleSlot);
+        releaseSlot(financialSummarySessions.get(nextId)?.slotArrayIndex ?? idleSlot);
         setImmediate(() => {
           startNextQueuedFinancialSummarySession();
           startNextQueuedSession();
@@ -679,7 +731,7 @@ export async function programmaticQueueFinancialSummarySync(
       }
     })
     .finally(() => {
-      releaseSlot(idleSlot);
+      releaseSlot(financialSummarySessions.get(sessionId)?.slotArrayIndex ?? idleSlot);
       setImmediate(() => {
         startNextQueuedFinancialSummarySession();
         startNextQueuedSession();
@@ -807,7 +859,7 @@ export async function programmaticQueueSync(
     }
     logger.error("Programmatic pipeline session failed", err instanceof Error ? err : undefined, { sessionId });
   }).finally(() => {
-    releaseSlot(idleSlot);
+    releaseSlot(activeSessions.get(sessionId)?.slotArrayIndex ?? idleSlot);
     setImmediate(() => startNextQueuedSession());
   });
 
@@ -897,7 +949,7 @@ export async function programmaticQueueMultiWeekSync(
     }
     logger.error("Programmatic multi-week pipeline session failed", err instanceof Error ? err : undefined, { sessionId });
   }).finally(() => {
-    releaseSlot(idleSlot);
+    releaseSlot(activeSessions.get(sessionId)?.slotArrayIndex ?? idleSlot);
     setImmediate(() => startNextQueuedSession());
   });
 
@@ -1222,7 +1274,7 @@ export function registerPeoplePlannerRoutes(app: Express): void {
           });
         }
       }).finally(() => {
-        releaseSlot(idleSlot);
+        releaseSlot(activeSessions.get(sessionId)?.slotArrayIndex ?? idleSlot);
         setImmediate(() => startNextQueuedSession());
       });
 
@@ -1592,6 +1644,7 @@ async function runPipelineSession(
     await resetSlotForNextSession(slotArrayIndex);
 
     const downloadedBuffers: Record<string, Buffer> = {};
+    let currentSlot = slotArrayIndex;
 
     for (const reportType of reportTypes) {
       const templateMap = REPORT_TEMPLATE_MAP[reportType];
@@ -1612,17 +1665,19 @@ async function runPipelineSession(
         branchId,
       };
 
-      const jobId = await runAutomationJob(config, slotArrayIndex);
-      session.jobIds.push(jobId);
+      const outcome = await runExportJobWithRetry(sessionId, config, currentSlot, 1800000, 3, (jobId) => {
+        session.jobIds.push(jobId);
+        activeSessions.set(sessionId, session);
+      });
+      currentSlot = outcome.slotUsed;
+      session.slotArrayIndex = currentSlot;
       activeSessions.set(sessionId, session);
 
-      const completedJob = await waitForJob(jobId, 1800000);
-
-      if (completedJob.status === "failed") {
-        throw new Error(`${reportType} download failed: ${completedJob.error}`);
+      if (!outcome.ok) {
+        throw new Error(`${reportType} download failed: ${outcome.error}`);
       }
 
-      const filePath = completedJob.filePath ?? getDownloadPath(jobId);
+      const filePath = outcome.job.filePath ?? getDownloadPath(outcome.job.id);
       if (!filePath || !fs.existsSync(filePath)) {
         throw new Error(`Downloaded file not found on disk for ${reportType}`);
       }
@@ -1865,16 +1920,19 @@ async function runMultiWeekPipelineSession(
             branchId,
           };
 
-          const jobId = await runAutomationJob(config, slotArrayIndex);
-          session.jobIds.push(jobId);
+          const outcome = await runExportJobWithRetry(sessionId, config, slotArrayIndex, 1800000, 3, (jobId) => {
+            session.jobIds.push(jobId);
+            activeSessions.set(sessionId, session);
+          });
+          slotArrayIndex = outcome.slotUsed;
+          session.slotArrayIndex = slotArrayIndex;
           activeSessions.set(sessionId, session);
 
-          const completedJob = await waitForJob(jobId, 1800000);
-          if (completedJob.status === "failed") {
-            throw new Error(`${reportType} download failed: ${completedJob.error}`);
+          if (!outcome.ok) {
+            throw new Error(`${reportType} download failed: ${outcome.error}`);
           }
 
-          const filePath = completedJob.filePath ?? getDownloadPath(jobId);
+          const filePath = outcome.job.filePath ?? getDownloadPath(outcome.job.id);
           if (!filePath || !fs.existsSync(filePath)) {
             throw new Error(`Downloaded file not found on disk for ${reportType}`);
           }
