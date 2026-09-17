@@ -203,8 +203,10 @@ const sessionQueue: string[] = [];
 //   4 : ACCESS_EMAIL_4 — North Lanarkshire, Glasgow South
 //   5 : ACCESS_EMAIL_5 — Stirling & Falkirk, Perth
 const BRANCH_SLOT_MAP: Record<string, number> = {
-  // Slot 1 — Glasgow North (ACCESS_EMAIL_1)
-  "2f706320-5585-4e3c-8eb2-6c624acd7fca": 1, // Glasgow North
+  // Glasgow North temporarily pinned to the universal account (slot 0) — its
+  // dedicated slot 1 (ACCESS_EMAIL_1) is Cloudflare-stuck on tenant re-auth.
+  // Revert to slot 1 once ACCESS_EMAIL_1 is replaced with new credentials.
+  "2f706320-5585-4e3c-8eb2-6c624acd7fca": 0, // Glasgow North
 
   // Slot 2 — Aberdeen & West Fife (ACCESS_EMAIL_2)
   "0d087ea2-68ed-45f3-9738-85de38d4ec9e": 2, // Aberdeen
