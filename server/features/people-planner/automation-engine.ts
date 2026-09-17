@@ -366,6 +366,13 @@ async function runJob(job: AutomationJob, slot: SlotState): Promise<void> {
     return;
   }
 
+  // Tracks the Access Workspace login/launcher page (as opposed to
+  // slot.plannerPage, the People Planner tab) so the catch block below can
+  // screenshot wherever the job actually was when it failed. Login/tenant
+  // re-auth failures happen on this page, before slot.plannerPage is ever
+  // set, so screenshotting only slot.plannerPage silently misses them.
+  let workspacePage: Page | null = null;
+
   try {
     // ── Shared browser + per-slot context ──────────────────────────────────
     // All slots share one Chromium process; each gets its own isolated context
@@ -405,7 +412,7 @@ async function runJob(job: AutomationJob, slot: SlotState): Promise<void> {
 
     let plannerPage: Page;
     if (!slot.plannerPage || slot.plannerPage.isClosed()) {
-      const workspacePage = await slot.context.newPage();
+      workspacePage = await slot.context.newPage();
 
       addLog(job, "Navigating to Access Workspace login...");
       await workspacePage.goto(LOGIN_URL, { waitUntil: "domcontentloaded", timeout: 30000 });
@@ -487,8 +494,11 @@ async function runJob(job: AutomationJob, slot: SlotState): Promise<void> {
     addLog(job, `Error: ${message}`);
     logger.error("Automation job failed", err instanceof Error ? err : undefined, { jobId: job.id, slotIndex: slot.index });
 
-    if (slot.plannerPage && !slot.plannerPage.isClosed()) {
-      await debugScreenshot(slot.plannerPage, `fail-${job.id}`).catch(() => {});
+    const pageToShoot = workspacePage && !workspacePage.isClosed()
+      ? workspacePage
+      : (slot.plannerPage && !slot.plannerPage.isClosed() ? slot.plannerPage : null);
+    if (pageToShoot) {
+      await debugScreenshot(pageToShoot, `fail-${job.id}`).catch(() => {});
     }
 
     // Close this slot's context so the next job starts with a clean state.
