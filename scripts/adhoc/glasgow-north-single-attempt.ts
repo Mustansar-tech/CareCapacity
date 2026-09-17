@@ -14,7 +14,10 @@ import {
 } from "../../server/features/people-planner/automation-engine";
 
 const GLASGOW_NORTH_BRANCH_ID = "2f706320-5585-4e3c-8eb2-6c624acd7fca";
-const GLASGOW_NORTH_SLOT = 1; // ACCESS_EMAIL_1 — see BRANCH_SLOT_MAP in automation-routes.ts
+// Slot override: pass 0 to use ACCESS_EMAIL (universal fallback account, access to
+// all branches) instead of the preferred slot 1 (ACCESS_EMAIL_1) — lets us tell
+// apart "this specific account is Cloudflare-flagged" from "this tenant is broken".
+const GLASGOW_NORTH_SLOT = Number(process.argv[2] ?? 1);
 const GLASGOW_NORTH_BRANCH_URL = "https://go.accessacloud.com/o/home-instead-uk-glasgow-north/";
 
 function pad(n: number): string {
