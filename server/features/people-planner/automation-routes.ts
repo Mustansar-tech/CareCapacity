@@ -488,8 +488,14 @@ async function runFinancialSummarySession(
 
   const MAX_ATTEMPTS = 3; // 1 initial + 2 retries — covers the common cold-login timeout flakiness
 
+  // The slot actually in use for this session. Starts as the branch's preferred/dedicated
+  // slot but can fall back to slot 0 (ACCESS_EMAIL — universal, all-branch access) mid-session
+  // if that dedicated account's login keeps failing (e.g. its password expired or it hit a
+  // tenant-specific re-auth wall) — see the retry loop below.
+  let activeSlot = slotArrayIndex;
+
   try {
-    await resetSlotForNextSession(slotArrayIndex);
+    await resetSlotForNextSession(activeSlot);
 
     for (const job of jobs) {
       const jobResult: FinancialSummaryJobResult = {
@@ -519,7 +525,7 @@ async function runFinancialSummarySession(
             branchId,
           };
 
-          const jobId = await runAutomationJob(config, slotArrayIndex);
+          const jobId = await runAutomationJob(config, activeSlot);
           const completedJob = await waitForJob(jobId, 600000);
 
           if (completedJob.status === "failed") {
@@ -557,6 +563,23 @@ async function runFinancialSummarySession(
             branchId, franchiseName: job.financeFranchiseName, reportingMonth: job.reportingMonth, attempt, willRetry,
           });
           if (!willRetry) break;
+
+          // If the branch's dedicated account is the one failing to log in (not just a
+          // one-off timeout), don't keep hammering the same broken credentials — fall back
+          // to slot 0 (ACCESS_EMAIL, the universal account with access to every branch) for
+          // the retry, as long as it's actually free.
+          if (activeSlot !== 0 && /still on login page/i.test(lastError) && !slotReservations.has(0)) {
+            const previousSlot = activeSlot;
+            releaseSlot(previousSlot);
+            activeSlot = 0;
+            reserveSlot(0, sessionId);
+            session.slotArrayIndex = activeSlot;
+            financialSummarySessions.set(sessionId, session);
+            logger.warn("Financial Summary job: dedicated account login failed — falling back to universal account slot 0 for retry", {
+              branchId, franchiseName: job.financeFranchiseName, previousSlot,
+            });
+          }
+
           // Give the launcher/login flow a moment to recover before trying again —
           // most failures at this point are transient AccessCloud login/launcher timeouts.
           await sleep(8000);
@@ -627,7 +650,11 @@ function startNextQueuedFinancialSummarySession(): void {
         logger.error("Queued financial summary session failed", err instanceof Error ? err : undefined, { sessionId: nextId });
       })
       .finally(() => {
-        releaseSlot(idleSlot);
+        // Release whichever slot ended up in use — the session may have fallen back
+        // to slot 0 mid-run (see runFinancialSummarySession), so this can differ from
+        // the slot it was originally reserved on.
+        const finalSlot = financialSummarySessions.get(nextId)?.slotArrayIndex ?? idleSlot;
+        releaseSlot(finalSlot);
         setImmediate(() => {
           startNextQueuedFinancialSummarySession();
           startNextQueuedSession();
@@ -679,7 +706,11 @@ export async function programmaticQueueFinancialSummarySync(
       }
     })
     .finally(() => {
-      releaseSlot(idleSlot);
+      // Release whichever slot ended up in use — the session may have fallen back
+      // to slot 0 mid-run (see runFinancialSummarySession), so this can differ from
+      // the slot it was originally reserved on.
+      const finalSlot = financialSummarySessions.get(sessionId)?.slotArrayIndex ?? idleSlot;
+      releaseSlot(finalSlot);
       setImmediate(() => {
         startNextQueuedFinancialSummarySession();
         startNextQueuedSession();
