@@ -58,6 +58,19 @@ const WORKSPACE_URL = "https://go.accessacloud.com/";
 let sharedBrowser: Browser | null = null;
 let browserLaunchPromise: Promise<Browser> | null = null;
 
+// A realistic desktop Chrome UA — Playwright's default already omits "Headless" on
+// recent Chromium, but pinning an explicit, current desktop UA plus the webdriver-flag
+// override below reduces the automation fingerprint Cloudflare's bot management looks for.
+const DESKTOP_CHROME_UA =
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
+
+/** Applied to every new BrowserContext to mask the most common headless/automation tells. */
+async function applyStealth(context: BrowserContext): Promise<void> {
+  await context.addInitScript(() => {
+    Object.defineProperty(navigator, "webdriver", { get: () => undefined });
+  });
+}
+
 async function getOrLaunchSharedBrowser(): Promise<Browser> {
   if (sharedBrowser?.isConnected()) return sharedBrowser;
 
@@ -69,7 +82,12 @@ async function getOrLaunchSharedBrowser(): Promise<Browser> {
     const executablePath = getChromiumExecutablePath();
     const browser = await chromium.launch({
       headless: true,
-      args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"],
+      // --disable-blink-features=AutomationControlled hides the most common
+      // Playwright/Selenium fingerprint Cloudflare's bot management checks for.
+      // Without it, the Glasgow North tenant's login (which has Cloudflare Turnstile
+      // in front of it) gets stuck on an infinite "Verifying..." challenge that never
+      // resolves for an automated browser, even with correct credentials.
+      args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage", "--disable-blink-features=AutomationControlled"],
       ...(executablePath ? { executablePath } : {}),
     });
     browser.on("disconnected", () => {
@@ -378,7 +396,9 @@ async function runJob(job: AutomationJob, slot: SlotState): Promise<void> {
       slot.context = await browser.newContext({
         storageState: fs.existsSync(slot.sessionFile) ? slot.sessionFile : undefined,
         acceptDownloads: true,
+        userAgent: DESKTOP_CHROME_UA,
       });
+      await applyStealth(slot.context);
       slot.plannerPage = null;
       addLog(job, `Browser context ready for slot ${slot.index}.`);
     }
@@ -1371,7 +1391,9 @@ export async function prewarmAllSlots(): Promise<void> {
           slot.context = await browser.newContext({
             storageState: fs.existsSync(slot.sessionFile) ? slot.sessionFile : undefined,
             acceptDownloads: false,
+            userAgent: DESKTOP_CHROME_UA,
           });
+          await applyStealth(slot.context);
           slot.plannerPage = null;
         }
 
