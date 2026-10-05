@@ -1,6 +1,5 @@
-import type { Express } from 'express';
+import type { Express, Request } from 'express';
 import { requireRoleAtLeast } from '../features/auth/auth';
-import { auditLog } from '../features/auth/auth';
 import { resolveBranch } from '../utils/helpers';
 import { asyncHandler } from '../middleware/error-handler';
 import { createAppError } from '../middleware/error-handler';
@@ -55,6 +54,11 @@ function deriveStageFromMilestones(stages: string[], status: string): string {
 
 import { insertLeaverSchema, insertJoinerSchema, insertAvailabilityChangeSchema } from '@shared/schema';
 import { z } from 'zod';
+
+const auditActor = (req: Request) => ({
+  userId: req.session?.userId ?? null,
+  userEmail: req.session?.userEmail ?? null,
+});
 
 export function registerCapacityOutlookRoutes(app: Express): void {
 
@@ -142,14 +146,7 @@ export function registerCapacityOutlookRoutes(app: Express): void {
         maleHoursOut: maleHoursOut != null ? Number(maleHoursOut) : null,
         femaleHeadsOut: femaleHeadsOut != null ? Number(femaleHeadsOut) : null,
         maleHeadsOut: maleHeadsOut != null ? Number(maleHeadsOut) : null,
-      });
-      await auditLog(
-        req.session?.userId ?? null,
-        req.session?.userEmail ?? null,
-        branchId,
-        'MONTH_UPDATED',
-        `Monthly snapshot updated: ${year}-${String(month).padStart(2, '0')}`,
-      );
+      }, auditActor(req));
 
       res.json(snapshot);
     }),
@@ -166,15 +163,8 @@ export function registerCapacityOutlookRoutes(app: Express): void {
       if (isNaN(year) || isNaN(month) || month < 1 || month > 12) {
         throw createAppError('Invalid year or month', 400);
       }
-      const ok = await deleteMonthlySnapshot(branchId, year, month);
+      const ok = await deleteMonthlySnapshot(branchId, year, month, auditActor(req));
       if (!ok) throw createAppError('Snapshot not found', 404);
-      await auditLog(
-        req.session?.userId ?? null,
-        req.session?.userEmail ?? null,
-        branchId,
-        'MONTH_REOPENED',
-        `Monthly snapshot deleted (reopened): ${year}-${String(month).padStart(2, '0')}`,
-      );
       res.json({ success: true });
     }),
   );
@@ -194,15 +184,7 @@ export function registerCapacityOutlookRoutes(app: Express): void {
       const leaver = await createLeaver({
         ...data,
         createdBy: req.session?.userId ?? null,
-      });
-
-      await auditLog(
-        req.session?.userId ?? null,
-        req.session?.userEmail ?? null,
-        branchId,
-        'LEAVER_CREATED',
-        `Leaver created: ${data.employeeName}, last working day ${data.lastWorkingDay}`,
-      );
+      }, auditActor(req));
 
       res.status(201).json(leaver);
     }),
@@ -224,16 +206,8 @@ export function registerCapacityOutlookRoutes(app: Express): void {
 
       const data = parsed.data;
 
-      const updated = await updateLeaver(id, branchId, data);
+      const updated = await updateLeaver(id, branchId, data, auditActor(req));
       if (!updated) throw createAppError('Leaver not found or access denied', 404);
-
-      await auditLog(
-        req.session?.userId ?? null,
-        req.session?.userEmail ?? null,
-        branchId,
-        'LEAVER_UPDATED',
-        `Leaver updated: ${id}`,
-      );
 
       res.json(updated);
     }),
@@ -253,25 +227,11 @@ export function registerCapacityOutlookRoutes(app: Express): void {
         if (req.session?.userRole !== 'admin') {
           throw createAppError('Admin role required for permanent deletion', 403);
         }
-        const ok = await hardDeleteLeaver(id, branchId);
+        const ok = await hardDeleteLeaver(id, branchId, auditActor(req));
         if (!ok) throw createAppError('Leaver not found or access denied', 404);
-        await auditLog(
-          req.session?.userId ?? null,
-          req.session?.userEmail ?? null,
-          branchId,
-          'LEAVER_DELETED',
-          `Leaver permanently deleted: ${id}`,
-        );
       } else {
-        const ok = await deleteLeaver(id, branchId);
+        const ok = await deleteLeaver(id, branchId, auditActor(req));
         if (!ok) throw createAppError('Leaver not found or access denied', 404);
-        await auditLog(
-          req.session?.userId ?? null,
-          req.session?.userEmail ?? null,
-          branchId,
-          'LEAVER_DELETED',
-          `Leaver soft-deleted: ${id}`,
-        );
       }
 
       res.json({ success: true });
@@ -313,15 +273,7 @@ export function registerCapacityOutlookRoutes(app: Express): void {
         hiredAt,
         trainingDay2Date,
         createdBy: req.session?.userId ?? null,
-      });
-
-      await auditLog(
-        req.session?.userId ?? null,
-        req.session?.userEmail ?? null,
-        branchId,
-        'JOINER_CREATED',
-        `Joiner created: ${data.candidateName}, stage ${stage}`,
-      );
+      }, auditActor(req));
 
       res.status(201).json(joiner);
     }),
@@ -378,16 +330,8 @@ export function registerCapacityOutlookRoutes(app: Express): void {
         updatePayload.trainingDay2Date = trainingDay2Date ?? undefined;
       }
 
-      const updated = await updateJoiner(id, branchId, updatePayload);
+      const updated = await updateJoiner(id, branchId, updatePayload, auditActor(req));
       if (!updated) throw createAppError('Joiner not found or access denied', 404);
-
-      await auditLog(
-        req.session?.userId ?? null,
-        req.session?.userEmail ?? null,
-        branchId,
-        'JOINER_UPDATED',
-        `Joiner updated: ${id}, stage ${stage}`,
-      );
 
       res.json(updated);
     }),
@@ -412,14 +356,7 @@ export function registerCapacityOutlookRoutes(app: Express): void {
       if (!parsed.success) {
         throw createAppError(parsed.error.errors[0]?.message || 'Invalid data', 400);
       }
-      const row = await createAvailabilityChange({ ...parsed.data, createdBy: req.session?.userId ?? null });
-      await auditLog(
-        req.session?.userId ?? null,
-        req.session?.userEmail ?? null,
-        branchId,
-        'AVAIL_CHANGE_CREATED',
-        `Availability change created: ${parsed.data.employeeName} ${parsed.data.changeType} → ${parsed.data.newHours}h`,
-      );
+      const row = await createAvailabilityChange({ ...parsed.data, createdBy: req.session?.userId ?? null }, auditActor(req));
       res.status(201).json(row);
     }),
   );
@@ -435,15 +372,8 @@ export function registerCapacityOutlookRoutes(app: Express): void {
       if (!parsed.success) {
         throw createAppError(parsed.error.errors[0]?.message || 'Invalid data', 400);
       }
-      const updated = await updateAvailabilityChange(id, branchId, parsed.data);
+      const updated = await updateAvailabilityChange(id, branchId, parsed.data, auditActor(req));
       if (!updated) throw createAppError('Record not found or access denied', 404);
-      await auditLog(
-        req.session?.userId ?? null,
-        req.session?.userEmail ?? null,
-        branchId,
-        'AVAIL_CHANGE_UPDATED',
-        `Availability change updated: ${id}`,
-      );
       res.json(updated);
     }),
   );
@@ -455,15 +385,8 @@ export function registerCapacityOutlookRoutes(app: Express): void {
     asyncHandler(async (req, res) => {
       const branchId = await resolveBranch(req);
       const { id } = req.params;
-      const ok = await deleteAvailabilityChange(id, branchId);
+      const ok = await deleteAvailabilityChange(id, branchId, auditActor(req));
       if (!ok) throw createAppError('Record not found or access denied', 404);
-      await auditLog(
-        req.session?.userId ?? null,
-        req.session?.userEmail ?? null,
-        branchId,
-        'AVAIL_CHANGE_DELETED',
-        `Availability change deleted: ${id}`,
-      );
       res.json({ success: true });
     }),
   );
@@ -482,25 +405,11 @@ export function registerCapacityOutlookRoutes(app: Express): void {
         if (req.session?.userRole !== 'admin') {
           throw createAppError('Admin role required for permanent deletion', 403);
         }
-        const ok = await hardDeleteJoiner(id, branchId);
+        const ok = await hardDeleteJoiner(id, branchId, auditActor(req));
         if (!ok) throw createAppError('Joiner not found or access denied', 404);
-        await auditLog(
-          req.session?.userId ?? null,
-          req.session?.userEmail ?? null,
-          branchId,
-          'JOINER_DELETED',
-          `Joiner permanently deleted: ${id}`,
-        );
       } else {
-        const ok = await deleteJoiner(id, branchId);
+        const ok = await deleteJoiner(id, branchId, auditActor(req));
         if (!ok) throw createAppError('Joiner not found or access denied', 404);
-        await auditLog(
-          req.session?.userId ?? null,
-          req.session?.userEmail ?? null,
-          branchId,
-          'JOINER_DELETED',
-          `Joiner soft-deleted: ${id}`,
-        );
       }
 
       res.json({ success: true });

@@ -80,13 +80,13 @@ This alone triggers the Article 30(5) exception to the "under 250 employees" sma
 | Field | Detail |
 |---|---|
 | **Purpose** | Accountability, breach investigation, and platform reliability |
-| **Categories of data subjects** | Internal staff |
-| **Categories of personal data** | User ID, email, action type, free-text detail, timestamp, IP/browser metadata (via Sentry) |
+| **Categories of data subjects** | Internal platform staff; employees and candidates affected by audited workforce changes |
+| **Categories of personal data** | Actor ID, name and email; affected person name and record reference; branch; action and outcome; timestamp; request reference, method/path, IP and browser metadata; minimal scheduling/account before-and-after values. Passwords, tokens, private notes and disclosure details are excluded. |
 | **Lawful basis** | Art 6(1)(f) legitimate interest in security and accountability |
 | **Recipients** | Sentry (error tracking), Resend (transactional email) |
 | **International transfers** | Sentry (US), Resend (US) — SCCs per Section 7 of the Privacy Policy |
 | **Retention** | Audit logs: 12 months. Sentry error data: 90 days. Resend delivery logs: 30 days |
-| **Security measures** | Append-only audit log table, access restricted to admin role |
+| **Security measures** | Read-only application audit history restricted to administrators; workforce mutations and their named audit snapshots commit together in one database transaction. Filtered CSV exports are themselves logged. Historical events are preserved without invented missing names. |
 
 ## Processing Activity 6 — Data Subject Access Request Handling
 

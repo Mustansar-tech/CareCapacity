@@ -34,6 +34,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/contexts/AuthContext";
 import { useBranch } from "@/contexts/BranchContext";
 import { exportDsarPdf } from "@/utils/export-dsar-pdf";
+import { AuditLogTab } from "@/components/admin/AuditLogTab";
 import { ShieldAlert, Download } from "lucide-react";
 import {
   Table,
@@ -51,16 +52,6 @@ const ROLE_LABELS: Record<string, { label: string; color: string }> = {
   viewer:     { label: 'Viewer',        color: 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400' },
 };
 
-const ACTION_LABELS: Record<string, string> = {
-  LOGIN: 'Signed in',
-  LOGOUT: 'Signed out',
-  USER_CREATED: 'User created',
-  USER_UPDATED: 'User updated',
-  SCHEDULE_SAVED: 'Schedule saved',
-  SCHEDULE_GENERATED: 'Schedule generated',
-  VISIT_REASSIGNED: 'Visit reassigned',
-};
-
 type AdminUser = {
   id: string;
   email: string;
@@ -69,16 +60,6 @@ type AdminUser = {
   isActive: number;
   createdAt: string;
   branches: Array<{ id: string; name: string; displayName: string }>;
-};
-
-type AuditLog = {
-  id: string;
-  userId: string | null;
-  userEmail: string | null;
-  branchId: string | null;
-  action: string;
-  detail: string | null;
-  timestamp: string;
 };
 
 type Branch = { id: string; name: string; displayName: string };
@@ -1947,12 +1928,6 @@ export default function AdminPage() {
     queryKey: ['/api/admin/users'],
   });
 
-  const { data: auditLogs = [], isLoading: isLoadingLogs, refetch: refetchLogs } = useQuery<AuditLog[]>({
-    queryKey: ['/api/admin/audit-logs'],
-    enabled: activeTab === 'audit',
-    staleTime: 30_000,
-  });
-
   const { data: branches = [] } = useQuery<Branch[]>({
     queryKey: ['/api/branches'],
   });
@@ -2124,65 +2099,7 @@ export default function AdminPage() {
 
           {/* ── Audit Log Tab ── */}
           <TabsContent value="audit">
-            <Card className="border-0 shadow-sm">
-              <CardHeader className="pb-3">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-base">Activity Log</CardTitle>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => refetchLogs()}
-                    disabled={isLoadingLogs}
-                    className="gap-1.5 h-8"
-                  >
-                    <RefreshCw className={`h-3.5 w-3.5 ${isLoadingLogs ? 'animate-spin' : ''}`} />
-                    Refresh
-                  </Button>
-                </div>
-              </CardHeader>
-              <CardContent className="p-0">
-                <ScrollArea className="h-[520px]">
-                  {isLoadingLogs ? (
-                    <div className="flex items-center justify-center py-16">
-                      <div className="animate-spin h-8 w-8 border-2 border-blue-500 border-t-transparent rounded-full" />
-                    </div>
-                  ) : auditLogs.length === 0 ? (
-                    <div className="text-center py-16 text-muted-foreground">
-                      <ClipboardList className="h-10 w-10 mx-auto mb-3 opacity-30" />
-                      <p className="font-medium">No audit events recorded yet</p>
-                    </div>
-                  ) : (
-                    <div className="divide-y divide-border">
-                      {auditLogs.map(log => (
-                        <div key={log.id} className="flex items-start gap-3 px-5 py-3 hover:bg-muted/20 transition-colors">
-                          <div className="h-8 w-8 rounded-full bg-blue-100 dark:bg-blue-950 flex items-center justify-center shrink-0 mt-0.5">
-                            <ClipboardList className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2">
-                              <p className="text-sm font-semibold text-foreground">
-                                {ACTION_LABELS[log.action] || log.action}
-                              </p>
-                              {log.userEmail && (
-                                <span className="text-xs text-muted-foreground">by {log.userEmail}</span>
-                              )}
-                            </div>
-                            {log.detail && (
-                              <p className="text-xs text-muted-foreground mt-0.5 truncate">{log.detail}</p>
-                            )}
-                          </div>
-                          <span className="text-xs text-muted-foreground shrink-0">
-                            {new Date(log.timestamp).toLocaleString('en-GB', {
-                              day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit'
-                            })}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </ScrollArea>
-              </CardContent>
-            </Card>
+            <AuditLogTab branches={branches} active={activeTab === 'audit'} />
           </TabsContent>
 
           {/* ── Feedback Tab ── */}

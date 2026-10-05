@@ -5,6 +5,8 @@ import { supabaseAdmin, supabaseAnon } from '../../infrastructure/supabase';
 import { logger } from '../../infrastructure/logger';
 import { z } from 'zod';
 import { userRoles, CURRENT_LEGAL_VERSION } from '@shared/schema';
+import { registerAuditRoutes } from '../../routes/audit.routes';
+import { recordAuditDetails, parseAuditDetails } from '@shared/audit';
 
 const loginSchema = z.object({
   email: z.string().email(),
@@ -34,6 +36,7 @@ const updateUserSchema = z.object({
 });
 
 export function registerAuthRoutes(app: Express) {
+  registerAuditRoutes(app);
 
   // ─── Forgot password — sends Supabase reset email ────────────────────────────
 
@@ -267,7 +270,10 @@ export function registerAuthRoutes(app: Express) {
         req.session.userEmail ?? null,
         null,
         'USER_CREATED',
-        `Created user ${email} with role ${role}`
+        JSON.stringify(recordAuditDetails('user', 'create', null, {
+          id: user.id, displayName, email, role, isActive: 1,
+          branchNames: (await storage.getUserBranches(user.id)).map(branch => branch.displayName).join(', '),
+        }))
       );
 
       return res.status(201).json({ ...user, passwordHash: undefined, branches: await storage.getUserBranches(user.id) });
@@ -287,6 +293,9 @@ export function registerAuthRoutes(app: Express) {
     const { displayName, role, isActive, branchIds, newPassword } = parsed.data;
 
     try {
+      const beforeUser = await storage.getUserById(userId);
+      if (!beforeUser) return res.status(404).json({ message: 'User not found' });
+      const beforeBranches = await storage.getUserBranches(userId);
       if (userId === req.session.userId && isActive === 0) {
         return res.status(400).json({ message: 'You cannot deactivate your own account' });
       }
@@ -297,6 +306,7 @@ export function registerAuthRoutes(app: Express) {
       if (isActive !== undefined) updates.isActive = isActive;
 
       // If password is being reset, update in Supabase
+      let passwordWasReset = false;
       if (newPassword) {
         const targetUser = await storage.getUserById(userId);
         if (targetUser) {
@@ -310,6 +320,7 @@ export function registerAuthRoutes(app: Express) {
               logger.error('Supabase password update error', error);
               return res.status(400).json({ message: error.message ?? 'Failed to update password' });
             }
+            passwordWasReset = true;
           }
         }
       }
@@ -325,7 +336,9 @@ export function registerAuthRoutes(app: Express) {
         req.session.userEmail ?? null,
         null,
         'USER_UPDATED',
-        `Updated user ${user.email}: ${Object.keys(updates).join(', ')}`
+        JSON.stringify(recordAuditDetails('user', 'update',
+          { ...beforeUser, branchNames: beforeBranches.map(branch => branch.displayName).join(', '), passwordReset: false },
+          { ...user, branchNames: (await storage.getUserBranches(userId)).map(branch => branch.displayName).join(', '), passwordReset: passwordWasReset }))
       );
 
       return res.json({ ...user, passwordHash: undefined, branches: await storage.getUserBranches(user.id) });
@@ -342,7 +355,7 @@ export function registerAuthRoutes(app: Express) {
       const branchId = req.query.branchId as string | undefined;
       const limit = parseInt(req.query.limit as string || '200', 10);
       const logs = await storage.getAuditLogs({ branchId, limit });
-      return res.json(logs);
+      return res.json(logs.map(log => ({ ...log, detail: parseAuditDetails(log.detail)?.summary ?? log.detail })));
     } catch (err) {
       logger.error('Audit log error', err);
       return res.status(500).json({ message: 'Internal server error' });

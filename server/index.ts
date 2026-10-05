@@ -9,6 +9,7 @@ import session from "express-session";
 import connectPgSimple from "connect-pg-simple";
 import pg from "pg";
 import { registerRoutes } from "./routes";
+import { auditRequests } from "./middleware/audit-requests";
 import { setupVite, serveStatic, log } from "./vite";
 import { generalLimiter } from "./infrastructure/rate-limiter";
 import { securityHeaders } from "./infrastructure/security";
@@ -114,6 +115,8 @@ if (isProduction) {
   app.use('/api', generalLimiter.middleware);
   log('Rate limiting enabled for production');
 }
+
+app.use(auditRequests);
 
 app.use((req, res, next) => {
   const start = Date.now();

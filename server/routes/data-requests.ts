@@ -14,6 +14,7 @@ import {
   feedback,
 } from '@shared/schema';
 import { eq, or, ilike } from 'drizzle-orm';
+import { parseAuditDetails } from '@shared/audit';
 
 /**
  * Data Subject Access Request (DSAR) tooling — admin only.
@@ -105,7 +106,7 @@ export function registerDataRequestRoutes(app: Express): void {
         res.status(404).json({ message: 'Data request not found.' });
         return;
       }
-      await auditLog(req.session.userId ?? null, req.session.userEmail ?? null, null, 'dsar_updated', `Request ${id} -> ${updates.status ?? 'updated'}`);
+      await auditLog(req.session.userId ?? null, req.session.userEmail ?? null, null, 'dsar_updated', `Data request updated for ${row.subjectName}: ${updates.status ?? 'details changed'} (reference ${id})`);
       res.json(row);
     } catch (err) {
       logger.error('Failed to update data request', err instanceof Error ? err : undefined);
@@ -143,7 +144,10 @@ export function registerDataRequestRoutes(app: Express): void {
 
       const [platformUsers, auditEntries, employeeRecords, clientRecords, joinerRecords, leaverRecords, feedbackEntries] = await Promise.all([
         email ? db.select().from(users).where(eq(users.email, email)) : Promise.resolve([]),
-        email ? db.select().from(auditLogs).where(eq(auditLogs.userEmail, email)) : Promise.resolve([]),
+        (email || namePattern) ? db.select().from(auditLogs).where(or(
+          email ? eq(auditLogs.userEmail, email) : undefined,
+          namePattern ? ilike(auditLogs.detail, namePattern) : undefined,
+        )) : Promise.resolve([]),
         namePattern ? db.select().from(employeeLocations).where(ilike(employeeLocations.employeeName, namePattern)) : Promise.resolve([]),
         namePattern ? db.select().from(clientLocations).where(ilike(clientLocations.clientName, namePattern)) : Promise.resolve([]),
         namePattern ? db.select().from(joiners).where(ilike(joiners.candidateName, namePattern)) : Promise.resolve([]),
@@ -162,7 +166,11 @@ export function registerDataRequestRoutes(app: Express): void {
         note: 'This export aggregates all personal data Care Capacity holds matching the requested name and/or email address, across all application tables. Internal security fields (password hashes, auth tokens) are excluded.',
         sections: {
           platformAccount: sanitizedUsers,
-          auditActivity: auditEntries,
+          auditActivity: auditEntries.map(entry => ({
+            ...entry,
+            detail: parseAuditDetails(entry.detail)?.summary ?? entry.detail,
+            metadata: parseAuditDetails(entry.detail),
+          })),
           employeeRecord: employeeRecords,
           clientRecord: clientRecords,
           joinerRecord: joinerRecords,

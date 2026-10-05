@@ -6,6 +6,8 @@ import type {
   MonthlySnapshot, AvailabilityChange, InsertAvailabilityChange,
 } from '@shared/schema';
 import { eq, and, inArray, desc } from 'drizzle-orm';
+import { auditedMutation } from '../utils/audited-mutation';
+import type { AuditActor } from '../infrastructure/audit-context';
 
 // ── Confidence weights by stage ───────────────────────────────────────────────
 
@@ -135,44 +137,48 @@ export async function getJoiners(branchId: string, includeDropped = false, inclu
     .orderBy(joiners.createdAt);
 }
 
-export async function createLeaver(data: InsertLeaver): Promise<Leaver> {
-  const [row] = await db
-    .insert(leavers)
-    .values({ ...data, updatedAt: new Date() })
-    .returning();
-  return row;
+export async function createLeaver(data: InsertLeaver, actor?: AuditActor): Promise<Leaver> {
+  return auditedMutation(actor, data.branchId, 'LEAVER_CREATED', 'leaver', 'create', async tx => {
+    const [row] = await tx.insert(leavers).values({ ...data, updatedAt: new Date() }).returning();
+    return { result: row, before: null, after: row };
+  });
 }
 
-export async function updateLeaver(id: string, branchId: string, data: Partial<InsertLeaver>): Promise<Leaver | null> {
-  const [row] = await db
-    .update(leavers)
-    .set({ ...data, updatedAt: new Date() })
-    .where(and(eq(leavers.id, id), eq(leavers.branchId, branchId)))
-    .returning();
-  return row ?? null;
+export async function updateLeaver(id: string, branchId: string, data: Partial<InsertLeaver>, actor?: AuditActor): Promise<Leaver | null> {
+  return auditedMutation(actor, branchId, 'LEAVER_UPDATED', 'leaver', 'update', async tx => {
+    const where = and(eq(leavers.id, id), eq(leavers.branchId, branchId));
+    const [before] = await tx.select().from(leavers).where(where).for('update');
+    if (!before) return { result: null, before: null, after: null };
+    const [row] = await tx.update(leavers).set({ ...data, updatedAt: new Date() }).where(where).returning();
+    return { result: row, before, after: row };
+  });
 }
 
-export async function deleteLeaver(id: string, branchId: string): Promise<boolean> {
-  const result = await db
-    .update(leavers)
-    .set({ status: 'processed', updatedAt: new Date() })
-    .where(and(eq(leavers.id, id), eq(leavers.branchId, branchId)));
-  return (result.rowCount ?? 0) > 0;
+export async function deleteLeaver(id: string, branchId: string, actor?: AuditActor): Promise<boolean> {
+  return auditedMutation(actor, branchId, 'LEAVER_DELETED', 'leaver', 'archive', async tx => {
+    const where = and(eq(leavers.id, id), eq(leavers.branchId, branchId));
+    const [before] = await tx.select().from(leavers).where(where).for('update');
+    if (!before) return { result: false, before: null, after: null };
+    const [after] = await tx.update(leavers).set({ status: 'processed', updatedAt: new Date() }).where(where).returning();
+    return { result: true, before, after };
+  });
 }
 
-export async function hardDeleteLeaver(id: string, branchId: string): Promise<boolean> {
-  const result = await db
-    .delete(leavers)
-    .where(and(eq(leavers.id, id), eq(leavers.branchId, branchId)));
-  return (result.rowCount ?? 0) > 0;
+export async function hardDeleteLeaver(id: string, branchId: string, actor?: AuditActor): Promise<boolean> {
+  return auditedMutation(actor, branchId, 'LEAVER_DELETED', 'leaver', 'delete', async tx => {
+    const where = and(eq(leavers.id, id), eq(leavers.branchId, branchId));
+    const [before] = await tx.select().from(leavers).where(where).for('update');
+    if (!before) return { result: false, before: null, after: null };
+    await tx.delete(leavers).where(where);
+    return { result: true, before, after: null };
+  });
 }
 
-export async function createJoiner(data: Omit<InsertJoiner, 'stage'> & { stage: string; confidenceWeight: number }): Promise<Joiner> {
-  const [row] = await db
-    .insert(joiners)
-    .values({ ...data, updatedAt: new Date() } as any)
-    .returning();
-  return row;
+export async function createJoiner(data: Omit<InsertJoiner, 'stage'> & { stage: string; confidenceWeight: number }, actor?: AuditActor): Promise<Joiner> {
+  return auditedMutation(actor, data.branchId, 'JOINER_CREATED', 'joiner', 'create', async tx => {
+    const [row] = await tx.insert(joiners).values({ ...data, updatedAt: new Date() } as any).returning();
+    return { result: row, before: null, after: row };
+  });
 }
 
 export async function getJoinerById(id: string, branchId: string): Promise<Joiner | null> {
@@ -187,28 +193,35 @@ export async function updateJoiner(
   id: string,
   branchId: string,
   data: Partial<Omit<InsertJoiner, 'stage'> & { stage: string; confidenceWeight: number }>,
+  actor?: AuditActor,
 ): Promise<Joiner | null> {
-  const [row] = await db
-    .update(joiners)
-    .set({ ...data, updatedAt: new Date() })
-    .where(and(eq(joiners.id, id), eq(joiners.branchId, branchId)))
-    .returning();
-  return row ?? null;
+  return auditedMutation(actor, branchId, 'JOINER_UPDATED', 'joiner', 'update', async tx => {
+    const where = and(eq(joiners.id, id), eq(joiners.branchId, branchId));
+    const [before] = await tx.select().from(joiners).where(where).for('update');
+    if (!before) return { result: null, before: null, after: null };
+    const [after] = await tx.update(joiners).set({ ...data, updatedAt: new Date() }).where(where).returning();
+    return { result: after, before, after };
+  });
 }
 
-export async function deleteJoiner(id: string, branchId: string): Promise<boolean> {
-  const result = await db
-    .update(joiners)
-    .set({ status: 'dropped', updatedAt: new Date() })
-    .where(and(eq(joiners.id, id), eq(joiners.branchId, branchId)));
-  return (result.rowCount ?? 0) > 0;
+export async function deleteJoiner(id: string, branchId: string, actor?: AuditActor): Promise<boolean> {
+  return auditedMutation(actor, branchId, 'JOINER_DELETED', 'joiner', 'archive', async tx => {
+    const where = and(eq(joiners.id, id), eq(joiners.branchId, branchId));
+    const [before] = await tx.select().from(joiners).where(where).for('update');
+    if (!before) return { result: false, before: null, after: null };
+    const [after] = await tx.update(joiners).set({ status: 'dropped', updatedAt: new Date() }).where(where).returning();
+    return { result: true, before, after };
+  });
 }
 
-export async function hardDeleteJoiner(id: string, branchId: string): Promise<boolean> {
-  const result = await db
-    .delete(joiners)
-    .where(and(eq(joiners.id, id), eq(joiners.branchId, branchId)));
-  return (result.rowCount ?? 0) > 0;
+export async function hardDeleteJoiner(id: string, branchId: string, actor?: AuditActor): Promise<boolean> {
+  return auditedMutation(actor, branchId, 'JOINER_DELETED', 'joiner', 'delete', async tx => {
+    const where = and(eq(joiners.id, id), eq(joiners.branchId, branchId));
+    const [before] = await tx.select().from(joiners).where(where).for('update');
+    if (!before) return { result: false, before: null, after: null };
+    await tx.delete(joiners).where(where);
+    return { result: true, before, after: null };
+  });
 }
 
 // Filter by employment type
@@ -603,8 +616,13 @@ export async function updateMonthlySnapshot(
     femaleHoursOut?: number | null; maleHoursOut?: number | null;
     femaleHeadsOut?: number | null; maleHeadsOut?: number | null;
   },
+  actor?: AuditActor,
 ): Promise<MonthlySnapshot> {
-  const [row] = await db
+  return auditedMutation(actor, branchId, 'MONTH_UPDATED', 'monthly snapshot', 'update', async tx => {
+  const [before] = await tx.select().from(monthlyCapacitySnapshots).where(and(
+    eq(monthlyCapacitySnapshots.branchId, branchId), eq(monthlyCapacitySnapshots.year, year), eq(monthlyCapacitySnapshots.month, month),
+  )).for('update');
+  const [row] = await tx
     .insert(monthlyCapacitySnapshots)
     .values({ branchId, year, month, ...data, snapshotCreatedAt: new Date() })
     .onConflictDoUpdate({
@@ -616,22 +634,27 @@ export async function updateMonthlySnapshot(
       set: { ...data, snapshotCreatedAt: new Date() },
     })
     .returning();
-  return row;
+  return { result: row, before: before ?? null, after: row, name: `${year}-${String(month).padStart(2, '0')}` };
+  });
 }
 
 export async function deleteMonthlySnapshot(
   branchId: string,
   year: number,
   month: number,
+  actor?: AuditActor,
 ): Promise<boolean> {
-  const result = await db
-    .delete(monthlyCapacitySnapshots)
-    .where(and(
+  return auditedMutation(actor, branchId, 'MONTH_REOPENED', 'monthly snapshot', 'delete', async tx => {
+    const where = and(
       eq(monthlyCapacitySnapshots.branchId, branchId),
       eq(monthlyCapacitySnapshots.year, year),
       eq(monthlyCapacitySnapshots.month, month),
-    ));
-  return (result.rowCount ?? 0) > 0;
+    );
+    const [before] = await tx.select().from(monthlyCapacitySnapshots).where(where).for('update');
+    if (!before) return { result: false, before: null, after: null };
+    await tx.delete(monthlyCapacitySnapshots).where(where);
+    return { result: true, before, after: null, name: `${year}-${String(month).padStart(2, '0')}` };
+  });
 }
 
 // ── Availability Changes CRUD ─────────────────────────────────────────────────
@@ -644,32 +667,36 @@ export async function getAvailabilityChanges(branchId: string): Promise<Availabi
     .orderBy(desc(availabilityChanges.createdAt));
 }
 
-export async function createAvailabilityChange(data: InsertAvailabilityChange): Promise<AvailabilityChange> {
-  const [row] = await db
-    .insert(availabilityChanges)
-    .values({ ...data, updatedAt: new Date() })
-    .returning();
-  return row;
+export async function createAvailabilityChange(data: InsertAvailabilityChange, actor?: AuditActor): Promise<AvailabilityChange> {
+  return auditedMutation(actor, data.branchId, 'AVAIL_CHANGE_CREATED', 'availability change', 'create', async tx => {
+    const [row] = await tx.insert(availabilityChanges).values({ ...data, updatedAt: new Date() }).returning();
+    return { result: row, before: null, after: row };
+  });
 }
 
 export async function updateAvailabilityChange(
   id: string,
   branchId: string,
   data: Partial<InsertAvailabilityChange>,
+  actor?: AuditActor,
 ): Promise<AvailabilityChange | null> {
-  const [row] = await db
-    .update(availabilityChanges)
-    .set({ ...data, updatedAt: new Date() })
-    .where(and(eq(availabilityChanges.id, id), eq(availabilityChanges.branchId, branchId)))
-    .returning();
-  return row ?? null;
+  return auditedMutation(actor, branchId, 'AVAIL_CHANGE_UPDATED', 'availability change', 'update', async tx => {
+    const where = and(eq(availabilityChanges.id, id), eq(availabilityChanges.branchId, branchId));
+    const [before] = await tx.select().from(availabilityChanges).where(where).for('update');
+    if (!before) return { result: null, before: null, after: null };
+    const [after] = await tx.update(availabilityChanges).set({ ...data, updatedAt: new Date() }).where(where).returning();
+    return { result: after, before, after };
+  });
 }
 
-export async function deleteAvailabilityChange(id: string, branchId: string): Promise<boolean> {
-  const result = await db
-    .delete(availabilityChanges)
-    .where(and(eq(availabilityChanges.id, id), eq(availabilityChanges.branchId, branchId)));
-  return (result.rowCount ?? 0) > 0;
+export async function deleteAvailabilityChange(id: string, branchId: string, actor?: AuditActor): Promise<boolean> {
+  return auditedMutation(actor, branchId, 'AVAIL_CHANGE_DELETED', 'availability change', 'delete', async tx => {
+    const where = and(eq(availabilityChanges.id, id), eq(availabilityChanges.branchId, branchId));
+    const [before] = await tx.select().from(availabilityChanges).where(where).for('update');
+    if (!before) return { result: false, before: null, after: null };
+    await tx.delete(availabilityChanges).where(where);
+    return { result: true, before, after: null };
+  });
 }
 
 export async function autoCloseForAllBranches(): Promise<void> {

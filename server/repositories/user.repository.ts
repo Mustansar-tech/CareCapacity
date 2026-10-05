@@ -5,6 +5,7 @@ import type {
   AuditLog, InsertAuditLog,
 } from '@shared/schema';
 import { eq, desc, inArray } from 'drizzle-orm';
+import { writeAuditEntry } from './audit.repository';
 
 export async function getUserById(id: string): Promise<User | undefined> {
   const [user] = await db.select().from(users).where(eq(users.id, id));
@@ -59,13 +60,15 @@ export async function setUserBranches(userId: string, branchIds: string[]): Prom
 }
 
 export async function createAuditLog(log: Omit<InsertAuditLog, 'timestamp'>): Promise<AuditLog> {
-  const [result] = await db.insert(auditLogs).values(log).returning();
-  return result;
+  return writeAuditEntry(log);
 }
 
 export async function getAuditLogs(opts?: { branchId?: string; limit?: number }): Promise<AuditLog[]> {
-  const limit = opts?.limit ?? 200;
-  return db.select().from(auditLogs).orderBy(desc(auditLogs.timestamp)).limit(limit);
+  const requested = opts?.limit ?? 200;
+  const limit = Number.isFinite(requested) ? Math.min(1000, Math.max(1, Math.floor(requested))) : 200;
+  return db.select().from(auditLogs)
+    .where(opts?.branchId ? eq(auditLogs.branchId, opts.branchId) : undefined)
+    .orderBy(desc(auditLogs.timestamp), desc(auditLogs.id)).limit(limit);
 }
 
 export async function updateUserLegalConsent(userId: string, version: string): Promise<User> {
