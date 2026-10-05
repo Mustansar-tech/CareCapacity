@@ -61,6 +61,49 @@ describe("PP and Day Rate one-attempt backup policy", () => {
     assert.deepEqual(deps.runJob.mock.calls.map(c => c.arguments[1]), [0, 6]);
   });
 
+  it("uses both global accounts after the dedicated account fails", async () => {
+    const deps = dependencies();
+    deps.claimBackup.mock.mockImplementation(async () =>
+      [0, 6].find(slot => !deps.failedSlots.has(slot)) ?? -1);
+    let attempts = 0;
+    deps.waitForJob.mock.mockImplementation(async () => ++attempts < 3 ? failed : completed);
+    const result = await runExportWithBackup(config, 1, 1000, deps);
+    assert.equal(result.ok, true);
+    assert.equal(result.slotUsed, 6);
+    assert.equal(result.attempts, 3);
+    assert.deepEqual(deps.runJob.mock.calls.map(c => c.arguments[1]), [1, 0, 6]);
+    assert.deepEqual(deps.switchSlot.mock.calls.map(c => c.arguments), [[1, 0], [0, 6]]);
+    assert.equal(deps.notifyFailure.mock.callCount(), 2);
+  });
+
+  it("stops after all three accounts fail, with exactly one attempt and alert each", async () => {
+    const deps = dependencies();
+    deps.claimBackup.mock.mockImplementation(async () =>
+      [0, 6].find(slot => !deps.failedSlots.has(slot)) ?? -1);
+    deps.waitForJob.mock.mockImplementation(async () => failed);
+    const result = await runExportWithBackup(config, 1, 1000, deps);
+    assert.equal(result.ok, false);
+    assert.equal(result.attempts, 3);
+    assert.deepEqual(deps.runJob.mock.calls.map(c => c.arguments[1]), [1, 0, 6]);
+    assert.equal(deps.notifyFailure.mock.callCount(), 3);
+    for (const slot of [1, 0, 6]) {
+      assert.equal((await runExportWithBackup(config, slot, 1000, deps)).attempts, 0);
+    }
+    assert.equal(deps.runJob.mock.callCount(), 3);
+  });
+
+  it("can use the extra backup first when the universal account is busy", async () => {
+    const deps = dependencies();
+    const busySlots = new Set([0]);
+    deps.claimBackup.mock.mockImplementation(async () =>
+      [0, 6].find(slot => !busySlots.has(slot) && !deps.failedSlots.has(slot)) ?? -1);
+    let attempts = 0;
+    deps.waitForJob.mock.mockImplementation(async () => ++attempts === 1 ? failed : completed);
+    const result = await runExportWithBackup(config, 1, 1000, deps);
+    assert.equal(result.ok, true);
+    assert.deepEqual(deps.runJob.mock.calls.map(c => c.arguments[1]), [1, 6]);
+  });
+
   it("stops after backup fails and blocks subsequent attempts in the same session", async () => {
     const deps = dependencies();
     deps.waitForJob.mock.mockImplementation(async () => failed);

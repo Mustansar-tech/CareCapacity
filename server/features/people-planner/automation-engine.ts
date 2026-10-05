@@ -232,9 +232,18 @@ async function debugScreenshot(page: Page, name: string): Promise<void> {
  * then close the entire context.  `runJob` will create a clean context on the
  * next call, using the saved session file to restore cookies.
  */
-export async function resetSlotForNextSession(slotArrayIndex: number): Promise<void> {
+export async function resetSlotForNextSession(slotArrayIndex: number, discardSavedSession = false): Promise<void> {
   const slot = slotStates[slotArrayIndex];
   if (!slot) return;
+  // Credential replacement needs a fresh login, not cookies for the old account.
+  if (discardSavedSession) {
+    await slot.context?.close().catch(() => {});
+    slot.context = null;
+    slot.plannerPage = null;
+    slot.plannerBranchUrl = null;
+    fs.rmSync(slot.sessionFile, { force: true });
+    return;
+  }
   if (!slot.context) return; // nothing to reset
 
   // Persist cookies/session so the next context can skip the login form.

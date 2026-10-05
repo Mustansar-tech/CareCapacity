@@ -196,7 +196,7 @@ const sessionQueue: string[] = [];
 // ─── Branch → preferred account slot mapping ─────────────────────────────────
 // Each Access Workspace account only has permission to access specific branches.
 // This map routes each branch to the slot whose credentials have access to it.
-// Slot 0 (ACCESS_EMAIL) is a universal fallback with access to all branches.
+// ACCESS_EMAIL and ACCESS_BACKUP_EMAIL are global fallback accounts.
 //
 // Slot index (0-based) → env var → branches covered:
 //   0 : ACCESS_EMAIL   — all branches (fallback)
@@ -206,10 +206,8 @@ const sessionQueue: string[] = [];
 //   4 : ACCESS_EMAIL_4 — North Lanarkshire, Glasgow South
 //   5 : ACCESS_EMAIL_5 — Stirling & Falkirk, Perth
 const BRANCH_SLOT_MAP: Record<string, number> = {
-  // Glasgow North temporarily pinned to the universal account (slot 0) — its
-  // dedicated slot 1 (ACCESS_EMAIL_1) is Cloudflare-stuck on tenant re-auth.
-  // Keep slot 1 disabled for this branch until the owner explicitly authorises it.
-  "2f706320-5585-4e3c-8eb2-6c624acd7fca": 0, // Glasgow North
+  // Glasgow North's dedicated account is active again with replacement credentials.
+  "2f706320-5585-4e3c-8eb2-6c624acd7fca": 1, // Glasgow North
 
   // Slot 2 — Aberdeen & West Fife (ACCESS_EMAIL_2)
   "0d087ea2-68ed-45f3-9738-85de38d4ec9e": 2, // Aberdeen
@@ -270,8 +268,8 @@ function preferredAccountKey(branchId: string): string {
  *
  * Selection order:
  *   1. Preferred slot from BRANCH_SLOT_MAP (if configured and idle).
- *   2. Slot 0 (ACCESS_EMAIL — universal fallback, access to all branches).
- *   3. -1 — queue; both the preferred slot and the fallback are busy.
+ *   2. ACCESS_EMAIL, then ACCESS_BACKUP_EMAIL (global accounts).
+ *   3. -1 — queue; the preferred slot and both global accounts are busy.
  *
  * Uses the route-level reservation map so the result is valid throughout the
  * synchronous dispatch path (no async gaps between check and reserve).
@@ -282,12 +280,14 @@ function findPreferredSlotForBranch(branchId: string): number {
   if (preferred !== -1 && !slotReservations.has(preferred)) {
     return preferred;
   }
-  // Fall back to slot 0 (ACCESS_EMAIL — all branches)
-  const universal = getAccountSlotIndex("ACCESS_EMAIL");
-  if (universal !== -1 && !slotReservations.has(universal)) {
-    return universal;
+  // Either global account can cover any branch when its preferred account is busy.
+  for (const accountKey of ["ACCESS_EMAIL", "ACCESS_BACKUP_EMAIL"]) {
+    const globalSlot = getAccountSlotIndex(accountKey);
+    if (globalSlot !== -1 && !slotReservations.has(globalSlot)) {
+      return globalSlot;
+    }
   }
-  // Both are busy — caller should queue
+  // All suitable accounts are busy — caller should queue.
   return -1;
 }
 
@@ -443,7 +443,9 @@ function sleep(ms: number): Promise<void> {
 }
 
 /**
- * One attempt on the selected account, then one on ACCESS_BACKUP_EMAIL.
+ * One attempt on the selected account, then each available global backup:
+ * ACCESS_EMAIL first, followed by ACCESS_BACKUP_EMAIL. Busy accounts are skipped
+ * if the other backup is free. No failed account is retried in this session.
  * All three session paths use this policy; failed accounts stay blocked for the
  * rest of the session. A busy backup is awaited rather than retrying the user.
  */
@@ -461,17 +463,20 @@ async function runExportJobWithRetry(
     waitForJob,
     failedSlots,
     claimBackup: async (failedSlot) => {
-      const backup = getAccountSlotIndex("ACCESS_BACKUP_EMAIL");
-      if (backup === -1 || backup === failedSlot || failedSlots.has(backup)) return -1;
+      const candidates = ["ACCESS_EMAIL", "ACCESS_BACKUP_EMAIL"]
+        .map(getAccountSlotIndex)
+        .filter(slot => slot !== -1 && slot !== failedSlot && !failedSlots.has(slot));
+      if (candidates.length === 0) return -1;
       const deadline = Date.now() + Math.min(timeoutMs, 600000);
       while (Date.now() < deadline) {
-        if (!slotReservations.has(backup)) {
+        const backup = candidates.find(slot => !slotReservations.has(slot));
+        if (backup !== undefined) {
           reserveSlot(backup, sessionId);
           return backup;
         }
         await sleep(1000);
       }
-      logger.error("Backup account remained busy; stopped without repeating the failed login", undefined, { sessionId });
+      logger.error("Global backup accounts remained busy; stopped without repeating the failed login", undefined, { sessionId });
       return -1;
     },
     switchSlot: async (previousSlot, backupSlot) => {
@@ -485,7 +490,7 @@ async function runExportJobWithRetry(
         startNextQueuedFinancialSummarySession();
       });
       await resetSlotForNextSession(backupSlot);
-      logger.warn("Switched directly to extra backup account after export failure", { sessionId, previousSlot, backupSlot });
+      logger.warn("Switched directly to global backup account after export failure", { sessionId, previousSlot, backupSlot });
     },
     notifyFailure: async (slot) => {
       logger.error("Automation account failed; it will not be retried in this session", undefined, { sessionId, slot });
@@ -500,7 +505,6 @@ async function runExportJobWithRetry(
         branchName,
         accountKey: getSlotAccountKey(slot),
         reportType: config.reportType,
-        backupFailed: getSlotAccountKey(slot) === "ACCESS_BACKUP_EMAIL",
       });
     },
   }, onJobStarted);

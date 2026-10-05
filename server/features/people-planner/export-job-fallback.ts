@@ -7,7 +7,7 @@ export type ExportJobOutcome =
 export interface ExportFallbackDependencies {
   runJob: (config: JobConfig, slot: number) => Promise<string>;
   waitForJob: (id: string, timeoutMs: number) => Promise<AutomationJob>;
-  /** Wait for and atomically claim the extra backup. -1 means unavailable. */
+  /** Wait for and atomically claim the next unfailed global backup. -1 means unavailable. */
   claimBackup: (failedSlot: number) => Promise<number>;
   switchSlot: (previousSlot: number, backupSlot: number) => Promise<void>;
   notifyFailure: (slot: number, backup: boolean) => Promise<void>;
@@ -16,7 +16,7 @@ export interface ExportFallbackDependencies {
 
 /**
  * One attempt per account per session. A failed export switches directly to the
- * extra backup; neither account is retried if it fails. Shared by all PP paths.
+ * global backups, once each. No failed account is retried. Shared by all PP paths.
  */
 export async function runExportWithBackup(
   config: JobConfig,
@@ -30,7 +30,7 @@ export async function runExportWithBackup(
   if (deps.failedSlots.has(slot)) {
     return { ok: false, error: "This account already failed in this session; not retrying it.", slotUsed: slot, attempts };
   }
-  while (attempts < 2) {
+  while (attempts < 3) {
     attempts++;
     try {
       const jobId = await deps.runJob(config, slot);
@@ -44,8 +44,8 @@ export async function runExportWithBackup(
       const error = err instanceof Error ? err.message : String(err);
       deps.failedSlots.add(slot);
       // Email failure must never prevent the backup from running.
-      await deps.notifyFailure(slot, attempts === 2).catch(() => {});
-      if (attempts === 2) return { ok: false, error, slotUsed: slot, attempts };
+      await deps.notifyFailure(slot, attempts > 1).catch(() => {});
+      if (attempts === 3) return { ok: false, error, slotUsed: slot, attempts };
       let backup: number;
       try {
         backup = await deps.claimBackup(slot);

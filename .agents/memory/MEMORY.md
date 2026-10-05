@@ -15,4 +15,4 @@
 - [Car travel routing provider order](car-travel-routing-provider-order.md) — Mapbox Matrix/Directions is now primary for car routes, ORS is backup-only; Mapbox's matrix batch cap is 25 combined coords vs ORS's 50.
 - [Supabase pooler mode for serverless](supabase-pooler-mode-serverless.md) — session-mode pooler (5432) caps ~15 connections project-wide; Vercel serverless needs transaction-mode (6543 + pgbouncer=true), not smaller pool-size env vars.
 - [BI role rollout](bi-role-rollout.md) — BI User currently matches admin inside SUR Group BI except it cannot trigger automation; expand into scoped personas later.
-- [PP automation backup policy](pp-automation-universal-fallback.md) — retain universal + separate global backup; one attempt per failed account, email alerts; Glasgow North dedicated login stays disabled.
+- [PP automation backup policy](pp-automation-universal-fallback.md) — universal + extra backup are both global fallbacks; one attempt per account, email alerts; Glasgow North dedicated login is authorised again.

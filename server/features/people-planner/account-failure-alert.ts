@@ -7,7 +7,6 @@ export async function sendAccountFailureAlert(details: {
   branchName: string;
   accountKey: string;
   reportType: string;
-  backupFailed: boolean;
 }): Promise<void> {
   const key = process.env.RESEND_API_KEY;
   const recipient = process.env.ACCESS_BACKUP_EMAIL;
@@ -27,9 +26,8 @@ export async function sendAccountFailureAlert(details: {
         `Failed account: ${details.accountKey}`,
         `Report: ${details.reportType}`,
         `Session: ${details.sessionId}`,
-        details.backupFailed
-          ? "The backup account also failed. Automation has stopped; neither account will be retried in this session."
-          : "This account will not be retried in this session. Automation will use ACCESS_BACKUP_EMAIL if it is configured and becomes available.",
+        "This account will not be retried in this session.",
+        "Automation will try the remaining available global accounts (ACCESS_EMAIL and ACCESS_BACKUP_EMAIL), once each. If none remain, it will stop.",
         "Please check the account's credentials and Access Workspace access.",
       ].join("\n"),
     });
