@@ -18,11 +18,14 @@ import {
   getQueueLength,
   getDownloadPath,
   getSlotCount,
+  getAccountSlotIndex,
+  getSlotAccountKey,
   MAX_ACCOUNT_SLOTS,
   resetSlotForNextSession,
   type JobConfig,
-  type AutomationJob,
 } from "./automation-engine";
+import { runExportWithBackup } from "./export-job-fallback";
+import { sendAccountFailureAlert } from "./account-failure-alert";
 import { parseFinancialSummaryWorkbook } from "./financial-summary-parser";
 import { upsertAutomatedEntry } from "../../repositories/day-rate.repository";
 import { recordAutomationJobResult } from "../../repositories/day-rate-automation.repository";
@@ -205,7 +208,7 @@ const sessionQueue: string[] = [];
 const BRANCH_SLOT_MAP: Record<string, number> = {
   // Glasgow North temporarily pinned to the universal account (slot 0) — its
   // dedicated slot 1 (ACCESS_EMAIL_1) is Cloudflare-stuck on tenant re-auth.
-  // Revert to slot 1 once ACCESS_EMAIL_1 is replaced with new credentials.
+  // Keep slot 1 disabled for this branch until the owner explicitly authorises it.
   "2f706320-5585-4e3c-8eb2-6c624acd7fca": 0, // Glasgow North
 
   // Slot 2 — Aberdeen & West Fife (ACCESS_EMAIL_2)
@@ -236,6 +239,7 @@ const BRANCH_SLOT_MAP: Record<string, number> = {
 
 /** Maps 0-based slot array index → sessionId currently occupying it. */
 const slotReservations = new Map<number, string>();
+const sessionFailedSlots = new Map<string, Set<number>>();
 
 /** Atomically reserve a slot for a session. Must be called synchronously before launching async work. */
 function reserveSlot(slotIndex: number, sessionId: string): void {
@@ -245,6 +249,19 @@ function reserveSlot(slotIndex: number, sessionId: string): void {
 /** Release a slot when a session completes or fails. */
 function releaseSlot(slotIndex: number): void {
   slotReservations.delete(slotIndex);
+}
+
+/** Release only reservations still owned by this session, including after fallback. */
+function releaseSessionSlots(sessionId: string): void {
+  for (const [slot, owner] of slotReservations) {
+    if (owner === sessionId) releaseSlot(slot);
+  }
+  sessionFailedSlots.delete(sessionId);
+}
+
+function preferredAccountKey(branchId: string): string {
+  const preferred = BRANCH_SLOT_MAP[branchId] ?? 0;
+  return preferred === 0 ? "ACCESS_EMAIL" : `ACCESS_EMAIL_${preferred}`;
 }
 
 /**
@@ -260,14 +277,15 @@ function releaseSlot(slotIndex: number): void {
  * synchronous dispatch path (no async gaps between check and reserve).
  */
 function findPreferredSlotForBranch(branchId: string): number {
-  const preferred = BRANCH_SLOT_MAP[branchId];
+  const preferred = getAccountSlotIndex(preferredAccountKey(branchId));
   // Try preferred slot first (must exist in the loaded pool)
-  if (preferred !== undefined && preferred < getSlotCount() && !slotReservations.has(preferred)) {
+  if (preferred !== -1 && !slotReservations.has(preferred)) {
     return preferred;
   }
   // Fall back to slot 0 (ACCESS_EMAIL — all branches)
-  if (!slotReservations.has(0)) {
-    return 0;
+  const universal = getAccountSlotIndex("ACCESS_EMAIL");
+  if (universal !== -1 && !slotReservations.has(universal)) {
+    return universal;
   }
   // Both are busy — caller should queue
   return -1;
@@ -358,7 +376,7 @@ function startNextQueuedSession(): void {
       }
       logger.error("Queued pipeline session failed", err instanceof Error ? err : undefined, { sessionId: nextId });
     }).finally(() => {
-      releaseSlot(activeSessions.get(nextId)?.slotArrayIndex ?? idleSlot);
+      releaseSessionSlots(nextId);
       setImmediate(() => startNextQueuedSession());
     });
   }
@@ -420,92 +438,72 @@ interface FinancialSummarySession {
   runId?: string;
 }
 
-/** Transient automation errors worth retrying — login/launcher flakiness, not business-logic failures. */
-const RETRYABLE_JOB_ERROR_PATTERNS = [
-  /timeout/i,
-  /tile not found/i,
-  /net::ERR_/i,
-  /no file download detected/i,
-  /frame was detached/i,
-  /still on login page/i,
-  /launcher iframe/i,
-];
-
-function isRetryableJobError(message: string): boolean {
-  return RETRYABLE_JOB_ERROR_PATTERNS.some(p => p.test(message));
-}
-
 function sleep(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
 /**
- * Run one automation job with retry, and — for retryable failures — automatic
- * fallback to slot 0 (ACCESS_EMAIL, the universal account with access to every
- * branch). A branch's dedicated account can get stuck on the login page (e.g. a
- * Cloudflare challenge specific to that account's tenant re-auth) while the
- * tenant itself and every other account are fine — retrying the same broken
- * account just repeats the failure, so once slot 0 is confirmed idle we switch
- * to it instead.
- *
- * Shared by all three automation paths (Financial Summary, single-week capacity
- * sync, multi-week capacity sync) so the fallback behaves identically everywhere.
- * Never throws — returns a discriminated result so callers can record attempts
- * and errors without exception-based control flow.
+ * One attempt on the selected account, then one on ACCESS_BACKUP_EMAIL.
+ * All three session paths use this policy; failed accounts stay blocked for the
+ * rest of the session. A busy backup is awaited rather than retrying the user.
  */
 async function runExportJobWithRetry(
   sessionId: string,
   config: JobConfig,
   initialSlot: number,
   timeoutMs: number,
-  maxAttempts = 3,
   onJobStarted?: (jobId: string) => void,
-): Promise<
-  | { ok: true; job: AutomationJob; slotUsed: number; attempts: number }
-  | { ok: false; error: string; slotUsed: number; attempts: number }
-> {
-  let slot = initialSlot;
-  let lastError = "Automation job failed";
-
-  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    try {
-      const jobId = await runAutomationJob(config, slot);
-      onJobStarted?.(jobId);
-      const completedJob = await waitForJob(jobId, timeoutMs);
-      if (completedJob.status === "failed") {
-        throw new Error(completedJob.error || "Automation job failed");
+) {
+  const failedSlots = sessionFailedSlots.get(sessionId) ?? new Set<number>();
+  sessionFailedSlots.set(sessionId, failedSlots);
+  return runExportWithBackup(config, initialSlot, timeoutMs, {
+    runJob: runAutomationJob,
+    waitForJob,
+    failedSlots,
+    claimBackup: async (failedSlot) => {
+      const backup = getAccountSlotIndex("ACCESS_BACKUP_EMAIL");
+      if (backup === -1 || backup === failedSlot || failedSlots.has(backup)) return -1;
+      const deadline = Date.now() + Math.min(timeoutMs, 600000);
+      while (Date.now() < deadline) {
+        if (!slotReservations.has(backup)) {
+          reserveSlot(backup, sessionId);
+          return backup;
+        }
+        await sleep(1000);
       }
-      return { ok: true, job: completedJob, slotUsed: slot, attempts: attempt };
-    } catch (err) {
-      lastError = err instanceof Error ? err.message : String(err);
-      const retryable = isRetryableJobError(lastError);
-      const isLastAttempt = attempt >= maxAttempts;
-      logger.error(
-        !retryable || isLastAttempt ? "Export job failed" : "Export job failed — will retry",
-        err instanceof Error ? err : undefined,
-        { sessionId, slot, attempt, retryable },
-      );
-      if (!retryable || isLastAttempt) {
-        return { ok: false, error: lastError, slotUsed: slot, attempts: attempt };
+      logger.error("Backup account remained busy; stopped without repeating the failed login", undefined, { sessionId });
+      return -1;
+    },
+    switchSlot: async (previousSlot, backupSlot) => {
+      // Update before any await so final cleanup always knows the actual owner.
+      const session = activeSessions.get(sessionId) ?? financialSummarySessions.get(sessionId);
+      if (session) session.slotArrayIndex = backupSlot;
+      await resetSlotForNextSession(previousSlot);
+      releaseSlot(previousSlot);
+      setImmediate(() => {
+        startNextQueuedSession();
+        startNextQueuedFinancialSummarySession();
+      });
+      await resetSlotForNextSession(backupSlot);
+      logger.warn("Switched directly to extra backup account after export failure", { sessionId, previousSlot, backupSlot });
+    },
+    notifyFailure: async (slot) => {
+      logger.error("Automation account failed; it will not be retried in this session", undefined, { sessionId, slot });
+      let branchName = config.plannerArea ?? config.financeFranchiseName ?? "People Planner branch";
+      if (config.branchId) {
+        try {
+          branchName = (await storage.getBranchById(config.branchId))?.displayName ?? branchName;
+        } catch { /* The notification can still identify the report and session. */ }
       }
-
-      // Dedicated slot appears stuck. If the universal fallback account (slot 0)
-      // is idle, switch to it for the retry instead of hammering the same account.
-      if (slot !== 0 && !slotReservations.has(0)) {
-        reserveSlot(0, sessionId);
-        releaseSlot(slot);
-        await resetSlotForNextSession(0).catch(() => {});
-        logger.warn("Falling back to universal account slot after failure", { sessionId, previousSlot: slot, attempt });
-        slot = 0;
-      }
-
-      // Give the launcher/login flow a moment to recover before trying again —
-      // most failures at this point are transient AccessCloud login/launcher timeouts.
-      await sleep(8000);
-    }
-  }
-
-  return { ok: false, error: lastError, slotUsed: slot, attempts: maxAttempts };
+      await sendAccountFailureAlert({
+        sessionId,
+        branchName,
+        accountKey: getSlotAccountKey(slot),
+        reportType: config.reportType,
+        backupFailed: getSlotAccountKey(slot) === "ACCESS_BACKUP_EMAIL",
+      });
+    },
+  }, onJobStarted);
 }
 
 const financialSummarySessions = new Map<string, FinancialSummarySession>();
@@ -681,7 +679,7 @@ function startNextQueuedFinancialSummarySession(): void {
         logger.error("Queued financial summary session failed", err instanceof Error ? err : undefined, { sessionId: nextId });
       })
       .finally(() => {
-        releaseSlot(financialSummarySessions.get(nextId)?.slotArrayIndex ?? idleSlot);
+        releaseSessionSlots(nextId);
         setImmediate(() => {
           startNextQueuedFinancialSummarySession();
           startNextQueuedSession();
@@ -733,7 +731,7 @@ export async function programmaticQueueFinancialSummarySync(
       }
     })
     .finally(() => {
-      releaseSlot(financialSummarySessions.get(sessionId)?.slotArrayIndex ?? idleSlot);
+      releaseSessionSlots(sessionId);
       setImmediate(() => {
         startNextQueuedFinancialSummarySession();
         startNextQueuedSession();
@@ -861,7 +859,7 @@ export async function programmaticQueueSync(
     }
     logger.error("Programmatic pipeline session failed", err instanceof Error ? err : undefined, { sessionId });
   }).finally(() => {
-    releaseSlot(activeSessions.get(sessionId)?.slotArrayIndex ?? idleSlot);
+    releaseSessionSlots(sessionId);
     setImmediate(() => startNextQueuedSession());
   });
 
@@ -951,7 +949,7 @@ export async function programmaticQueueMultiWeekSync(
     }
     logger.error("Programmatic multi-week pipeline session failed", err instanceof Error ? err : undefined, { sessionId });
   }).finally(() => {
-    releaseSlot(activeSessions.get(sessionId)?.slotArrayIndex ?? idleSlot);
+    releaseSessionSlots(sessionId);
     setImmediate(() => startNextQueuedSession());
   });
 
@@ -966,7 +964,7 @@ export function registerPeoplePlannerRoutes(app: Express): void {
   // that each branch is wired to the correct Access Workspace account at boot.
   const slotCount = getSlotCount();
   const mappingReport = Object.entries(BRANCH_SLOT_MAP).reduce<Record<string, { preferredSlot: number; slotConfigured: boolean }>>((acc, [bId, slot]) => {
-    acc[bId] = { preferredSlot: slot, slotConfigured: slot < slotCount };
+    acc[bId] = { preferredSlot: slot, slotConfigured: getAccountSlotIndex(preferredAccountKey(bId)) !== -1 };
     return acc;
   }, {});
   logger.info("PP branch→slot mapping effective at startup", {
@@ -1030,6 +1028,8 @@ export function registerPeoplePlannerRoutes(app: Express): void {
       branchConfigured,
       playwrightReady,
       accountCount: getSlotCount(),
+      backupConfigured: getAccountSlotIndex("ACCESS_BACKUP_EMAIL") !== -1,
+      failureAlertsConfigured: !!(process.env.ACCESS_BACKUP_EMAIL && process.env.RESEND_API_KEY),
       idleCount: getSlotCount() - slotReservations.size,
       slots: routeSlotStatus(),
     });
@@ -1276,7 +1276,7 @@ export function registerPeoplePlannerRoutes(app: Express): void {
           });
         }
       }).finally(() => {
-        releaseSlot(activeSessions.get(sessionId)?.slotArrayIndex ?? idleSlot);
+        releaseSessionSlots(sessionId);
         setImmediate(() => startNextQueuedSession());
       });
 
@@ -1667,7 +1667,7 @@ async function runPipelineSession(
         branchId,
       };
 
-      const outcome = await runExportJobWithRetry(sessionId, config, currentSlot, 1800000, 3, (jobId) => {
+      const outcome = await runExportJobWithRetry(sessionId, config, currentSlot, 1800000, (jobId) => {
         session.jobIds.push(jobId);
         activeSessions.set(sessionId, session);
       });
@@ -1922,7 +1922,7 @@ async function runMultiWeekPipelineSession(
             branchId,
           };
 
-          const outcome = await runExportJobWithRetry(sessionId, config, slotArrayIndex, 1800000, 3, (jobId) => {
+          const outcome = await runExportJobWithRetry(sessionId, config, slotArrayIndex, 1800000, (jobId) => {
             session.jobIds.push(jobId);
             activeSessions.set(sessionId, session);
           });

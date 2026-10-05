@@ -96,6 +96,7 @@ async function getOrLaunchSharedBrowser(): Promise<Browser> {
 interface SlotState {
   /** 1-based display index */
   index: number;
+  accountKey: string;
   email: string;
   password: string;
   sessionFile: string;
@@ -104,18 +105,23 @@ interface SlotState {
   plannerPage: Page | null;
   plannerBranchUrl: string | null;
   currentJobId: string | null;
+  currentJobPromise: Promise<void> | null;
 }
 
-function makeSlot(displayIndex: number, email: string, password: string): SlotState {
+function makeSlot(displayIndex: number, email: string, password: string, accountKey: string): SlotState {
   return {
     index: displayIndex,
+    accountKey,
     email,
     password,
-    sessionFile: path.resolve(`/tmp/pp-session-slot-${displayIndex}.json`),
+    sessionFile: accountKey === "ACCESS_BACKUP_EMAIL"
+      ? path.resolve("/tmp/pp-session-backup.json")
+      : path.resolve(`/tmp/pp-session-slot-${displayIndex}.json`),
     context: null,
     plannerPage: null,
     plannerBranchUrl: null,
     currentJobId: null,
+    currentJobPromise: null,
   };
 }
 
@@ -129,11 +135,11 @@ function makeSlot(displayIndex: number, email: string, password: string): SlotSt
  *   Slot 4 : ACCESS_EMAIL_3 / ACCESS_PASSWORD_3        (optional)
  *   Slot 5 : ACCESS_EMAIL_4 / ACCESS_PASSWORD_4        (optional)
  *   Slot 6 : ACCESS_EMAIL_5 / ACCESS_PASSWORD_5        (optional)
+ *   Backup : ACCESS_BACKUP_EMAIL / ACCESS_BACKUP_PASSWORD (optional, fallback only)
  *
- * With all six pairs configured the pool reaches its full capacity of 6
- * concurrent sessions.
+ * Six normal accounts plus one extra global backup account are supported.
  */
-export const MAX_ACCOUNT_SLOTS = 6;
+export const MAX_ACCOUNT_SLOTS = 7;
 
 /**
  * Load all configured accounts from the env-var layout above.
@@ -147,11 +153,16 @@ function loadAccountPool(): SlotState[] {
   const pool: SlotState[] = [];
   const e0 = process.env.ACCESS_EMAIL;
   const p0 = process.env.ACCESS_PASSWORD;
-  if (e0 && p0) pool.push(makeSlot(1, e0, p0));
+  if (e0 && p0) pool.push(makeSlot(1, e0, p0, "ACCESS_EMAIL"));
   for (const n of [1, 2, 3, 4, 5]) {
     const e = process.env[`ACCESS_EMAIL_${n}`];
     const p = process.env[`ACCESS_PASSWORD_${n}`];
-    if (e && p) pool.push(makeSlot(pool.length + 1, e, p));
+    if (e && p) pool.push(makeSlot(pool.length + 1, e, p, `ACCESS_EMAIL_${n}`));
+  }
+  const backupEmail = process.env.ACCESS_BACKUP_EMAIL;
+  const backupPassword = process.env.ACCESS_BACKUP_PASSWORD;
+  if (backupEmail && backupPassword) {
+    pool.push(makeSlot(pool.length + 1, backupEmail, backupPassword, "ACCESS_BACKUP_EMAIL"));
   }
   return pool;
 }
@@ -268,6 +279,15 @@ export function getSlotCount(): number {
   return slotStates.length;
 }
 
+/** Resolve by credential name, not array position (optional accounts may be absent). */
+export function getAccountSlotIndex(accountKey: string): number {
+  return slotStates.findIndex(slot => slot.accountKey === accountKey);
+}
+
+export function getSlotAccountKey(slotArrayIndex: number): string {
+  return slotStates[slotArrayIndex]?.accountKey ?? "unknown account";
+}
+
 /** Returns the 0-based array index of the first idle slot, or -1 if all are busy. */
 export function getIdleSlotIndex(): number {
   return slotStates.findIndex(s => s.currentJobId === null);
@@ -331,10 +351,11 @@ export async function runAutomationJob(config: JobConfig, slotArrayIndex = 0): P
   jobs.set(id, job);
   slot.currentJobId = id;
 
-  runJob(job, slot).catch((err) => {
+  slot.currentJobPromise = runJob(job, slot).catch((err) => {
     logger.error("Unhandled automation error", err, { jobId: id, slotIndex: slotArrayIndex });
   }).finally(() => {
     slot.currentJobId = null;
+    slot.currentJobPromise = null;
   });
 
   return id;
@@ -346,8 +367,21 @@ export async function waitForJob(jobId: string, timeoutMs = 300000): Promise<Aut
   while (Date.now() - start < timeoutMs) {
     const job = jobs.get(jobId);
     if (!job) throw new Error(`Job ${jobId} not found`);
-    if (job.status === "completed" || job.status === "failed") return job;
+    if (job.status === "completed" || job.status === "failed") {
+      // Failure status is set before screenshots/context cleanup finishes.
+      // Await that cleanup before the routing layer hands this account on.
+      const slot = slotStates.find(s => s.currentJobId === jobId);
+      if (slot) await slot.currentJobPromise;
+      return job;
+    }
     await new Promise(r => setTimeout(r, 2000));
+  }
+  // Interrupt a timed-out browser task and await cleanup before its account can
+  // be released or reused by another session.
+  const slot = slotStates.find(s => s.currentJobId === jobId);
+  if (slot) {
+    await slot.context?.close().catch(() => {});
+    await slot.currentJobPromise;
   }
   throw new Error(`Job ${jobId} timed out after ${timeoutMs}ms`);
 }
