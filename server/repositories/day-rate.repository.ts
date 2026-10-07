@@ -1,8 +1,16 @@
 import { db } from '../infrastructure/db';
 import { dayRateFranchises, dayRateEntries } from '@shared/schema';
 import type { DayRateFranchise } from '@shared/schema';
-import { asc, eq, inArray, and } from 'drizzle-orm';
+import { asc, eq } from 'drizzle-orm';
 import { sql } from 'drizzle-orm';
+
+// Retired offices remain available for historical reporting and imports,
+// but must not be expected in today's figures or future automation jobs.
+const RETIRED_FRANCHISE_NAMES = new Set(['glasgow north kirkintilloch']);
+
+function isActiveFranchise(franchise: Pick<DayRateFranchise, 'franchiseName'>): boolean {
+  return !RETIRED_FRANCHISE_NAMES.has(franchise.franchiseName.trim().toLowerCase());
+}
 
 export interface DayRateGridEntry {
   revenue: number;
@@ -91,6 +99,10 @@ export async function getAllFranchises(): Promise<DayRateFranchise[]> {
   return db.select().from(dayRateFranchises).orderBy(asc(dayRateFranchises.displayOrder));
 }
 
+export async function getActiveFranchises(): Promise<DayRateFranchise[]> {
+  return (await getAllFranchises()).filter(isActiveFranchise);
+}
+
 export async function getDayRateGrid(reportingMonth: string): Promise<DayRateGrid> {
   const franchises = await db
     .select()
@@ -154,7 +166,7 @@ export async function getDayRateGrid(reportingMonth: string): Promise<DayRateGri
   let missingTodayFranchises: string[] = [];
   if (dates.includes(todayDate)) {
     missingTodayFranchises = franchises
-      .filter(f => !entriesByFranchise.get(f.id)?.[todayDate])
+      .filter(f => isActiveFranchise(f) && !entriesByFranchise.get(f.id)?.[todayDate])
       .map(f => f.franchiseName);
   }
 

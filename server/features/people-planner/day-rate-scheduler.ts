@@ -15,7 +15,7 @@
  */
 
 import { logger } from "../../infrastructure/logger";
-import { getAllFranchises } from "../../repositories/day-rate.repository";
+import { getActiveFranchises } from "../../repositories/day-rate.repository";
 import {
   createAutomationRun,
   completeAutomationRun,
@@ -67,7 +67,7 @@ function monthRange(today: Date, monthOffset: number): { startDate: string; endD
 }
 
 /**
- * Groups every day_rate_franchises row by its People Planner branch, and builds
+ * Groups active day_rate_franchises rows by their People Planner branch, and builds
  * one FinancialSummaryJobSpec per franchise per month (current + forward) for today's date.
  * Franchises whose office has no known branch mapping are skipped and logged.
  */
@@ -75,7 +75,7 @@ export async function buildDayRateJobGroups(now: Date = new Date()): Promise<{
   jobsByBranch: Map<string, FinancialSummaryJobSpec[]>;
   unmapped: string[];
 }> {
-  const franchises = await getAllFranchises();
+  const franchises = await getActiveFranchises();
   const today = fmt(now);
   const currentMonth = monthRange(now, 0);
   const forwardMonth = monthRange(now, 1);
