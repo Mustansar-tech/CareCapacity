@@ -194,15 +194,30 @@ function parseSheet(ws: ExcelJS.Worksheet): { franchiseRows: FranchiseRow[]; ent
 
 async function main() {
   const filePath = process.argv[2];
+  const args = process.argv.slice(3);
+  const selectedSheets: string[] = [];
+  let dryRun = false;
+  for (let i = 0; i < args.length; i++) {
+    if (args[i] === '--dry-run') dryRun = true;
+    else if (args[i] === '--sheet' && args[i + 1]) selectedSheets.push(args[++i]);
+    else throw new Error(`Unknown or incomplete argument: ${args[i]}`);
+  }
   if (!filePath) {
-    console.error('Usage: npx tsx scripts/seed-day-rate-tracker.ts <path-to-workbook.xlsx>');
+    console.error('Usage: npx tsx scripts/seed-day-rate-tracker.ts <path-to-workbook.xlsx> [--sheet "Sheet name"] [--dry-run]');
     process.exit(1);
   }
 
   const workbook = new ExcelJS.Workbook();
   await workbook.xlsx.readFile(filePath);
 
-  const dataSheets = workbook.worksheets.filter(ws => /Data$/.test(ws.name));
+  for (const name of selectedSheets) {
+    if (!workbook.getWorksheet(name) || !/Data$/.test(name)) {
+      throw new Error(`Selected data sheet not found: "${name}"`);
+    }
+  }
+  const dataSheets = workbook.worksheets.filter(ws =>
+    /Data$/.test(ws.name) && (!selectedSheets.length || selectedSheets.includes(ws.name)),
+  );
 
   // Establish canonical franchise order: newest structural sheets first, then
   // chronological order of the rest as encountered.
@@ -227,6 +242,20 @@ async function main() {
 
   console.log(`\nTotal distinct franchises: ${franchiseOrder.size}`);
   console.log(`Total entries to upsert: ${allEntries.length}`);
+  if (!allEntries.length) throw new Error('No entries found; refusing an empty import.');
+  const entryKeys = new Set<string>();
+  for (const entry of allEntries) {
+    const key = JSON.stringify([entry.franchiseName, entry.date, entry.reportingMonth]);
+    if (entryKeys.has(key)) throw new Error(`Duplicate workbook entry: ${key}`);
+    entryKeys.add(key);
+    const [year, month] = entry.reportingMonth.split('-').map(Number);
+    const expectedDays = new Date(Date.UTC(year, month, 0)).getUTCDate();
+    if (entry.daysInMonth !== expectedDays || !Number.isFinite(entry.revenue) ||
+        !Number.isFinite(entry.dayRate) ||
+        Math.abs(entry.dayRate - entry.revenue / expectedDays) > 0.005) {
+      throw new Error(`Invalid revenue/day-rate entry: ${key}`);
+    }
+  }
 
   const client = new Client({
     connectionString: process.env.DATABASE_URL,
@@ -236,9 +265,40 @@ async function main() {
 
   try {
     await client.query('BEGIN');
+    const reportingMonths = [...new Set(allEntries.map(entry => entry.reportingMonth))];
+    const existing = await client.query(
+      `SELECT reporting_month, count(*)::int AS entries FROM day_rate_entries
+       WHERE reporting_month = ANY($1::text[]) GROUP BY reporting_month ORDER BY reporting_month`,
+      [reportingMonths],
+    );
+    console.log('Existing records in selected reporting months:', JSON.stringify(existing.rows));
+    // Targeted historical imports must not change today's grouping or display order.
+    const maxOrder = await client.query('SELECT COALESCE(MAX(display_order), -1)::int AS maximum FROM day_rate_franchises');
+    let nextOrder = maxOrder.rows[0].maximum + 1;
+    const known = await client.query('SELECT id, franchise_name FROM day_rate_franchises');
+    const knownByName = new Map<string, string>();
+    for (const row of known.rows) {
+      const normalized = normalizeFranchiseName(row.franchise_name);
+      if (knownByName.has(normalized)) throw new Error(`Ambiguous existing franchise: ${normalized}`);
+      knownByName.set(normalized, row.id);
+    }
+    if (dryRun) {
+      console.log('New franchises:', JSON.stringify([...franchiseOrder.keys()].filter(name => !knownByName.has(name))));
+      await client.query('ROLLBACK');
+      console.log('Dry run complete; no data changed.');
+      return;
+    }
 
     const franchiseIdByName = new Map<string, string>();
     for (const fr of franchiseOrder.values()) {
+      if (selectedSheets.length) {
+        const knownId = knownByName.get(fr.franchiseName);
+        if (knownId) {
+          franchiseIdByName.set(fr.franchiseName, knownId);
+          continue;
+        }
+        fr.displayOrder = nextOrder++;
+      }
       const isLiveInCare = /live[\s-]?in care/i.test(fr.franchiseName);
       const res = await client.query(
         `INSERT INTO day_rate_franchises (group_name, area, office, franchise_name, is_live_in_care, display_order)
@@ -286,6 +346,14 @@ async function main() {
     }
     console.log(`Upserted ${inserted} day-rate entries.`);
 
+    const verified = await client.query(
+      `SELECT reporting_month, count(*)::int AS entries, count(DISTINCT franchise_id)::int AS franchises,
+              min(date) AS first_date, max(date) AS last_date
+       FROM day_rate_entries WHERE reporting_month = ANY($1::text[])
+       GROUP BY reporting_month ORDER BY reporting_month`,
+      [reportingMonths],
+    );
+    console.log('Verified reporting months:', JSON.stringify(verified.rows));
     await client.query('COMMIT');
     console.log('Seed complete.');
   } catch (err) {

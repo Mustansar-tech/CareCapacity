@@ -17,3 +17,4 @@
 - [BI role rollout](bi-role-rollout.md) — BI User currently matches admin inside SUR Group BI except it cannot trigger automation; expand into scoped personas later.
 - [PP automation backup policy](pp-automation-universal-fallback.md) — universal + extra backup are both global fallbacks; one attempt per account, email alerts; Glasgow North dedicated login is authorised again.
 - [Audit identity and privacy](audit-identity-privacy.md) — audit events must identify affected people by name; distinguish deletion, archiving and failure without retaining sensitive contents.
+- [Historical Day Rate imports](day-rate-historical-imports.md) — preserve current franchise metadata; normalize names and account for REAL precision and uncached formulas when verifying.
