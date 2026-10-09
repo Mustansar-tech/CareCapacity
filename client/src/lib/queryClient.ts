@@ -70,11 +70,14 @@ export async function apiRequest(
   method: string,
   url: string,
   data?: unknown | undefined,
+  options?: { includeSelectedBranch?: boolean },
 ): Promise<Response> {
   // Add branchId to request based on method, then resolve against API base
-  const withBranch = method === 'GET' ? appendBranchIdToUrl(url) : url;
+  // Cross-branch admin views supply their own scope rather than inheriting the sidebar.
+  const includeSelectedBranch = options?.includeSelectedBranch !== false;
+  const withBranch = method === 'GET' && includeSelectedBranch ? appendBranchIdToUrl(url) : url;
   const finalUrl = toAbsoluteUrl(withBranch);
-  const finalData = method !== 'GET' && method !== 'DELETE' ? addBranchIdToBody(data) : data;
+  const finalData = method !== 'GET' && method !== 'DELETE' && includeSelectedBranch ? addBranchIdToBody(data) : data;
   
   const res = await fetch(finalUrl, {
     method,

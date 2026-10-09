@@ -33,3 +33,15 @@ retention of personal information.
 **How to apply:** Retain necessary identifying names and minimal operational
 values; note sensitive/free-text changes without copying the values. Assess
 extensions against the standing DPIA and ROPA.
+
+The administration audit log's branch dropdown is independent of the sidebar
+branch selection. "All branches" includes application-wide events as well as
+events across branches.
+
+**Why:** The sidebar selects the working branch for operational pages, but the
+user expects the central administration audit view to cover all branches when
+its own filter says "All branches."
+
+**How to apply:** Apply only the audit screen's explicit branch filter to both
+the event list and CSV export. Keep existing administrator authorization in
+place; this is not permission to expose cross-branch events to other roles.

@@ -54,7 +54,7 @@ export function AuditLogTab({ branches, active }: { branches: Branch[]; active: 
   if (to) params.set("to", to);
   const url = `/api/admin/audit-events?${params}`;
   const { data, isLoading, isFetching, error, refetch } = useQuery<AuditPage>({
-    queryKey: [url], queryFn: async () => (await apiRequest("GET", url)).json(),
+    queryKey: ["admin-audit-events", url], queryFn: async () => (await apiRequest("GET", url, undefined, { includeSelectedBranch: false })).json(),
     enabled: active, staleTime: 30_000,
   });
   const total = data?.total ?? 0;
@@ -67,7 +67,7 @@ export function AuditLogTab({ branches, active }: { branches: Branch[]; active: 
   const exportCsv = async () => {
     setExporting(true);
     try {
-      const response = await apiRequest("GET", `/api/admin/audit-events/export?${params}`);
+      const response = await apiRequest("GET", `/api/admin/audit-events/export?${params}`, undefined, { includeSelectedBranch: false });
       const blob = await response.blob();
       const objectUrl = URL.createObjectURL(blob);
       const anchor = document.createElement("a");
