@@ -22,6 +22,7 @@
 import { storage } from "../../storage";
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { RoutingError } from './routing-error';
+import { planEnquiryTravel } from '../bd-matrix/enquiry-progress';
 import { safeRoutingRequest, assertRoutingActive } from './safe-routing-request';
 import { logger } from '../../infrastructure/logger';
 
@@ -915,7 +916,9 @@ export class TravelTimeService {
         return 1;
       }
       const sk = this.sessionKey(src.lat.toString(), src.lng.toString(), dst.lat.toString(), dst.lng.toString(), 'car');
+      const completeTravel = planEnquiryTravel(1);
       const road = await this.fetchCarDirections(src, dst);
+      completeTravel();
       if (road) {
         this._sessionCache.set(sk, road);
         return 1;
@@ -925,6 +928,9 @@ export class TravelTimeService {
 
     if (!this.ORS_API_KEY) throw new RoutingError('ORS_UNAVAILABLE', 'ORS Matrix is not configured. Paid matrix routing is disabled.');
     let total = 0;
+    const completeTravel = planEnquiryTravel(
+      Math.ceil(sources.length / ORS_MATRIX_BATCH_SIZE) * Math.ceil(destinations.length / ORS_MATRIX_BATCH_SIZE),
+    );
     for (let si = 0; si < sources.length; si += ORS_MATRIX_BATCH_SIZE) {
       for (let di = 0; di < destinations.length; di += ORS_MATRIX_BATCH_SIZE) {
         assertRoutingActive();
@@ -948,6 +954,7 @@ export class TravelTimeService {
             }
           }
         }
+        completeTravel();
       }
     }
     return total;

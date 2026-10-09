@@ -35,7 +35,9 @@ export const auditRequests: RequestHandler = (req, res, next) => {
       return originalJson.call(this, body);
     };
     res.once("finish", () => {
-      const failed = res.statusCode >= 400;
+      const streamErrorStatus = res.locals?.streamErrorStatus;
+      const streamFailed = typeof streamErrorStatus === "number" && streamErrorStatus >= 400;
+      const failed = res.statusCode >= 400 || streamFailed;
       const mutation = ["POST", "PUT", "PATCH", "DELETE"].includes(req.method);
       if ((!mutation && !(failed && res.statusCode === 403)) || (context.recorded && !failed)) return;
       const actor = {
@@ -52,7 +54,7 @@ export const auditRequests: RequestHandler = (req, res, next) => {
       const operation = req.method === "DELETE" ? "delete" : req.method === "POST" ? "create" : "update";
       const action = failed ? "REQUEST_FAILED" : `APPLICATION_${operation === "delete" ? "DELETED" : operation === "create" ? "CREATED" : "UPDATED"}`;
       const summary = failed
-        ? `Request failed: ${readableTarget}${name ? ` — ${name}` : ""} (HTTP ${res.statusCode}); no successful change is claimed`
+        ? `Request failed: ${readableTarget}${name ? ` — ${name}` : ""} (${streamFailed ? `stream error ${streamErrorStatus}` : `HTTP ${res.statusCode}`}); no successful change is claimed`
         : `${req.method === "DELETE" ? "Removal completed" : req.method === "POST" ? "Action completed" : "Update completed"}: ${readableTarget}${name ? ` — ${name}` : ""}`;
       const metadata: AuditDetails = {
         format: "care-capacity.audit.v1", summary, entityType: resource, entityName: name,

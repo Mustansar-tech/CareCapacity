@@ -8,6 +8,10 @@ import { refineForwardTravelWithORS, refineReturnHomeTravelWithORS, buildSchedul
 import { travelTimeService } from '../features/travel/travel-time-service';
 import { RoutingError } from '../features/travel/routing-error';
 import { logger } from '../infrastructure/logger';
+import { preloadEnquiryLocations } from '../features/bd-matrix/enquiry-locations';
+import { reportEnquiryWeek, withEnquiryProgress } from '../features/bd-matrix/enquiry-progress';
+import { withRoutingStageDeadline } from '../features/travel/safe-routing-request';
+import type { EnquiryStreamEvent } from '../../shared/enquiry-progress';
 
 export async function bdMatch(req: Request, res: Response): Promise<void> {
   // The shared travel service caches ORS results in memory for the lifetime of
@@ -135,55 +139,99 @@ export async function bdMatchMultiWeek(req: Request, res: Response): Promise<voi
 
   logger.info('BD Multi-Week Matcher: starting', { branchId, startWeek, weeks: analyses.length });
 
-  const weekly: WeeklyMatchResult[] = [];
-  for (const analysis of analyses) {
-    const analysisDateKeys = Object.keys((analysis.employeeSummaryByDate as Record<string, unknown>) || {});
-    let employeeScheduleMap: Awaited<ReturnType<typeof buildScheduleMap>>;
-    try {
-      employeeScheduleMap = await buildScheduleMap(branchId, analysisDateKeys);
-    } catch (err) {
-      logger.warn(`BD Multi-Week Matcher: schedule map failed for ${analysis.weekStartDate}: ${err}`);
-    }
-
-    const result = await matchMultiVisitEnquiry(multiCriteria, analysis, branchId, storage, employeeScheduleMap);
-
-    // ORS refinement — session cache is shared, repeat coordinate pairs are free
-    if (clientCoords && result.visitResults?.length > 0) {
-      try {
-        const allMatches = result.visitResults.flatMap(vr => vr.matches);
-        await refineForwardTravelWithORS(allMatches, clientCoords, branchId);
-        for (const vr of result.visitResults) vr.matches = vr.matches.filter(m => m.matchedSlots.length > 0);
-        await refineReturnHomeTravelWithORS(allMatches, clientCoords);
-      } catch (refineErr) {
-        if (refineErr instanceof RoutingError) throw refineErr;
-        logger.warn('BD Multi-Week Matcher: ORS refinement failed (non-fatal)', { week: analysis.weekStartDate, error: String(refineErr) });
-      }
-    }
-
-    weekly.push({ weekStartDate: analysis.weekStartDate, result });
+  const streaming = req.body.stream === true;
+  const send = (event: EnquiryStreamEvent) => {
+    if (streaming && !res.destroyed && !res.writableEnded) res.write(`${JSON.stringify(event)}\n`);
+  };
+  if (streaming) {
+    res.setHeader('Content-Type', 'application/x-ndjson');
+    res.setHeader('Cache-Control', 'no-cache, no-transform');
+    res.setHeader('X-Accel-Buffering', 'no');
+    res.flushHeaders();
   }
+  const heartbeat = streaming ? setInterval(() => send({ type: 'heartbeat' }), 15000) : undefined;
+  try {
+    await withEnquiryProgress(analyses.length, progress => send({ type: 'progress', progress }), async () => {
+      reportEnquiryWeek(0, 0);
+      // One branch-scoped database query instead of one lookup per carer per week.
+      const enquiryStorage = await preloadEnquiryLocations(storage, branchId);
+      const weekly: WeeklyMatchResult[] = [];
+      for (const [index, analysis] of analyses.entries()) {
+        reportEnquiryWeek(index + 1, index);
+        await withRoutingStageDeadline(async () => {
+          const analysisDateKeys = Object.keys((analysis.employeeSummaryByDate as Record<string, unknown>) || {});
+          let employeeScheduleMap: Awaited<ReturnType<typeof buildScheduleMap>>;
+          try {
+            employeeScheduleMap = await buildScheduleMap(branchId, analysisDateKeys);
+          } catch (err) {
+            logger.warn(`BD Multi-Week Matcher: schedule map failed for ${analysis.weekStartDate}: ${err}`);
+          }
 
-  const recommendedStars = computeConsistentStars(
-    weekly,
-    multiCriteria.visits.map(v => ({
-      requiredDays: v.requiredDays,
-      careProsRequired: v.careProsRequired,
-      genderPreferences: v.genderPreferences,
-      preferredTimeWindow: v.preferredTimeWindow,
-    })),
-  );
+          const result = await matchMultiVisitEnquiry(multiCriteria, analysis, branchId, enquiryStorage, employeeScheduleMap);
 
-  res.json({
-    clientName,
-    postcode: postcode || undefined,
-    totalVisits: multiCriteria.visits.length,
-    weeks: weekly.map(w => ({
-      weekStartDate: w.weekStartDate,
-      visitResults: w.result.visitResults,
-      totalVisits: w.result.totalVisits,
-    })),
-    recommendedStars,
-  });
+          // The isolated run cache is shared across weeks, not across searches.
+          if (clientCoords && result.visitResults?.length > 0) {
+            try {
+              const allMatches = result.visitResults.flatMap(vr => vr.matches);
+              await refineForwardTravelWithORS(allMatches, clientCoords, branchId);
+              for (const vr of result.visitResults) vr.matches = vr.matches.filter(m => m.matchedSlots.length > 0);
+              await refineReturnHomeTravelWithORS(allMatches, clientCoords);
+            } catch (refineErr) {
+              if (refineErr instanceof RoutingError) throw refineErr;
+              logger.warn('BD Multi-Week Matcher: ORS refinement failed (non-fatal)', {
+                week: analysis.weekStartDate, error: String(refineErr),
+              });
+            }
+          }
+          weekly.push({ weekStartDate: analysis.weekStartDate, result });
+        });
+        reportEnquiryWeek(index + 1, index + 1);
+        logger.info('BD Multi-Week Matcher: week complete', { completedWeeks: index + 1, totalWeeks: analyses.length });
+      }
+
+      const recommendedStars = computeConsistentStars(
+        weekly,
+        multiCriteria.visits.map(v => ({
+          requiredDays: v.requiredDays,
+          careProsRequired: v.careProsRequired,
+          genderPreferences: v.genderPreferences,
+          preferredTimeWindow: v.preferredTimeWindow,
+        })),
+      );
+      const payload = {
+        clientName,
+        postcode: postcode || undefined,
+        totalVisits: multiCriteria.visits.length,
+        weeks: weekly.map(w => ({
+          weekStartDate: w.weekStartDate,
+          visitResults: w.result.visitResults,
+          totalVisits: w.result.totalVisits,
+        })),
+        recommendedStars,
+      };
+      if (streaming) {
+        send({ type: 'result', result: payload });
+        res.end();
+      } else res.json(payload);
+    });
+  } catch (error) {
+    if (!streaming) throw error;
+    // Streaming headers are already sent; preserve the logical failure for
+    // audit records rather than treating HTTP 200 transport as a successful search.
+    res.locals.streamErrorStatus = error instanceof RoutingError ? error.statusCode : 500;
+    logger.warn('BD Multi-Week Matcher: stopped before complete result', {
+      code: error instanceof RoutingError ? error.code : 'ENQUIRY_FAILED',
+    });
+    send({
+      type: 'error',
+      code: error instanceof RoutingError ? error.code : 'ENQUIRY_FAILED',
+      message: error instanceof RoutingError ? error.message
+        : 'The enquiry could not be completed. No incomplete result was saved. Please retry.',
+    });
+    res.end();
+  } finally {
+    if (heartbeat) clearInterval(heartbeat);
+  }
 }
 
 export async function bdMatchMultiVisit(req: Request, res: Response): Promise<void> {

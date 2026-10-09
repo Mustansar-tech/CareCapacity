@@ -5,8 +5,24 @@ import { reserveRoutingRequest, blockRoutingEndpoint, type RoutingEndpoint } fro
 
 const requests = new AsyncLocalStorage<{ signal: AbortSignal; deadline: number }>();
 
-export function withRoutingDeadline<T>(signal: AbortSignal, operation: () => Promise<T>): Promise<T> {
-  return requests.run({ signal, deadline: Date.now() + 90000 }, operation);
+export function withRoutingDeadline<T>(
+  signal: AbortSignal, operation: () => Promise<T>, timeoutMs = 90000,
+): Promise<T> {
+  return requests.run({ signal, deadline: Date.now() + timeoutMs }, operation);
+}
+
+/** A bounded week/stage inside a longer run, preserving browser cancellation. */
+export function withRoutingStageDeadline<T>(operation: () => Promise<T>, timeoutMs = 90000): Promise<T> {
+  const parent = requests.getStore();
+  const stageSignal = AbortSignal.timeout(timeoutMs);
+  const signal = parent ? AbortSignal.any([parent.signal, stageSignal]) : stageSignal;
+  const remaining = parent ? Math.min(timeoutMs, parent.deadline - Date.now()) : timeoutMs;
+  return withRoutingDeadline(signal, async () => {
+    assertRoutingActive();
+    const result = await operation();
+    assertRoutingActive();
+    return result;
+  }, Math.max(0, remaining));
 }
 
 export function assertRoutingActive(): void {

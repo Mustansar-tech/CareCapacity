@@ -35,6 +35,8 @@ import { exportMultiWeekSchedulePdf } from "@/utils/export-schedule-pdf";
 import type { ClientEnquiry } from "@shared/schema";
 import { useBranch } from "@/contexts/BranchContext";
 import { useWeek } from "@/contexts/WeekContext";
+import { searchEnquiryWithProgress } from "@/utils/search-enquiry-progress";
+import type { EnquiryProgress } from "@shared/enquiry-progress";
 
 export function ClientEnquiryMatcher({ weekStartDate: weekStartDateProp }: { weekStartDate?: string }) {
   const { selectedBranchId, selectedBranch } = useBranch();
@@ -46,6 +48,7 @@ export function ClientEnquiryMatcher({ weekStartDate: weekStartDateProp }: { wee
 
   const [open, setOpen] = useState(false);
   const [clientName, setClientName] = useState('');
+  const [searchProgress, setSearchProgress] = useState<EnquiryProgress | null>(null);
   const [postcode, setPostcode] = useState('');
   const [visits, setVisits] = useState<VisitFormData[]>([createEmptyVisit()]);
   const [activeVisitTab, setActiveVisitTab] = useState('0');
@@ -177,6 +180,7 @@ export function ClientEnquiryMatcher({ weekStartDate: weekStartDateProp }: { wee
 
   const matchMutation = useMutation({
     mutationFn: async () => {
+      setSearchProgress(null);
       // Branch is always known from context — no localStorage read needed
       if (!selectedBranchId) throw new Error('NO_BRANCH_SELECTED');
 
@@ -209,25 +213,19 @@ export function ClientEnquiryMatcher({ weekStartDate: weekStartDateProp }: { wee
 
       // Multi-week matching: the server matches the selected week AND all
       // future processed weeks, then recommends the most consistent CarePros
-      const cancellation = new AbortController();
-      const timeout = setTimeout(() => cancellation.abort(), 100000);
-      try {
-        const res = await apiRequest('POST', '/api/bd-matcher/multi-week', {
+      const result = await searchEnquiryWithProgress<MultiWeekResult>(signal =>
+        apiRequest('POST', '/api/bd-matcher/multi-week', {
           clientName,
           postcode: postcode || undefined,
           visits: visitPayloads,
           weekStartDate: effectiveWeekStartDate,
           branchId: selectedBranchId,
-        }, { signal: cancellation.signal });
-        return await res.json() as MultiWeekResult;
-      } catch (error) {
-        if (cancellation.signal.aborted) {
-          throw new Error('The enquiry travel check took too long. No incomplete result was saved. Please retry.');
-        }
-        throw error;
-      } finally {
-        clearTimeout(timeout);
+          stream: true,
+        }, { signal }), setSearchProgress);
+      if (!isMultiWeekResult(result)) {
+        throw new Error('The enquiry returned an incomplete result. Nothing was saved.');
       }
+      return result;
     },
     onSuccess: (data: MultiWeekResult) => {
       setMultiResults(data);
@@ -265,7 +263,9 @@ export function ClientEnquiryMatcher({ weekStartDate: weekStartDateProp }: { wee
       let routingMessage: string | undefined;
       try {
         const payload = JSON.parse(msg.slice(msg.indexOf('{')));
-        if (typeof payload.code === 'string' && payload.code.startsWith('ROUTING_')) routingMessage = payload.message;
+        if (typeof payload.code === 'string' && (payload.code.startsWith('ROUTING_') || payload.code === 'ENQUIRY_FAILED')) {
+          routingMessage = payload.message;
+        }
       } catch { /* Non-routing errors retain their existing handling. */ }
       const isPostcodeError = msg === 'INVALID_POSTCODE' || msg.includes('POSTCODE_NOT_FOUND');
       const isNoBranch = msg === 'NO_BRANCH_SELECTED';
@@ -273,7 +273,9 @@ export function ClientEnquiryMatcher({ weekStartDate: weekStartDateProp }: { wee
       const is400 = msg.startsWith('400:');
 
       if (routingMessage) {
-        toast({ title: "Travel check stopped safely", description: routingMessage, variant: "destructive" });
+        toast({ title: "Enquiry search stopped safely", description: routingMessage, variant: "destructive" });
+      } else if (msg.includes('No incomplete result was saved') || msg.includes('Nothing was saved')) {
+        toast({ title: "Enquiry search stopped safely", description: msg, variant: "destructive" });
       } else if (isPostcodeError) {
         const displayPostcode = postcode.trim().toUpperCase();
         toast({
@@ -896,7 +898,13 @@ export function ClientEnquiryMatcher({ weekStartDate: weekStartDateProp }: { wee
                       className="h-12 px-10 bg-gradient-to-r from-[#5d51d5] to-[#4338ca] hover:from-[#4f46e5] hover:to-[#3730a3] text-white font-bold text-[13px] tracking-[0.06em] shadow-xl shadow-indigo-500/30 gap-3 rounded-2xl transition-all duration-300 hover:shadow-2xl hover:shadow-indigo-500/40 hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0"
                     >
                       {matchMutation.isPending ? (
-                        <><Loader2 className="w-4 h-4 animate-spin" /> Searching...</>
+                        <><Loader2 className="w-4 h-4 animate-spin" /><span role="status" aria-live="polite">
+                          {searchProgress
+                            ? searchProgress.week === 0
+                              ? `Loading carers · ${searchProgress.totalWeeks} weeks`
+                              : `Week ${searchProgress.week}/${searchProgress.totalWeeks} · Travel ${searchProgress.travelCompleted}/${searchProgress.travelTotal}`
+                            : 'Preparing search...'}
+                        </span></>
                       ) : (
                         <><Search className="w-4 h-4" /> Find Best Matches</>
                       )}
