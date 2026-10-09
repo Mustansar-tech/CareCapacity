@@ -1,27 +1,37 @@
 ---
-name: Car travel routing provider order
-description: Which live routing API is tried first for car travel-time/distance lookups in the BD/enquiry matcher, and why.
+name: Car routing provider split
+description: Feature-specific routing priorities and the different units used in provider usage quotas.
 ---
 
-Mapbox Matrix/Directions API is the **primary** provider for car travel-time and
-distance lookups (single-pair and matrix batch). ORS Matrix/Directions is the
-**backup**, tried only when Mapbox has no API key configured or a Mapbox call
-fails/returns nothing.
+Scheduling uses **ORS first, Mapbox as backup**. Enquiries/BD matching keep
+**Mapbox first, ORS as backup**. This applies to both matrices and single-pair
+road lookups.
 
-**Why:** Mapbox's free tier gives ~100,000 matrix elements/month vs ORS's
-effective ~15,000/month, with no approval gating — verified against current
-published limits, not assumed from training data. The user explicitly chose
-Mapbox as primary and ORS as backup rather than the other way around.
+**Why:** The user observed high Mapbox matrix usage from repeated scheduling
+runs and explicitly approved ORS-first scheduling with Mapbox fallback, while
+retaining Mapbox-first enquiries. Fallback is authorized; this is not a promise
+of zero Mapbox usage from scheduling.
 
 **How to apply:**
 - No persistent DB caching was reintroduced for this swap — only an in-memory,
   per-process session cache exists (see the enquiry-matcher-travel-cache-reverted
   memory). Do not add cross-run/DB caching without explicit sign-off.
-- Mapbox's Matrix API caps a single request at 25 combined coordinates
-  (sources + destinations), much tighter than ORS's 50-per-side batching. The
-  service chunks Mapbox matrix calls at 12+12 internally; any future change to
-  batch sizing must respect this 25-coordinate ceiling or Mapbox requests will
-  fail outright.
-- `hasCarMatrixKey()` / `carMatrixBatch()` are the entry points call sites
-  should use (not `hasORSKey()`/an ORS-specific method name) so the
-  primary/backup logic stays centralized in `travel-time-service.ts`.
+- Do not change the shared enquiry provider default to implement a scheduling
+  change. Scheduling must retain its own routing preference, including
+  cold-cache single-pair lookups.
+- Preserve bounded scheduling requests and opt-in road-provider deadlines when
+  changing provider priorities; see scheduling-travel-prefetch-timeouts.md.
+- Valid ORS matrices with null routes indicate unreachable journeys, not an
+  outage requiring paid fallback. Failed, timed-out or malformed responses
+  should use the approved backup.
+
+Compare provider quotas using their actual units.
+
+**Why:** ORS Standard matrix quotas count requests, while the Mapbox usage shown
+by the user counts matrix elements (source × destination combinations). An old
+comparison of ORS monthly requests with Mapbox monthly elements was misleading.
+
+**How to apply:** Verify current limits against
+https://openrouteservice.org/plans/ and https://openrouteservice.org/restrictions/
+before estimating run capacity. Count route combinations separately from
+provider requests; account for fallback when explaining Mapbox usage.

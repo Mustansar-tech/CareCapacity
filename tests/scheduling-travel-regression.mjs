@@ -1,5 +1,5 @@
 // Standalone checks: node tests/scheduling-travel-regression.mjs
-// Does not depend on the project's currently incompatible Vite/Vitest versions.
+// Isolates routing/authorization dependencies without using real provider quotas.
 import assert from 'node:assert/strict';
 import { build } from 'esbuild';
 
@@ -90,7 +90,10 @@ const { scheduleTravelBlock } = await load('server/controllers/travel-times.cont
     export const isUkBst=()=>false, ukScheduleTimeToUtc=()=>new Date();`,
   '../infrastructure/logger': 'export const logger={info:()=>{},warn:()=>{}};',
   '../features/travel/travel-time-service': `export class TravelTimeService {
-    constructor(max, soft, timeout) { if(timeout!==20000) throw new Error('timeout missing'); }
+    constructor(max, soft, timeout, order) {
+      if(timeout!==20000) throw new Error('timeout missing');
+      if(order!=='ors-first') throw new Error('schedule provider order missing');
+    }
     hasCarMatrixKey(){return globalThis.__roadTest.keys;}
     async carMatrixBatch(){globalThis.__roadTest.calls++;}
     hasValidRoadResponse(){return globalThis.__roadTest.valid;}
@@ -176,7 +179,126 @@ try {
   await matrixService.carMatrixBatch([location(0), location(1)], [location(2)]);
   assert.equal(matrixService.hasValidRoadResponse(), false, 'Malformed matrices must not masquerade as unreachable routes');
   assert.equal(new TravelTimeService().getCachedTravelTime(location(0), location(1), 'car'), null, 'Request caches remain isolated');
+
+  const scheduled = () => {
+    const routing = new TravelTimeService(45, undefined, 20, 'ors-first');
+    routing.MAPBOX_API_KEY = 'test-placeholder';
+    routing.ORS_API_KEY = 'test-placeholder';
+    return routing;
+  };
+  const matrixResponse = (value = 600) => ({
+    ok: true,
+    json: async () => ({ durations: [[value], [value]], distances: [[value === null ? null : 1000], [value === null ? null : 1000]] }),
+  });
+  const directionResponse = () => ({
+    ok: true,
+    json: async () => ({ routes: [{ duration: 600, distance: 1000, summary: { duration: 600, distance: 1000 } }] }),
+  });
+  let order = [];
+  globalThis.fetch = async (url, options) => {
+    order.push(url.includes('mapbox') ? 'mapbox' : 'ors');
+    assert.ok(options.signal instanceof AbortSignal);
+    return matrixResponse();
+  };
+  const healthy = scheduled();
+  await healthy.carMatrixBatch([location(0), location(1)], [location(2)]);
+  assert.deepEqual(order, ['ors'], 'Healthy ORS scheduling must not consume Mapbox');
+  assert.equal(healthy.getCachedTravelTime(location(0), location(2), 'car').source, 'ors-matrix');
+
+  order = [];
+  globalThis.fetch = async url => {
+    order.push(url.includes('mapbox') ? 'mapbox' : 'ors');
+    return matrixResponse(null);
+  };
+  const nullRoutes = scheduled();
+  await nullRoutes.carMatrixBatch([location(0), location(1)], [location(2)]);
+  assert.deepEqual(order, ['ors'], 'Valid ORS null routes must not consume Mapbox');
+  assert.equal(nullRoutes.hasValidRoadResponse(), true);
+
+  for (const failure of ['timeout', 'quota', 'malformed', 'non-finite', 'both-fail']) {
+    order = [];
+    globalThis.fetch = async (url, options) => {
+      const provider = url.includes('mapbox') ? 'mapbox' : 'ors';
+      order.push(provider);
+      assert.ok(options.signal instanceof AbortSignal);
+      if (provider === 'ors') {
+        if (failure === 'timeout') {
+          await new Promise(resolve => setTimeout(resolve, 25));
+          assert.equal(options.signal.aborted, true, 'ORS deadline still aborts');
+          throw new Error('test ORS timeout');
+        }
+        if (failure === 'malformed') return { ok: true, json: async () => ({ durations: [[600]], distances: [[1000]] }) };
+        if (failure === 'non-finite') return matrixResponse('not-a-number');
+        return { ok: false, status: 429, text: async () => 'quota reached' };
+      }
+      if (failure === 'both-fail') {
+        await new Promise(resolve => setTimeout(resolve, 25));
+        assert.equal(options.signal.aborted, true, 'Backup deadline still aborts');
+        throw new Error('test Mapbox timeout');
+      }
+      return matrixResponse();
+    };
+    const routing = scheduled();
+    await routing.carMatrixBatch([location(0), location(1)], [location(2)]);
+    assert.deepEqual(order, ['ors', 'mapbox'], `${failure}: backup order`);
+    assert.equal(routing.hasValidRoadResponse(), failure !== 'both-fail');
+    assert.equal(routing.getCachedTravelTime(location(0), location(2), 'car')?.source,
+      failure === 'both-fail' ? undefined : 'mapbox-matrix');
+  }
+
+  // Single pairs, including cold-cache directions in the server scheduler,
+  // use the same feature-specific provider order.
+  for (const mode of ['ors-first', 'mapbox-first']) {
+    for (const single of ['matrix', 'directions']) {
+      order = [];
+      globalThis.fetch = async url => {
+        order.push(url.includes('mapbox') ? 'mapbox' : 'ors');
+        return directionResponse();
+      };
+      const routing = new TravelTimeService(45, undefined, 20, mode);
+      routing.MAPBOX_API_KEY = 'test-placeholder';
+      routing.ORS_API_KEY = 'test-placeholder';
+      if (single === 'matrix') await routing.carMatrixBatch([location(0)], [location(20)]);
+      else await routing.calculateTravelTime('test-branch', location(0), location(20), 'car');
+      assert.deepEqual(order, [mode === 'ors-first' ? 'ors' : 'mapbox']);
+    }
+  }
+  order = [];
+  const missingORS = scheduled();
+  missingORS.ORS_API_KEY = undefined;
+  globalThis.fetch = async url => {
+    order.push(url.includes('mapbox') ? 'mapbox' : 'ors');
+    return matrixResponse();
+  };
+  await missingORS.carMatrixBatch([location(0), location(1)], [location(2)]);
+  assert.deepEqual(order, ['mapbox'], 'Missing ORS key must use Mapbox');
+
+  // Enquiry/shared service still defaults to Mapbox first for matrices.
+  order = [];
+  const enquiry = new TravelTimeService();
+  enquiry.MAPBOX_API_KEY = 'test-placeholder';
+  enquiry.ORS_API_KEY = 'test-placeholder';
+  await enquiry.carMatrixBatch([location(0), location(1)], [location(2)]);
+  assert.deepEqual(order, ['mapbox']);
 } finally {
   globalThis.fetch = originalFetch;
 }
-console.log('PASS: existing Mapbox→ORS fallback, timeout abort signal, legacy defaults, null/malformed matrices, isolated caches');
+console.log('PASS: ORS scheduling, Mapbox backup after timeout/quota/malformed responses, unchanged enquiry defaults, both-provider failures, null routes and cache isolation');
+
+// Server auto-scheduling must not accidentally use the shared enquiry service
+// for cold-cache single-pair requests after an ORS-first prewarm.
+const { AutoScheduler } = await load('server/jobs/auto-scheduler.ts', {
+  '../storage': 'export const storage={};',
+  '../infrastructure/logger': 'export const logger={info:()=>{},warn:()=>{},debug:()=>{},error:()=>{}};',
+  '../features/travel/travel-time-service': `export class TravelTimeService {
+    constructor(max,soft,timeout,order) {
+      if(max!==45 || soft!==35 || timeout!==20000 || order!=='ors-first') throw new Error('Auto-scheduler routing configuration changed');
+    }
+  }
+  export async function calculateTravelTime(branch,employee,client,mode,service) {
+    if(!(service instanceof TravelTimeService)) throw new Error('Shared enquiry routing service used');
+    return 12;
+  }`,
+});
+assert.equal(await new AutoScheduler().calculateTravelTime('test', 'employee', 'client', 'car'), 12);
+console.log('PASS: server auto-scheduler retains its own ORS-first, timeout-protected service for single-pair travel');

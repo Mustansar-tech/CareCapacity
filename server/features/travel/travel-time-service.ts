@@ -56,6 +56,12 @@ const MAPBOX_MATRIX_CHUNK = 12;
 const TRAVELTIME_MATRIX_BATCH_SIZE = 100;
 const TRAVELTIME_TIMEOUT_MS = 10000;
 
+function isValidRoadMatrix(matrix: unknown, rows: number, columns: number): boolean {
+  return Array.isArray(matrix) && matrix.length === rows &&
+    matrix.every(row => Array.isArray(row) && row.length === columns &&
+      row.every(value => value === null || (typeof value === 'number' && Number.isFinite(value) && value >= 0)));
+}
+
 export class TravelTimeService {
   private readonly ROAD_FACTOR = 1.2;
 
@@ -81,18 +87,37 @@ export class TravelTimeService {
     return this._validRoadResponse;
   }
 
-  constructor(maxTravelMinutes: number = 45, softLimitMinutes?: number, private readonly roadRequestTimeoutMs?: number) {
+  constructor(
+    maxTravelMinutes: number = 45,
+    softLimitMinutes?: number,
+    private readonly roadRequestTimeoutMs?: number,
+    private readonly roadProviderOrder: 'mapbox-first' | 'ors-first' = 'mapbox-first',
+  ) {
     this.maxTravelMinutes = maxTravelMinutes;
     this.softLimitMinutes = softLimitMinutes || Math.round(maxTravelMinutes * 0.75);
   }
 
-  // Only the bounded schedule-block endpoint opts into this timeout.
+  // Scheduling opts into this timeout.
   // Existing travel consumers retain their current behaviour.
   private fetchRoad(url: string, options?: RequestInit): Promise<Response> {
     return fetch(url, {
       ...options,
       ...(this.roadRequestTimeoutMs ? { signal: AbortSignal.timeout(this.roadRequestTimeoutMs) } : {}),
     });
+  }
+
+  private get carProviders(): Array<'mapbox' | 'ors'> {
+    return this.roadProviderOrder === 'ors-first' ? ['ors', 'mapbox'] : ['mapbox', 'ors'];
+  }
+
+  private async fetchCarDirections(from: Location, to: Location) {
+    for (const source of this.carProviders) {
+      const result = source === 'ors'
+        ? await this.fetchORSDirections(from, to)
+        : await this.fetchMapboxDirections(from, to);
+      if (result) return { ...result, source };
+    }
+    return null;
   }
 
   /**
@@ -653,67 +678,23 @@ export class TravelTimeService {
       };
     }
 
-    // 3. Car — Mapbox Directions API (primary)
-    if (this.MAPBOX_API_KEY) {
-      const mb = await this.fetchMapboxDirections(from, to);
-      if (mb) {
-        logger.debug(`Mapbox result: ${mb.durationMinutes} min, ${mb.distanceMeters} m`);
-        this._sessionCache.set(sKey, { durationMinutes: mb.durationMinutes, distanceMeters: mb.distanceMeters, source: 'mapbox' });
-        return {
-          fromLocation: from,
-          toLocation: to,
-          distanceKm: mb.distanceMeters / 1000,
-          travelTimeMinutes: mb.durationMinutes,
-          feasible: mb.durationMinutes <= currentMaxTravel,
-          penaltyScore: this.calculatePenalty(mb.durationMinutes),
-          source: 'mapbox',
-        };
-      }
-      logger.warn(`Mapbox unavailable for ${fromLat},${fromLng} → ${toLat},${toLng} — falling back to ORS`);
+    // 3. Car — per-feature provider order; shared enquiry service stays Mapbox-first.
+    const road = await this.fetchCarDirections(from, to);
+    if (road) {
+      this._sessionCache.set(sKey, road);
+      return {
+        fromLocation: from,
+        toLocation: to,
+        distanceKm: road.distanceMeters / 1000,
+        travelTimeMinutes: road.durationMinutes,
+        feasible: road.durationMinutes <= currentMaxTravel,
+        penaltyScore: this.calculatePenalty(road.durationMinutes),
+        source: road.source,
+      };
     }
 
-    // 3b. Car — ORS Directions API (backup)
-    if (this.ORS_API_KEY) {
-      try {
-        logger.debug(`Requesting ORS directions for ${fromLat},${fromLng} → ${toLat},${toLng}`);
-        const response = await fetch(`https://api.openrouteservice.org/v2/directions/driving-car`, {
-          method: 'POST',
-          headers: {
-            'Authorization': this.ORS_API_KEY,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ coordinates: [[from.lng, from.lat], [to.lng, to.lat]] }),
-        });
-
-        if (response.ok) {
-          const data = await response.json();
-          const durationMinutes = Math.max(2, Math.round(data.routes[0].summary.duration / 60));
-          const distanceMeters = Math.round(data.routes[0].summary.distance);
-          logger.debug(`ORS result: ${durationMinutes} min, ${distanceMeters} m`);
-          // Cache save DISABLED: always fetch fresh from API
-          // await storage.saveTravelTime({ branchId, fromLat, fromLng, toLat, toLng, transportMode, durationMinutes, distanceMeters, source: 'ors' });
-          this.trackSource('ors');
-          this._sessionCache.set(sKey, { durationMinutes, distanceMeters, source: 'ors' });
-          return {
-            fromLocation: from,
-            toLocation: to,
-            distanceKm: distanceMeters / 1000,
-            travelTimeMinutes: durationMinutes,
-            feasible: durationMinutes <= currentMaxTravel,
-            penaltyScore: this.calculatePenalty(durationMinutes),
-            source: 'ors',
-          };
-        } else {
-          const errorText = await response.text();
-          logger.warn(`ORS API error (${response.status}): ${errorText.slice(0, 200)}`);
-        }
-      } catch (error) {
-        logger.warn("ORS API exception:", error instanceof Error ? error.message : error);
-      }
-    }
-
-    // 4. Car — ORS unavailable — mark as unreachable (no heuristic fallback)
-    logger.warn(`ORS unavailable for ${fromLat},${fromLng} → ${toLat},${toLng} — marking unreachable, will go to unallocated`);
+    // 4. Car — both road providers unavailable (no heuristic fallback)
+    logger.warn(`Road routing unavailable for ${fromLat},${fromLng} → ${toLat},${toLng} — marking unreachable, will go to unallocated`);
     this.trackSource('unreachable');
     this._sessionCache.set(sKey, { durationMinutes: 9999, distanceMeters: 0, source: 'unreachable' });
     return {
@@ -861,8 +842,8 @@ export class TravelTimeService {
 
   /**
    * Run one car matrix batch (sources × destinations) and store results in the
-   * session cache. Tries Mapbox Matrix first (primary); falls back to ORS
-   * Matrix (backup) only if Mapbox has no key configured or returns nothing.
+   * session cache. Scheduling uses ORS then Mapbox; other consumers default to
+   * Mapbox then ORS. Missing keys or failed primary calls use the backup.
    * @param skipSameCoords When true, skips entries where source and destination coords are identical.
    * Returns count of new entries stored.
    */
@@ -896,28 +877,23 @@ export class TravelTimeService {
       const dst = destinations[0];
       if (skipSameCoords && src.lat === dst.lat && src.lng === dst.lng) return 0;
       const sk = this.sessionKey(src.lat.toString(), src.lng.toString(), dst.lat.toString(), dst.lng.toString(), 'car');
-      const mb = await this.fetchMapboxDirections(src, dst);
-      if (mb) {
-        this._sessionCache.set(sk, { durationMinutes: mb.durationMinutes, distanceMeters: mb.distanceMeters, source: 'mapbox' });
-        return 1;
-      }
-      const ors = await this.fetchORSDirections(src, dst);
-      if (ors) {
-        this._sessionCache.set(sk, { durationMinutes: ors.durationMinutes, distanceMeters: ors.distanceMeters, source: 'ors' });
+      const road = await this.fetchCarDirections(src, dst);
+      if (road) {
+        this._sessionCache.set(sk, road);
         return 1;
       }
       return 0;
     }
 
-    if (this.MAPBOX_API_KEY) {
-      const added = await this.mapboxMatrixBatch(sources, destinations, skipSameCoords);
-      if (added > 0) return added;
-      if (this.ORS_API_KEY) {
-        logger.warn('[Cache Pre-warm] Mapbox Matrix returned no results — falling back to ORS Matrix');
-      }
-    }
-    if (this.ORS_API_KEY) {
-      return await this.orsMatrixBatch(sources, destinations, skipSameCoords);
+    for (const provider of this.carProviders) {
+      if (provider === 'ors' ? !this.ORS_API_KEY : !this.MAPBOX_API_KEY) continue;
+      const added = provider === 'ors'
+        ? await this.orsMatrixBatch(sources, destinations, skipSameCoords)
+        : await this.mapboxMatrixBatch(sources, destinations, skipSameCoords);
+      // Valid null routes are unreachable, not an ORS outage. Do not consume
+      // Mapbox just because ORS reports no road for these pairs.
+      if (added > 0 || (this.roadProviderOrder === 'ors-first' && this._validRoadResponse)) return added;
+      logger.warn(`[Cache Pre-warm] ${provider} Matrix failed — trying next configured road provider`);
     }
     return 0;
   }
@@ -974,10 +950,12 @@ export class TravelTimeService {
         const data = await response.json();
         const durations: (number | null)[][] = data.durations;
         const distances: (number | null)[][] = data.distances;
-        this._validRoadResponse ||= Array.isArray(durations) && Array.isArray(distances) &&
-          durations.length === sources.length && distances.length === sources.length &&
-          durations.every(row => Array.isArray(row) && row.length === destinations.length) &&
-          distances.every(row => Array.isArray(row) && row.length === destinations.length);
+        if (!isValidRoadMatrix(durations, sources.length, destinations.length) ||
+          !isValidRoadMatrix(distances, sources.length, destinations.length)) {
+          logger.warn('[Cache Pre-warm] Invalid Mapbox Matrix response');
+          return 0;
+        }
+        this._validRoadResponse = true;
         for (let si = 0; si < sources.length; si++) {
           for (let di = 0; di < destinations.length; di++) {
             const src = sources[si];
@@ -1004,7 +982,7 @@ export class TravelTimeService {
     return added;
   }
 
-  /** ORS Matrix API (backup) — same batch shape as Mapbox, used when Mapbox is unavailable or fails. */
+  /** ORS Matrix API — scheduling primary, shared enquiry service backup. */
   private async orsMatrixBatch(
     sources: Array<{ lat: number; lng: number; id?: string }>,
     destinations: Array<{ lat: number; lng: number; id?: string }>,
@@ -1021,7 +999,6 @@ export class TravelTimeService {
       const dstIndices = destinations.map((_, i) => sources.length + i);
 
       // Add delay to respect ORS Free Tier rate limits (40 requests per minute = 1500ms per request)
-      // 800ms is conservative; use 1500ms for strict compliance at ~40/min
       await new Promise(resolve => setTimeout(resolve, 1500));
 
       const response = await this.fetchRoad('https://api.openrouteservice.org/v2/matrix/driving-car', {
@@ -1034,10 +1011,12 @@ export class TravelTimeService {
         const data = await response.json();
         const durations: (number | null)[][] = data.durations;
         const distances: (number | null)[][] = data.distances;
-        this._validRoadResponse ||= Array.isArray(durations) && Array.isArray(distances) &&
-          durations.length === sources.length && distances.length === sources.length &&
-          durations.every(row => Array.isArray(row) && row.length === destinations.length) &&
-          distances.every(row => Array.isArray(row) && row.length === destinations.length);
+        if (!isValidRoadMatrix(durations, sources.length, destinations.length) ||
+          !isValidRoadMatrix(distances, sources.length, destinations.length)) {
+          logger.warn('[Cache Pre-warm] Invalid ORS Matrix response');
+          return 0;
+        }
+        this._validRoadResponse = true;
         for (let si = 0; si < sources.length; si++) {
           for (let di = 0; di < destinations.length; di++) {
             const src = sources[si];
@@ -1244,13 +1223,14 @@ export async function calculateTravelTime(
   branchId: string,
   employeeName: string,
   clientName: string,
-  transportMode: TransportMode = 'car'
+  transportMode: TransportMode = 'car',
+  service: TravelTimeService = travelTimeService,
 ): Promise<number> {
   try {
     const employeeCoords = await getLocationCoordinates(branchId, employeeName, 'employee');
     const clientCoords = await getLocationCoordinates(branchId, clientName, 'client');
     if (!employeeCoords || !clientCoords) return 0;
-    const travelMatrix = await travelTimeService.calculateTravelTime(branchId, employeeCoords, clientCoords, transportMode);
+    const travelMatrix = await service.calculateTravelTime(branchId, employeeCoords, clientCoords, transportMode);
     return travelMatrix.travelTimeMinutes;
   } catch (error) {
     logger.error(`Error calculating travel time:`, error);

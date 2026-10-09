@@ -106,7 +106,7 @@ export class AutoScheduler {
   private travelService: TravelTimeService;
 
   constructor() {
-    this.travelService = new TravelTimeService(45, 35);
+    this.travelService = new TravelTimeService(45, 35, 20_000, 'ors-first');
     this.bufferTime = 12;
     this.maxTravelCapMinutes = 45;
   }
@@ -1039,7 +1039,7 @@ export class AutoScheduler {
     clientName: string,
     transportMode: 'car' | 'walking' | 'public' = 'car'
   ): Promise<number> {
-    return await travelTimeFn(branchId, employeeName, clientName, transportMode);
+    return await travelTimeFn(branchId, employeeName, clientName, transportMode, this.travelService);
   }
 
   private assignVisitToEmployee(
