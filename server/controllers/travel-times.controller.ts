@@ -21,7 +21,7 @@ export async function scheduleTravelBlock(req: Request, res: Response): Promise<
 
   // Isolate each block from concurrent debug/matcher requests that reset the
   // shared service cache. No new persistent cache or database writes.
-  const service = new TravelTimeService(45, undefined, 20_000, 'ors-first');
+  const service = new TravelTimeService(45, undefined, 20_000);
   if (!service.hasCarMatrixKey()) {
     res.status(503).json({ error: 'Road-travel routing is unavailable. Schedule generation stopped.' });
     return;

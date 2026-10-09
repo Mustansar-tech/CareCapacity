@@ -1,13 +1,12 @@
 import { pool } from '../../infrastructure/db';
 import { RoutingError } from './routing-error';
 
-export type RoutingEndpoint = 'ors-matrix' | 'ors-directions' | 'mapbox-directions';
+export type RoutingEndpoint = 'ors-matrix' | 'ors-directions';
 // Leave headroom below published free allowances. A rolling window is more
 // conservative than assuming either provider resets on our calendar boundary.
 export const ROUTING_LIMITS = {
   'ors-matrix': { limit: 480, hours: 25, spacingMs: 1800 },
   'ors-directions': { limit: 1900, hours: 25, spacingMs: 1800 },
-  'mapbox-directions': { limit: 90000, hours: 32 * 24, spacingMs: 1100 },
 } as const;
 
 let ready: Promise<unknown> | undefined;
@@ -52,7 +51,7 @@ export async function reserveRoutingRequest(endpoint: RoutingEndpoint): Promise<
         WHERE endpoint = $1 AND bucket_start >= date_trunc('minute', NOW() - ($2 * interval '1 hour'))`,
       [endpoint, limits.hours]);
       if (usage.used >= limits.limit) throw new RoutingError('ROUTING_FREE_LIMIT',
-        `${endpoint === 'mapbox-directions' ? 'Mapbox Directions' : 'ORS ' + (endpoint === 'ors-matrix' ? 'Matrix' : 'Directions')} free-routing safety allowance reached. No paid routing was used. Please wait for usage to leave the rolling quota window.`,
+        `ORS ${endpoint === 'ors-matrix' ? 'Matrix' : 'Directions'} free-routing safety allowance reached. No paid routing was used. Please wait for usage to leave the rolling quota window.`,
         429);
       const waitMs = Math.max(0, new Date(state.next_request_at).getTime() - now);
       if (usage.recent >= 35 || waitMs > 10000) throw new RoutingError('ROUTING_BUSY',

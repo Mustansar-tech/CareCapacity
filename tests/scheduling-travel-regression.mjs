@@ -101,7 +101,7 @@ const originalFetch = globalThis.fetch, originalTimeout = globalThis.setTimeout;
 globalThis.setTimeout = (fn, ms, ...args) => originalTimeout(fn, ms >= 1000 ? 0 : ms, ...args);
 const routing = () => {
   const s = new TravelTimeService(45, undefined, 20);
-  s.ORS_API_KEY = 'test-placeholder'; s.MAPBOX_API_KEY = 'test-placeholder';
+  s.ORS_API_KEY = 'test-placeholder';
   return s;
 };
 const json = data => new Response(JSON.stringify(data), { status: 200 });
@@ -110,12 +110,9 @@ let endpoints = [];
 try {
   globalThis.fetch = async (url, options) => {
     assert.ok(options.signal instanceof AbortSignal);
-    assert.ok(!url.includes('directions-matrix'), 'Paid Matrix must never be called');
-    if (!url.includes('mapbox')) {
-      assert.ok(url.startsWith('https://api.heigit.org/openrouteservice/v2/'),
-        'ORS must use the current gateway and service path, not the reduced-quota legacy endpoint');
-    }
-    endpoints.push(url.includes('/matrix/') ? 'ors-matrix' : url.includes('mapbox') ? 'mapbox-directions' : 'ors-directions');
+    assert.ok(url.startsWith('https://api.heigit.org/openrouteservice/v2/'),
+      'Every road request must use ORS, never another provider');
+    endpoints.push(url.includes('/matrix/') ? 'ors-matrix' : 'ors-directions');
     if (url.includes('/matrix/')) {
       const body = JSON.parse(options.body);
       return json({ durations: body.sources.map(() => body.destinations.map(() => 600)),
@@ -132,18 +129,22 @@ try {
 
   endpoints = [];
   globalThis.fetch = async (url, options) => {
-    endpoints.push(url.includes('mapbox') ? 'mapbox-directions' : 'ors-directions');
-    if (!url.includes('mapbox')) {
-      await new Promise(resolve => originalTimeout(resolve, 25));
-      assert.equal(options.signal.aborted, true);
-      throw new Error('ORS timeout');
-    }
-    return directions();
+    assert.ok(url.startsWith('https://api.heigit.org/openrouteservice/v2/'));
+    endpoints.push('ors-directions');
+    await new Promise(resolve => originalTimeout(resolve, 25));
+    assert.equal(options.signal.aborted, true);
+    throw new Error('ORS timeout');
   };
   const single = routing();
-  await single.carMatrixBatch([location(0)], [location(20)]);
-  assert.deepEqual(endpoints, ['ors-directions', 'mapbox-directions']);
-  assert.equal(single.getCachedTravelTime(location(0), location(20), 'car').source, 'mapbox');
+  await assert.rejects(single.carMatrixBatch([location(0)], [location(20)]), /timed out/);
+  assert.deepEqual(endpoints, ['ors-directions'], 'Timeout must stop safely without a backup provider');
+  assert.equal(single.getCachedTravelTime(location(0), location(20), 'car'), null);
+  const unconfigured = routing();
+  unconfigured.ORS_API_KEY = undefined;
+  await assert.rejects(unconfigured.carMatrixBatch([location(0)], [location(20)]), /not configured/);
+  assert.equal(endpoints.length, 1, 'A missing ORS key must not dispatch any request');
+  await assert.rejects(async () => single.fetchRoad('https://other-provider.example/directions'), /Only the configured ORS/);
+  assert.equal(endpoints.length, 1, 'The road gateway allowlist rejects other providers before dispatch');
 
   endpoints = [];
   globalThis.fetch = async url => {
@@ -161,7 +162,7 @@ try {
     /limit/);
   assert.equal(endpoints.length, 1, 'Bulk outage must not explode into paid matrix or thousands of Directions calls');
   await assert.rejects(routing().carMatrixBatch([location(0)], [location(20)]), /limit/);
-  assert.ok(endpoints.every(url => !url.includes('directions-matrix')));
+  assert.ok(endpoints.every(url => url.startsWith('https://api.heigit.org/openrouteservice/v2/')));
 
   globalThis.fetch = async () => json({ durations: [[null], [null]], distances: [[null], [null]] });
   const unreachable = routing();
@@ -177,4 +178,4 @@ try {
 } finally {
   globalThis.fetch = originalFetch; globalThis.setTimeout = originalTimeout;
 }
-console.log('PASS: enquiry batching, no Mapbox Matrix, Directions timeout fallback, quota failures, unreachable routes and concurrent request cache isolation');
+console.log('PASS: ORS-only enquiry batching, timeout fail-closed, gateway allowlist, small Matrix-to-Directions fallback, quota failures, unreachable routes and request isolation');

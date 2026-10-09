@@ -106,7 +106,7 @@ export class AutoScheduler {
   private travelService: TravelTimeService;
 
   constructor() {
-    this.travelService = new TravelTimeService(45, 35, 20_000, 'ors-first');
+    this.travelService = new TravelTimeService(45, 35, 20_000);
     this.bufferTime = 12;
     this.maxTravelCapMinutes = 45;
   }

@@ -599,7 +599,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
       });
 
       // Pre-fetch real road travel times from backend before scheduling.
-      // Bounded Mapbox/ORS blocks seed the same car cache without one long request.
+      // Bounded ORS blocks seed the same car cache without one long request.
       try {
         clearTravelCache();
 

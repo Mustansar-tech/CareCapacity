@@ -58,7 +58,7 @@ describe('persistent free-routing quota guard', () => {
   });
   it('fails closed if the database guard is unavailable', async () => {
     mock.databaseFailed = true;
-    await expect(reserveRoutingRequest('mapbox-directions')).rejects.toMatchObject({ code: 'ROUTING_GUARD_UNAVAILABLE' });
+    await expect(reserveRoutingRequest('ors-directions')).rejects.toMatchObject({ code: 'ROUTING_GUARD_UNAVAILABLE' });
   });
 });
 
