@@ -18,3 +18,4 @@
 - [PP automation backup policy](pp-automation-universal-fallback.md) — universal + extra backup are both global fallbacks; one attempt per account, email alerts; Glasgow North dedicated login is authorised again.
 - [Audit identity and privacy](audit-identity-privacy.md) — audit events must identify affected people by name; distinguish deletion, archiving and failure without retaining sensitive contents.
 - [Historical Day Rate imports](day-rate-historical-imports.md) — preserve current franchise metadata; normalize names and account for REAL precision and uncached formulas when verifying.
+- [Scheduling travel prefetch timeouts](scheduling-travel-prefetch-timeouts.md) — a timed-out all-pairs prefetch can exclude all car carers while saving succeeds; diagnose travel-cache seeding before relaxing constraints.
