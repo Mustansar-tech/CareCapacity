@@ -5,20 +5,16 @@ description: User-approved free-routing policy, provider quota units and safegua
 
 Scheduling and enquiries must stay within free routing allowances. Use ORS
 Matrix for bulk checks, ORS Directions for individual routes and quota-guarded
-Mapbox Directions for small-route backup. Mapbox Matrix must not be used
-before 1 November 2026, including as an automatic fallback. The user has
-authorized making it available from that date, still within free allowances.
+Mapbox Directions for small-route backup. Mapbox Matrix must not be used,
+including as an automatic fallback.
 
 **Why:** The user observed chargeable Mapbox matrix usage and explicitly asked
 to avoid further paid routing. They subsequently authorized utilizing both
-Directions APIs within their free allowances. On 9 October 2026 they authorized
-Mapbox Matrix again after 1 November, not further paid Matrix usage.
+Directions APIs within their free allowances, not restoring paid Matrix usage.
 This supersedes the earlier Mapbox-first enquiry/Mapbox-matrix-backup decisions.
 
 **How to apply:** Never re-enable paid matrix fallback without explicit
-approval. The date-based authorization does not waive free-element protection
-or confirm the provider's allowance reset; verify those before activation.
-Preserve bounded requests, provider deadlines and fail-closed travel
+approval. Preserve bounded requests, provider deadlines and fail-closed travel
 errors; an outage must not silently exclude drivers, substitute car estimates
 or save an incomplete match/schedule. Do not fan out a bulk matrix outage into
 thousands of Directions calls.
