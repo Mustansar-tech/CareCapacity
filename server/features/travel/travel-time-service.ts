@@ -75,10 +75,24 @@ export class TravelTimeService {
   private _sourceStats: TravelSourceStats = { mapbox: 0, 'mapbox-matrix': 0, ors: 0, 'ors-matrix': 0, traveltime: 0, 'traveltime-matrix': 0, heuristic: 0, unreachable: 0, total: 0 };
   private _sessionCache: Map<string, { durationMinutes: number; distanceMeters: number; source: string }> = new Map();
   private _ttGeoCache: Map<string, { lat: number; lng: number } | null> = new Map();
+  private _validRoadResponse = false;
 
-  constructor(maxTravelMinutes: number = 45, softLimitMinutes?: number) {
+  hasValidRoadResponse(): boolean {
+    return this._validRoadResponse;
+  }
+
+  constructor(maxTravelMinutes: number = 45, softLimitMinutes?: number, private readonly roadRequestTimeoutMs?: number) {
     this.maxTravelMinutes = maxTravelMinutes;
     this.softLimitMinutes = softLimitMinutes || Math.round(maxTravelMinutes * 0.75);
+  }
+
+  // Only the bounded schedule-block endpoint opts into this timeout.
+  // Existing travel consumers retain their current behaviour.
+  private fetchRoad(url: string, options?: RequestInit): Promise<Response> {
+    return fetch(url, {
+      ...options,
+      ...(this.roadRequestTimeoutMs ? { signal: AbortSignal.timeout(this.roadRequestTimeoutMs) } : {}),
+    });
   }
 
   /**
@@ -98,6 +112,7 @@ export class TravelTimeService {
   }
 
   resetSourceStats(): void {
+    this._validRoadResponse = false;
     this._sourceStats = { mapbox: 0, 'mapbox-matrix': 0, ors: 0, 'ors-matrix': 0, traveltime: 0, 'traveltime-matrix': 0, heuristic: 0, unreachable: 0, total: 0 };
     this._sessionCache.clear();
   }
@@ -161,9 +176,10 @@ export class TravelTimeService {
     if (!this.MAPBOX_API_KEY) return null;
     try {
       const url = `https://api.mapbox.com/directions/v5/mapbox/driving/${from.lng},${from.lat};${to.lng},${to.lat}?overview=false&access_token=${this.MAPBOX_API_KEY}`;
-      const response = await fetch(url);
+      const response = await this.fetchRoad(url);
       if (response.ok) {
         const data = await response.json();
+        this._validRoadResponse ||= Array.isArray(data.routes);
         const route = data.routes?.[0];
         if (route) {
           const durationMinutes = Math.max(2, Math.round(route.duration / 60));
@@ -189,7 +205,7 @@ export class TravelTimeService {
   async fetchORSDirections(from: Location, to: Location): Promise<{ durationMinutes: number; distanceMeters: number } | null> {
     if (!this.ORS_API_KEY) return null;
     try {
-      const response = await fetch(`https://api.openrouteservice.org/v2/directions/driving-car`, {
+      const response = await this.fetchRoad(`https://api.openrouteservice.org/v2/directions/driving-car`, {
         method: 'POST',
         headers: {
           'Authorization': this.ORS_API_KEY,
@@ -199,6 +215,7 @@ export class TravelTimeService {
       });
       if (response.ok) {
         const data = await response.json();
+        this._validRoadResponse ||= Array.isArray(data.routes);
         const durationMinutes = Math.max(2, Math.round(data.routes[0].summary.duration / 60));
         const distanceMeters = Math.round(data.routes[0].summary.distance);
         this.trackSource('ors');
@@ -951,12 +968,16 @@ export class TravelTimeService {
       await new Promise(resolve => setTimeout(resolve, 1100));
 
       const url = `https://api.mapbox.com/directions-matrix/v1/mapbox/driving/${coordsStr}?sources=${srcIndices}&destinations=${dstIndices}&annotations=duration,distance&access_token=${this.MAPBOX_API_KEY}`;
-      const response = await fetch(url);
+      const response = await this.fetchRoad(url);
 
       if (response.ok) {
         const data = await response.json();
         const durations: (number | null)[][] = data.durations;
         const distances: (number | null)[][] = data.distances;
+        this._validRoadResponse ||= Array.isArray(durations) && Array.isArray(distances) &&
+          durations.length === sources.length && distances.length === sources.length &&
+          durations.every(row => Array.isArray(row) && row.length === destinations.length) &&
+          distances.every(row => Array.isArray(row) && row.length === destinations.length);
         for (let si = 0; si < sources.length; si++) {
           for (let di = 0; di < destinations.length; di++) {
             const src = sources[si];
@@ -1003,7 +1024,7 @@ export class TravelTimeService {
       // 800ms is conservative; use 1500ms for strict compliance at ~40/min
       await new Promise(resolve => setTimeout(resolve, 1500));
 
-      const response = await fetch('https://api.openrouteservice.org/v2/matrix/driving-car', {
+      const response = await this.fetchRoad('https://api.openrouteservice.org/v2/matrix/driving-car', {
         method: 'POST',
         headers: { 'Authorization': this.ORS_API_KEY, 'Content-Type': 'application/json' },
         body: JSON.stringify({ locations: allLocations, metrics: ['duration', 'distance'], sources: srcIndices, destinations: dstIndices }),
@@ -1013,6 +1034,10 @@ export class TravelTimeService {
         const data = await response.json();
         const durations: (number | null)[][] = data.durations;
         const distances: (number | null)[][] = data.distances;
+        this._validRoadResponse ||= Array.isArray(durations) && Array.isArray(distances) &&
+          durations.length === sources.length && distances.length === sources.length &&
+          durations.every(row => Array.isArray(row) && row.length === destinations.length) &&
+          distances.every(row => Array.isArray(row) && row.length === destinations.length);
         for (let si = 0; si < sources.length; si++) {
           for (let di = 0; di < destinations.length; di++) {
             const src = sources[si];

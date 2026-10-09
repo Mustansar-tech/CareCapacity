@@ -3,6 +3,49 @@ import { resolveBranch, isUkBst, ukScheduleTimeToUtc } from '../utils/helpers';
 import { TravelTimeService, travelTimeService } from '../features/travel/travel-time-service';
 import { logger } from '../infrastructure/logger';
 
+// A schedule can require hundreds of matrix requests. Return one bounded block
+// at a time instead of holding a browser request open for the entire prewarm.
+export async function scheduleTravelBlock(req: Request, res: Response): Promise<void> {
+  await resolveBranch(req);
+  const { sources, destinations } = req.body ?? {};
+  const validLocations = (locations: unknown): locations is Array<{ lat: number; lng: number }> =>
+    Array.isArray(locations) && locations.length > 0 && locations.length <= 12 &&
+    locations.every(loc => loc && Number.isFinite(loc.lat) && Math.abs(loc.lat) <= 90 &&
+      Number.isFinite(loc.lng) && Math.abs(loc.lng) <= 180);
+
+  if (!validLocations(sources) || !validLocations(destinations)) {
+    res.status(400).json({ error: 'sources and destinations must each contain 1–12 valid locations' });
+    return;
+  }
+
+  // Isolate each block from concurrent debug/matcher requests that reset the
+  // shared service cache. No new persistent cache or database writes.
+  const service = new TravelTimeService(45, undefined, 20_000);
+  if (!service.hasCarMatrixKey()) {
+    res.status(503).json({ error: 'Road-travel routing is unavailable. Schedule generation stopped.' });
+    return;
+  }
+  await service.carMatrixBatch(sources, destinations);
+  const results = sources.flatMap(from => destinations.map(to => {
+    const cached = service.getCachedTravelTime(from, to, 'car');
+    return {
+      fromLat: from.lat, fromLng: from.lng, toLat: to.lat, toLng: to.lng,
+      mode: 'car', durationMinutes: cached?.durationMinutes ?? 9999,
+      source: cached?.source ?? 'unreachable',
+    };
+  }));
+  const hasDistinctPair = sources.some(from =>
+    destinations.some(to => from.lat !== to.lat || from.lng !== to.lng));
+  // Valid matrices containing null routes mean genuinely unreachable pairs,
+  // not an outage. Keep those as 9999, just as the scheduler already does.
+  if (hasDistinctPair && !service.hasValidRoadResponse()) {
+    res.status(503).json({ error: 'No road-travel times were returned for this block. Schedule generation stopped; please retry.' });
+    return;
+  }
+  logger.info(`[Schedule Travel Block] ${sources.length}×${destinations.length} complete`);
+  res.json({ results, travelSources: service.getSourceStats() });
+}
+
 export async function pairsTravelTimes(req: Request, res: Response): Promise<void> {
   const branchId = await resolveBranch(req);
   const { pairs } = req.body as {

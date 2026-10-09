@@ -19,6 +19,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { getCanonicalWeekBoundaries } from "@shared/schema";
 import { generateWeeklySchedule, setBadMatches } from "@/utils/scheduling-engine";
 import { persistWeeklySchedule } from "@/utils/persist-weekly-schedule";
+import { prefetchScheduleTravel, type TravelPrefetchProgress } from "@/utils/prefetch-schedule-travel";
 import {
   Dialog,
   DialogContent,
@@ -350,6 +351,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
   const [savingGeneratedSchedule, setSavingGeneratedSchedule] = useState(false);
   const [scheduleSaveError, setScheduleSaveError] = useState<string | null>(null);
   const [travelSources, setTravelSources] = useState<Record<string, number> | null>(null);
+  const [travelPrefetchProgress, setTravelPrefetchProgress] = useState<TravelPrefetchProgress | null>(null);
   const [viewMode, setViewMode] = useState<'day' | 'week'>('day');
   const [selectedDayIndex, setSelectedDayIndex] = useState(0);
   const [selectedVisit, setSelectedVisit] = useState<(ClientVisit & { unallocatedReason: string }) | null>(null);
@@ -546,6 +548,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
   // Generate weekly schedule mutation
   const generateMutation = useMutation({
     mutationFn: async () => {
+      setTravelPrefetchProgress(null);
       clientLogger.log(`📅 Generating weekly schedule for ${weekDates.length} days with ${allWeekVisits.length} visits`);
 
       // Prepare employee data with locations and weekly hours
@@ -596,8 +599,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
       });
 
       // Pre-fetch real road travel times from backend before scheduling.
-      // This seeds the in-memory travel cache with ORS distances so the
-      // scheduler uses real road times instead of straight-line Haversine estimates.
+      // Bounded Mapbox/ORS blocks seed the same car cache without one long request.
       try {
         clearTravelCache();
 
@@ -631,13 +633,15 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
           const allStartTimes = allWeekVisits.map(v => v.startTime).filter(Boolean).sort();
           const earliestStartTime = allStartTimes[0] || '08:00';
           clientLogger.log(`🗺️ Pre-fetching real road travel times: ${uniqueEmployees.length} employees × ${uniqueClients.length} clients. Arrival deadline: ${weekStart}T${earliestStartTime}`);
-          const response = await apiRequest('POST', '/api/travel-times/batch', {
-            employees: uniqueEmployees,
-            clients: uniqueClients,
-            weekStart,
-            earliestStartTime,
-          });
-          const travelData = await response.json();
+          const travelData = await prefetchScheduleTravel(
+            uniqueEmployees,
+            uniqueClients,
+            async body => {
+              const response = await apiRequest('POST', '/api/travel-times/schedule-block', body);
+              return response.json();
+            },
+            setTravelPrefetchProgress,
+          );
           if (travelData.results?.length > 0) {
             seedTravelCache(travelData.results);
             clientLogger.log(`✅ Real road travel cache seeded with ${travelData.results.length} entries`);
@@ -647,8 +651,10 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
           }
         }
       } catch (travelError) {
-        clientLogger.warn('⚠️ Real road travel pre-fetch failed - using Haversine fallback:', travelError);
+        clientLogger.warn('Real road travel pre-fetch failed — schedule generation stopped:', travelError);
+        throw travelError;
       }
+      setTravelPrefetchProgress(null);
 
       // Load bad matches fresh so flagged client + care pro pairs are hard-excluded
       try {
@@ -814,6 +820,14 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
         setSavingGeneratedSchedule(false);
       }
     },
+    onError: (error) => {
+      toast({
+        title: "Schedule not generated",
+        description: error instanceof Error ? error.message : "Generation failed. Your saved schedule has not been replaced.",
+        variant: "destructive",
+      });
+    },
+    onSettled: () => setTravelPrefetchProgress(null),
   });
 
   // Lightweight save mutation for drag-drop / manual assign auto-save
@@ -2226,7 +2240,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
           style={{ height: 38, padding: '0 16px', background: 'linear-gradient(135deg,#2563EB,#4F46E5)', color: 'white', border: 'none', borderRadius: 10, fontWeight: 600, fontSize: 13, cursor: (generateMutation.isPending || !canGenerate) ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: 6, boxShadow: '0 4px 14px rgba(37,99,235,.3)', whiteSpace: 'nowrap', flexShrink: 0, opacity: (generateMutation.isPending || !canGenerate) ? .7 : 1 }}
           data-testid="button-generate-weekly"
         >
-          {generateMutation.isPending ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Generating…</>
+          {generateMutation.isPending ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> {travelPrefetchProgress ? `Travel ${travelPrefetchProgress.completed}/${travelPrefetchProgress.total}` : 'Generating…'}</>
             : !canGenerate      ? <><Lock className="h-3.5 w-3.5" /> View Only</>
             : <><Zap className="h-3.5 w-3.5" /> Generate Schedule</>}
         </Button>
