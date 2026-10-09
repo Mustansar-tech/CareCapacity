@@ -61,6 +61,8 @@ Use the current ORS gateway, `api.heigit.org`, not the deprecated
 new gateway's allowances instead. Legacy quota errors can therefore occur
 while the dashboard appears to have full quota. ORS staff confirmed this at
 https://ask.openrouteservice.org/t/quota-exceeded-on-directions-while-dashboard-shows-full-quota-standard-key/8068/2.
+On 2026-10-09, the user reported that routing was working after the gateway
+correction; retain the current gateway rather than reverting to the legacy URL.
 
 **How to apply:** Verify the gateway before interpreting quota discrepancies.
 The new route base includes `/openrouteservice/v2/`, not just `/v2/`;
