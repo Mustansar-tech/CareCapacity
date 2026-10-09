@@ -12,7 +12,7 @@
 - [Data House page structure](data-house-page-structure.md) — "Data House" nav = 3 tabs (Day Rate Tracker/KPI Tracker/Annual Roadmap); rolling 3-month window + archive dropdown for older months.
 - [Day Rate automation cross-process status](day-rate-automation-cross-process-status.md) — status/history for cron features must persist to Postgres, not module-level memory, since api/worker run as separate PM2 processes; also added job retry + kickoff stagger.
 - [Enquiry matcher travel cache reverted](enquiry-matcher-travel-cache-reverted.md) — persistent DB travel-time cache for the BD/enquiry matcher was tried and reverted; matcher now always hits ORS live, no branchId-keyed DB cache.
-- [Car routing provider split](car-travel-routing-provider-order.md) — Scheduling uses ORS then Mapbox; enquiries stay Mapbox then ORS. Compare request quotas and matrix-element usage separately.
+- [Free routing policy](car-travel-routing-provider-order.md) — ORS bulk routing; guarded ORS/Mapbox Directions for small checks; Mapbox Matrix forbidden. Shared counters and quota units matter.
 - [Supabase pooler mode for serverless](supabase-pooler-mode-serverless.md) — session-mode pooler (5432) caps ~15 connections project-wide; Vercel serverless needs transaction-mode (6543 + pgbouncer=true), not smaller pool-size env vars.
 - [BI role rollout](bi-role-rollout.md) — BI User currently matches admin inside SUR Group BI except it cannot trigger automation; expand into scoped personas later.
 - [PP automation backup policy](pp-automation-universal-fallback.md) — universal + extra backup are both global fallbacks; one attempt per account, email alerts; Glasgow North dedicated login is authorised again.

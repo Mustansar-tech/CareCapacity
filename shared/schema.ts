@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, timestamp, jsonb, unique, index, integer, serial, real, boolean } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, timestamp, jsonb, unique, index, integer, serial, real, boolean, primaryKey } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -7,6 +7,19 @@ export const userRoles = ['admin', 'operations_director', 'scheduler', 'viewer']
 export type UserRole = typeof userRoles[number];
 
 export const CURRENT_LEGAL_VERSION = "1.0";
+
+// Only request counts/timing metadata: never travel coordinates or API keys.
+export const routingUsageCounts = pgTable("routing_usage_counts", {
+  endpoint: text("endpoint").notNull(),
+  bucketStart: timestamp("bucket_start", { withTimezone: true }).notNull(),
+  requests: integer("requests").notNull().default(0),
+}, table => ({ pk: primaryKey({ columns: [table.endpoint, table.bucketStart] }) }));
+
+export const routingUsageState = pgTable("routing_usage_state", {
+  endpoint: text("endpoint").primaryKey(),
+  nextRequestAt: timestamp("next_request_at", { withTimezone: true }).notNull().defaultNow(),
+  blockedUntil: timestamp("blocked_until", { withTimezone: true }),
+});
 
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),

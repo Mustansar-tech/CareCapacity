@@ -2,6 +2,8 @@ import { logger } from '../../infrastructure/logger';
 import type { EmployeeSummaryRecord, EmployeeDailyDetail, CapacityAnalysis } from '@shared/schema';
 import type { CpVisitEntry } from '../imports/excel-visit-extractor';
 import { travelTimeService } from '../travel/travel-time-service';
+import { RoutingError } from '../travel/routing-error';
+import { assertRoutingActive } from '../travel/safe-routing-request';
 import { normalizeName } from '../../shared/utils/shared-utils';
 
 export interface ClientEnquiryCriteria {
@@ -1096,13 +1098,14 @@ async function buildTravelTimeMap(
     }
   }
 
-  // 3. ONE car matrix batch (Mapbox primary, ORS backup): all car sources → enquiry postcode
+  // ORS splits unique departures into bounded batches of at most 50 sources.
   if (allCarSources.length > 0) {
     try {
       logger.info(`BD Matcher: car matrix pre-warm — ${allCarSources.length} car sources → enquiry (1 batch call)`);
       await travelTimeService.carMatrixBatch(allCarSources, [clientCoords]);
       logger.info(`BD Matcher: car matrix pre-warm complete — cache ready for ${allCarSources.length} routes`);
     } catch (err) {
+      if (err instanceof RoutingError) throw err;
       logger.warn(`BD Matcher: car matrix batch failed, affected cars will be marked unreachable: ${err}`);
     }
   }
@@ -1138,7 +1141,7 @@ async function buildTravelTimeMap(
     } catch (err) {
       logger.debug(`BD Matcher: walker travel time failed for ${cp.empName}: ${err}`);
     }
-    await new Promise(resolve => setTimeout(resolve, 150));
+    assertRoutingActive();
   }
 
   // ── Individual path: last-client departure CPs (calculate per day, take max) ──
@@ -1188,7 +1191,7 @@ async function buildTravelTimeMap(
         } else {
           // Walkers/public: use TravelTime API with heuristic fallback
           const result = await travelTimeService.calculateTravelTime(branchId, coords, clientCoords, cp.mode as any);
-          await new Promise(resolve => setTimeout(resolve, 100));
+          assertRoutingActive();
           if (result && result.travelTimeMinutes < 9999) {
             mins = Math.round(result.travelTimeMinutes);
           }
@@ -1198,6 +1201,7 @@ async function buildTravelTimeMap(
           coordTravelMap.set(coordKey, mins);
         }
       } catch (err) {
+        if (err instanceof RoutingError) throw err;
         logger.debug(`BD Matcher: schedule-aware travel failed for ${cp.empName}: ${err}`);
       }
     }
@@ -1322,6 +1326,7 @@ export async function matchClientEnquiry(
         enquiryStartMinutes
       );
     } catch (err) {
+      if (err instanceof RoutingError) throw err;
       logger.warn(`BD Matcher: travel time pre-computation failed, falling back to straight-line: ${err}`);
     }
   }
@@ -1433,6 +1438,7 @@ export async function matchMultiVisitEnquiry(
           enquiryStartMinutes
         );
       } catch (err) {
+        if (err instanceof RoutingError) throw err;
         logger.warn(`BD Multi-Visit Matcher: travel time pre-computation failed for visit ${i}: ${err}`);
       }
     }

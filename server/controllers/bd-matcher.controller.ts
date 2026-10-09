@@ -6,6 +6,7 @@ import { computeConsistentStars, type WeeklyMatchResult } from '../features/bd-m
 import * as capacityRepo from '../repositories/capacity.repository';
 import { refineForwardTravelWithORS, refineReturnHomeTravelWithORS, buildScheduleMap } from '../services/bd-matcher.service';
 import { travelTimeService } from '../features/travel/travel-time-service';
+import { RoutingError } from '../features/travel/routing-error';
 import { logger } from '../infrastructure/logger';
 
 export async function bdMatch(req: Request, res: Response): Promise<void> {
@@ -68,6 +69,7 @@ export async function bdMatch(req: Request, res: Response): Promise<void> {
         await refineReturnHomeTravelWithORS(result.matches, clientCoords);
       }
     } catch (refineErr) {
+      if (refineErr instanceof RoutingError) throw refineErr;
       logger.warn('BD Matcher: ORS forward-travel refinement failed (non-fatal)', { error: String(refineErr) });
     }
   }
@@ -153,6 +155,7 @@ export async function bdMatchMultiWeek(req: Request, res: Response): Promise<voi
         for (const vr of result.visitResults) vr.matches = vr.matches.filter(m => m.matchedSlots.length > 0);
         await refineReturnHomeTravelWithORS(allMatches, clientCoords);
       } catch (refineErr) {
+        if (refineErr instanceof RoutingError) throw refineErr;
         logger.warn('BD Multi-Week Matcher: ORS refinement failed (non-fatal)', { week: analysis.weekStartDate, error: String(refineErr) });
       }
     }
@@ -245,6 +248,7 @@ export async function bdMatchMultiVisit(req: Request, res: Response): Promise<vo
         await refineReturnHomeTravelWithORS(allMatches, clientCoords);
       }
     } catch (refineErr) {
+      if (refineErr instanceof RoutingError) throw refineErr;
       logger.warn('BD Multi-Visit Matcher: ORS forward-travel refinement failed (non-fatal)', { error: String(refineErr) });
     }
   }

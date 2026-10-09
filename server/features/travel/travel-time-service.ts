@@ -3,7 +3,9 @@
  *
  * Car employees:
  *   1. Mapbox Matrix / Directions API (primary)
- *   2. ORS Matrix / Directions API (backup — used only if Mapbox has no key or fails)
+ *   ORS Matrix for bulk routing; ORS Directions for individual routes.
+ *   Mapbox Directions is a quota-guarded single-route backup only.
+ *   Mapbox Matrix is disabled; no paid matrix fallback is permitted.
  *   [Heuristic DISABLED — unreachable pairs go to unallocated]
  *
  * Walker employees:
@@ -18,6 +20,9 @@
  */
 
 import { storage } from "../../storage";
+import { AsyncLocalStorage } from 'node:async_hooks';
+import { RoutingError } from './routing-error';
+import { safeRoutingRequest, assertRoutingActive } from './safe-routing-request';
 import { logger } from '../../infrastructure/logger';
 
 export interface Location {
@@ -91,7 +96,7 @@ export class TravelTimeService {
     maxTravelMinutes: number = 45,
     softLimitMinutes?: number,
     private readonly roadRequestTimeoutMs?: number,
-    private readonly roadProviderOrder: 'mapbox-first' | 'ors-first' = 'mapbox-first',
+    _legacyProviderOrder?: 'mapbox-first' | 'ors-first',
   ) {
     this.maxTravelMinutes = maxTravelMinutes;
     this.softLimitMinutes = softLimitMinutes || Math.round(maxTravelMinutes * 0.75);
@@ -100,23 +105,36 @@ export class TravelTimeService {
   // Scheduling opts into this timeout.
   // Existing travel consumers retain their current behaviour.
   private fetchRoad(url: string, options?: RequestInit): Promise<Response> {
-    return fetch(url, {
-      ...options,
-      ...(this.roadRequestTimeoutMs ? { signal: AbortSignal.timeout(this.roadRequestTimeoutMs) } : {}),
-    });
+    if (url.includes('directions-matrix')) {
+      throw new RoutingError('PAID_MATRIX_DISABLED', 'Mapbox Matrix is disabled to prevent paid usage.');
+    }
+    const endpoint = url.includes('api.mapbox.com') ? 'mapbox-directions'
+      : url.includes('/matrix/') ? 'ors-matrix' : 'ors-directions';
+    return safeRoutingRequest(endpoint, url, options, this.roadRequestTimeoutMs ?? 20000);
   }
 
   private get carProviders(): Array<'mapbox' | 'ors'> {
-    return this.roadProviderOrder === 'ors-first' ? ['ors', 'mapbox'] : ['mapbox', 'ors'];
+    return ['ors', 'mapbox'];
   }
 
   private async fetchCarDirections(from: Location, to: Location) {
-    for (const source of this.carProviders) {
-      const result = source === 'ors'
-        ? await this.fetchORSDirections(from, to)
-        : await this.fetchMapboxDirections(from, to);
-      if (result) return { ...result, source };
+    if (!this.ORS_API_KEY && !this.MAPBOX_API_KEY) {
+      throw new RoutingError('ROUTING_UNAVAILABLE', 'No road-routing provider is configured. No incomplete result was saved.');
     }
+    let failure: RoutingError | undefined;
+    for (const source of this.carProviders) {
+      try {
+        const result = source === 'ors'
+          ? await this.fetchORSDirections(from, to)
+          : await this.fetchMapboxDirections(from, to);
+        if (result) return { ...result, source };
+      } catch (error) {
+        if (!(error instanceof RoutingError)) throw error;
+        failure = error;
+        assertRoutingActive();
+      }
+    }
+    if (failure) throw failure;
     return null;
   }
 
@@ -190,7 +208,7 @@ export class TravelTimeService {
 
   /** Returns true if either car routing provider (Mapbox primary, ORS backup) is configured. */
   hasCarMatrixKey(): boolean {
-    return this.hasMapboxKey() || this.hasORSKey();
+    return this.hasORSKey();
   }
 
   /**
@@ -204,8 +222,12 @@ export class TravelTimeService {
       const response = await this.fetchRoad(url);
       if (response.ok) {
         const data = await response.json();
-        this._validRoadResponse ||= Array.isArray(data.routes);
         const route = data.routes?.[0];
+        if (!Array.isArray(data.routes) || (route &&
+          (!Number.isFinite(route.duration) || route.duration < 0 || !Number.isFinite(route.distance) || route.distance < 0))) {
+          throw new RoutingError('ROUTING_INVALID_RESPONSE', 'Mapbox Directions returned an invalid route. No incomplete result was saved.');
+        }
+        this._validRoadResponse = true;
         if (route) {
           const durationMinutes = Math.max(2, Math.round(route.duration / 60));
           const distanceMeters = Math.round(route.distance);
@@ -218,7 +240,9 @@ export class TravelTimeService {
       const errorText = await response.text();
       logger.warn(`[Mapbox Directions] API error (${response.status}): ${errorText.slice(0, 200)}`);
     } catch (err) {
+      if (err instanceof RoutingError) throw err;
       logger.warn('[Mapbox Directions] request failed', { error: String(err) });
+      throw new RoutingError('ROUTING_INVALID_RESPONSE', 'Mapbox Directions could not return a valid route. No incomplete result was saved.');
     }
     return null;
   }
@@ -240,7 +264,13 @@ export class TravelTimeService {
       });
       if (response.ok) {
         const data = await response.json();
-        this._validRoadResponse ||= Array.isArray(data.routes);
+        if (!Array.isArray(data.routes) || (data.routes[0] &&
+          (!Number.isFinite(data.routes[0]?.summary?.duration) || data.routes[0].summary.duration < 0 ||
+           !Number.isFinite(data.routes[0]?.summary?.distance) || data.routes[0].summary.distance < 0))) {
+          throw new RoutingError('ROUTING_INVALID_RESPONSE', 'ORS Directions returned an invalid route. No incomplete result was saved.');
+        }
+        this._validRoadResponse = true;
+        if (data.routes.length === 0) return null;
         const durationMinutes = Math.max(2, Math.round(data.routes[0].summary.duration / 60));
         const distanceMeters = Math.round(data.routes[0].summary.distance);
         this.trackSource('ors');
@@ -249,7 +279,9 @@ export class TravelTimeService {
       const errorText = await response.text();
       logger.warn(`[ORS Directions] API error (${response.status}): ${errorText.slice(0, 200)}`);
     } catch (err) {
+      if (err instanceof RoutingError) throw err;
       logger.warn('[ORS Directions] request failed', { error: String(err) });
+      throw new RoutingError('ROUTING_INVALID_RESPONSE', 'ORS Directions could not return a valid route. No incomplete result was saved.');
     }
     return null;
   }
@@ -852,7 +884,7 @@ export class TravelTimeService {
     destinations: Array<{ lat: number; lng: number; id?: string }>,
     skipSameCoords = false
   ): Promise<number> {
-    if ((!this.MAPBOX_API_KEY && !this.ORS_API_KEY) || sources.length === 0 || destinations.length === 0) return 0;
+    if (sources.length === 0 || destinations.length === 0) return 0;
 
     // Cache-aware: only include sources/destinations that still have at least one
     // uncached pair. When a repeat request (e.g. the same enquiry matched across
@@ -876,6 +908,12 @@ export class TravelTimeService {
       const src = sources[0];
       const dst = destinations[0];
       if (skipSameCoords && src.lat === dst.lat && src.lng === dst.lng) return 0;
+      if (src.lat === dst.lat && src.lng === dst.lng) {
+        this._validRoadResponse = true;
+        const key = this.sessionKey(src.lat.toString(), src.lng.toString(), dst.lat.toString(), dst.lng.toString(), 'car');
+        this._sessionCache.set(key, { durationMinutes: 0, distanceMeters: 0, source: 'same-location' });
+        return 1;
+      }
       const sk = this.sessionKey(src.lat.toString(), src.lng.toString(), dst.lat.toString(), dst.lng.toString(), 'car');
       const road = await this.fetchCarDirections(src, dst);
       if (road) {
@@ -885,17 +923,34 @@ export class TravelTimeService {
       return 0;
     }
 
-    for (const provider of this.carProviders) {
-      if (provider === 'ors' ? !this.ORS_API_KEY : !this.MAPBOX_API_KEY) continue;
-      const added = provider === 'ors'
-        ? await this.orsMatrixBatch(sources, destinations, skipSameCoords)
-        : await this.mapboxMatrixBatch(sources, destinations, skipSameCoords);
-      // Valid null routes are unreachable, not an ORS outage. Do not consume
-      // Mapbox just because ORS reports no road for these pairs.
-      if (added > 0 || (this.roadProviderOrder === 'ors-first' && this._validRoadResponse)) return added;
-      logger.warn(`[Cache Pre-warm] ${provider} Matrix failed — trying next configured road provider`);
+    if (!this.ORS_API_KEY) throw new RoutingError('ORS_UNAVAILABLE', 'ORS Matrix is not configured. Paid matrix routing is disabled.');
+    let total = 0;
+    for (let si = 0; si < sources.length; si += ORS_MATRIX_BATCH_SIZE) {
+      for (let di = 0; di < destinations.length; di += ORS_MATRIX_BATCH_SIZE) {
+        assertRoutingActive();
+        const from = sources.slice(si, si + ORS_MATRIX_BATCH_SIZE);
+        const to = destinations.slice(di, di + ORS_MATRIX_BATCH_SIZE);
+        try {
+          total += await this.orsMatrixBatch(from, to, skipSameCoords);
+        } catch (error) {
+          // Directions can cover a small enquiry block, never thousands of
+          // all-pairs schedule routes. Paid matrix fallback is forbidden.
+          if (!(error instanceof RoutingError) || from.length * to.length > 8) throw error;
+          for (const src of from) {
+            for (const dst of to) {
+              if (skipSameCoords && src.lat === dst.lat && src.lng === dst.lng) continue;
+              const road = await this.fetchCarDirections(src, dst);
+              if (road) {
+                const key = this.sessionKey(src.lat.toString(), src.lng.toString(), dst.lat.toString(), dst.lng.toString(), 'car');
+                this._sessionCache.set(key, road);
+                total++;
+              }
+            }
+          }
+        }
+      }
     }
-    return 0;
+    return total;
   }
 
   /** Mapbox Matrix API (driving profile) — chunked to respect the 25-coordinate-per-request limit. */
@@ -1013,8 +1068,7 @@ export class TravelTimeService {
         const distances: (number | null)[][] = data.distances;
         if (!isValidRoadMatrix(durations, sources.length, destinations.length) ||
           !isValidRoadMatrix(distances, sources.length, destinations.length)) {
-          logger.warn('[Cache Pre-warm] Invalid ORS Matrix response');
-          return 0;
+          throw new RoutingError('ROUTING_INVALID_RESPONSE', 'ORS returned an incomplete travel matrix. No incomplete result was saved.');
         }
         this._validRoadResponse = true;
         for (let si = 0; si < sources.length; si++) {
@@ -1039,8 +1093,9 @@ export class TravelTimeService {
         return added;
       }
     } catch (err) {
+      if (err instanceof RoutingError) throw err;
       logger.warn('[Cache Pre-warm] ORS Matrix exception:', err instanceof Error ? err.message : err);
-      return added;
+      throw new RoutingError('ROUTING_INVALID_RESPONSE', 'ORS could not return a complete travel matrix. Please retry.');
     }
     return added;
   }
@@ -1176,7 +1231,18 @@ export class TravelTimeService {
   }
 }
 
-export const travelTimeService = new TravelTimeService();
+const requestServices = new AsyncLocalStorage<TravelTimeService>();
+const defaultTravelService = new TravelTimeService();
+export function withIsolatedTravelService<T>(operation: () => Promise<T>): Promise<T> {
+  return requestServices.run(new TravelTimeService(45, undefined, 20000), operation);
+}
+export const travelTimeService = new Proxy(defaultTravelService, {
+  get(target, property) {
+    const service = requestServices.getStore() ?? target;
+    const value = Reflect.get(service, property, service);
+    return typeof value === 'function' ? value.bind(service) : value;
+  },
+});
 
 function normalizeName(name: string): string {
   if (!name) return '';
@@ -1233,6 +1299,7 @@ export async function calculateTravelTime(
     const travelMatrix = await service.calculateTravelTime(branchId, employeeCoords, clientCoords, transportMode);
     return travelMatrix.travelTimeMinutes;
   } catch (error) {
+    if (error instanceof RoutingError) throw error;
     logger.error(`Error calculating travel time:`, error);
     return 0;
   }

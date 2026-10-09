@@ -1,5 +1,6 @@
 import { geocodeWithFallback } from '../pipeline';
 import { TravelTimeService, travelTimeService } from '../features/travel/travel-time-service';
+import { RoutingError } from '../features/travel/routing-error';
 import type { MatchedEmployee, MatchedSlot } from '../features/bd-matrix/bdMatcher';
 import type { CpVisitEntry } from '../features/imports/excel-visit-extractor';
 import { logger } from '../infrastructure/logger';
@@ -102,9 +103,12 @@ export async function refineForwardTravelWithORS(
             p.slot.forwardTravelMinutes = roadMins;
             p.slot.forwardTravelWarning = roadMins > p.gapMins + 5;
           }
+        } else {
+          rejectedSlots.add(p.slot);
         }
       }
     } catch (e) {
+      if (e instanceof RoutingError) throw e;
       logger.warn('[FWD-ORS] ORS Matrix batch failed — haversine values retained', { error: String(e) });
     }
   }
@@ -159,9 +163,12 @@ export async function refineReturnHomeTravelWithORS(
         const cached = travelTimeService.getCachedTravelTime(clientCoords, p.homeCoords, 'car');
         if (cached) {
           p.slot.returnHomeMins = cached.durationMinutes;
+        } else {
+          p.slot.returnHomeMins = 9999;
         }
       }
     } catch (e) {
+      if (e instanceof RoutingError) throw e;
       logger.warn('[RTN-ORS] ORS Matrix batch failed — haversine values retained', { error: String(e) });
     }
   }

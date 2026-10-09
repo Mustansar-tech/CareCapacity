@@ -70,7 +70,7 @@ export async function apiRequest(
   method: string,
   url: string,
   data?: unknown | undefined,
-  options?: { includeSelectedBranch?: boolean },
+  options?: { includeSelectedBranch?: boolean; signal?: AbortSignal },
 ): Promise<Response> {
   // Add branchId to request based on method, then resolve against API base
   // Cross-branch admin views supply their own scope rather than inheriting the sidebar.
@@ -84,6 +84,7 @@ export async function apiRequest(
     headers: finalData ? { "Content-Type": "application/json" } : {},
     body: finalData ? JSON.stringify(finalData) : undefined,
     credentials: "include",
+    signal: options?.signal,
   });
 
   await throwIfResNotOk(res);

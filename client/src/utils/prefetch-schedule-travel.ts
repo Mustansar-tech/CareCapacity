@@ -26,7 +26,8 @@ export async function prefetchScheduleTravel(
     [...clients, ...carHomes].map(({ lat, lng }) => [`${lat},${lng}`, { lat, lng }]),
   ).values());
   const blocks: Location[][] = [];
-  for (let index = 0; index < locations.length; index += 12) blocks.push(locations.slice(index, index + 12));
+  // ORS permits 3,500 matrix elements: 50×50 uses 2,500 in one bounded request.
+  for (let index = 0; index < locations.length; index += 50) blocks.push(locations.slice(index, index + 50));
   const total = blocks.length ** 2;
   const results: TravelResult[] = [];
   const travelSources: Record<string, number> = {};

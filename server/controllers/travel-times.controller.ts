@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { resolveBranch, isUkBst, ukScheduleTimeToUtc } from '../utils/helpers';
 import { TravelTimeService, travelTimeService } from '../features/travel/travel-time-service';
 import { logger } from '../infrastructure/logger';
+import { RoutingError } from '../features/travel/routing-error';
 
 // A schedule can require hundreds of matrix requests. Return one bounded block
 // at a time instead of holding a browser request open for the entire prewarm.
@@ -9,12 +10,12 @@ export async function scheduleTravelBlock(req: Request, res: Response): Promise<
   await resolveBranch(req);
   const { sources, destinations } = req.body ?? {};
   const validLocations = (locations: unknown): locations is Array<{ lat: number; lng: number }> =>
-    Array.isArray(locations) && locations.length > 0 && locations.length <= 12 &&
+    Array.isArray(locations) && locations.length > 0 && locations.length <= 50 &&
     locations.every(loc => loc && Number.isFinite(loc.lat) && Math.abs(loc.lat) <= 90 &&
       Number.isFinite(loc.lng) && Math.abs(loc.lng) <= 180);
 
   if (!validLocations(sources) || !validLocations(destinations)) {
-    res.status(400).json({ error: 'sources and destinations must each contain 1–12 valid locations' });
+    res.status(400).json({ error: 'sources and destinations must each contain 1–50 valid locations' });
     return;
   }
 
@@ -78,6 +79,7 @@ export async function pairsTravelTimes(req: Request, res: Response): Promise<voi
       );
       return { durationMinutes: result?.travelTimeMinutes ?? null, source: result?.source ?? null };
     } catch (err) {
+      if (err instanceof RoutingError) throw err;
       logger.warn(`pairsTravelTimes: failed for pair ${p.fromLat},${p.fromLng}→${p.toLat},${p.toLng}: ${err}`);
       return { durationMinutes: null, source: 'error' };
     }

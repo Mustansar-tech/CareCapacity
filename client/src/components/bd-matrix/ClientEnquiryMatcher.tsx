@@ -209,14 +209,25 @@ export function ClientEnquiryMatcher({ weekStartDate: weekStartDateProp }: { wee
 
       // Multi-week matching: the server matches the selected week AND all
       // future processed weeks, then recommends the most consistent CarePros
-      const res = await apiRequest('POST', '/api/bd-matcher/multi-week', {
-        clientName,
-        postcode: postcode || undefined,
-        visits: visitPayloads,
-        weekStartDate: effectiveWeekStartDate,
-        branchId: selectedBranchId,
-      });
-      return await res.json() as MultiWeekResult;
+      const cancellation = new AbortController();
+      const timeout = setTimeout(() => cancellation.abort(), 100000);
+      try {
+        const res = await apiRequest('POST', '/api/bd-matcher/multi-week', {
+          clientName,
+          postcode: postcode || undefined,
+          visits: visitPayloads,
+          weekStartDate: effectiveWeekStartDate,
+          branchId: selectedBranchId,
+        }, { signal: cancellation.signal });
+        return await res.json() as MultiWeekResult;
+      } catch (error) {
+        if (cancellation.signal.aborted) {
+          throw new Error('The enquiry travel check took too long. No incomplete result was saved. Please retry.');
+        }
+        throw error;
+      } finally {
+        clearTimeout(timeout);
+      }
     },
     onSuccess: (data: MultiWeekResult) => {
       setMultiResults(data);
@@ -251,12 +262,19 @@ export function ClientEnquiryMatcher({ weekStartDate: weekStartDateProp }: { wee
     },
     onError: (err: Error) => {
       const msg = err.message;
+      let routingMessage: string | undefined;
+      try {
+        const payload = JSON.parse(msg.slice(msg.indexOf('{')));
+        if (typeof payload.code === 'string' && payload.code.startsWith('ROUTING_')) routingMessage = payload.message;
+      } catch { /* Non-routing errors retain their existing handling. */ }
       const isPostcodeError = msg === 'INVALID_POSTCODE' || msg.includes('POSTCODE_NOT_FOUND');
       const isNoBranch = msg === 'NO_BRANCH_SELECTED';
       const is404 = msg.startsWith('404:');
       const is400 = msg.startsWith('400:');
 
-      if (isPostcodeError) {
+      if (routingMessage) {
+        toast({ title: "Travel check stopped safely", description: routingMessage, variant: "destructive" });
+      } else if (isPostcodeError) {
         const displayPostcode = postcode.trim().toUpperCase();
         toast({
           title: "Postcode Not Found",
