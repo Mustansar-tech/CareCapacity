@@ -51,11 +51,9 @@ export async function safeRoutingRequest(
           : 'The routing provider is unavailable. Please retry; no incomplete result was saved.',
         response.status === 429 ? 429 : 503);
     }
-    if (endpoint.startsWith('ors') && response.headers.get('x-ratelimit-remaining') === '0') {
-      const reset = Number(response.headers.get('x-ratelimit-reset'));
-      const seconds = reset > Date.now() / 1000 ? Math.ceil(reset - Date.now() / 1000) : 3600;
-      await blockRoutingEndpoint(endpoint, seconds);
-    }
+    // ORS can return an incorrect remaining quota (including zero) on a
+    // successful response. Only actual 429 responses establish quota cooldowns;
+    // our shared request ledger continues to enforce the free-tier budget.
     return new Response(body, { status: response.status, headers: response.headers });
   } catch (error) {
     if (error instanceof RoutingError) throw error;

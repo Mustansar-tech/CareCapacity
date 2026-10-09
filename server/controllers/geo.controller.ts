@@ -64,7 +64,7 @@ export async function distanceMatrix(req: Request, res: Response): Promise<void>
   const originsCoords = origins.map((o: any) => [parseFloat(o.lng), parseFloat(o.lat)]);
   const destinationsCoords = destinations.map((d: any) => [parseFloat(d.lng), parseFloat(d.lat)]);
 
-  const response = await fetch('https://api.openrouteservice.org/v2/matrix/driving-car', {
+  const response = await fetch('https://api.heigit.org/openrouteservice/v2/matrix/driving-car', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: ORS_API_KEY },
     body: JSON.stringify({

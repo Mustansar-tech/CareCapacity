@@ -254,7 +254,7 @@ export class TravelTimeService {
   async fetchORSDirections(from: Location, to: Location): Promise<{ durationMinutes: number; distanceMeters: number } | null> {
     if (!this.ORS_API_KEY) return null;
     try {
-      const response = await this.fetchRoad(`https://api.openrouteservice.org/v2/directions/driving-car`, {
+      const response = await this.fetchRoad(`https://api.heigit.org/openrouteservice/v2/directions/driving-car`, {
         method: 'POST',
         headers: {
           'Authorization': this.ORS_API_KEY,
@@ -1056,7 +1056,7 @@ export class TravelTimeService {
       // Add delay to respect ORS Free Tier rate limits (40 requests per minute = 1500ms per request)
       await new Promise(resolve => setTimeout(resolve, 1500));
 
-      const response = await this.fetchRoad('https://api.openrouteservice.org/v2/matrix/driving-car', {
+      const response = await this.fetchRoad('https://api.heigit.org/openrouteservice/v2/matrix/driving-car', {
         method: 'POST',
         headers: { 'Authorization': this.ORS_API_KEY, 'Content-Type': 'application/json' },
         body: JSON.stringify({ locations: allLocations, metrics: ['duration', 'distance'], sources: srcIndices, destinations: dstIndices }),

@@ -28,6 +28,7 @@ vi.mock('../../server/infrastructure/db', () => ({
   },
 }));
 import { reserveRoutingRequest, ROUTING_LIMITS } from '../../server/features/travel/routing-usage';
+import { pool } from '../../server/infrastructure/db';
 
 describe('persistent free-routing quota guard', () => {
   beforeEach(() => Object.assign(mock, { used: 0, recent: 0, wait: 0, blocked: 0, databaseFailed: false, queries: [] }));
@@ -62,8 +63,40 @@ describe('persistent free-routing quota guard', () => {
 });
 
 describe('request timeout and cancellation', () => {
-  beforeEach(() => Object.assign(mock, { used: 0, recent: 0, wait: 0, blocked: 0, databaseFailed: false, queries: [] }));
+  beforeEach(() => {
+    vi.clearAllMocks();
+    Object.assign(mock, { used: 0, recent: 0, wait: 0, blocked: 0, databaseFailed: false, queries: [] });
+  });
   afterEach(() => vi.unstubAllGlobals());
+  it('does not block subsequent successful ORS requests because of an unreliable zero-remaining header', async () => {
+    const { safeRoutingRequest } = await import('../../server/features/travel/safe-routing-request');
+    const fetch = vi.fn(async () => new Response('{"durations":[[1]]}', {
+      status: 200,
+      headers: {
+        'x-ratelimit-remaining': '0',
+        'x-ratelimit-reset': String(Math.ceil(Date.now() / 1000) + 86400),
+      },
+    }));
+    vi.stubGlobal('fetch', fetch);
+    for (let i = 0; i < 2; i++) {
+      const response = await safeRoutingRequest('ors-matrix', 'https://example.test/matrix');
+      expect(response.status).toBe(200);
+      expect(await response.json()).toEqual({ durations: [[1]] });
+    }
+    expect(fetch).toHaveBeenCalledTimes(2);
+    expect(mock.used).toBe(2);
+    expect(vi.mocked(pool.query).mock.calls.some(([sql]) => String(sql).includes('SET blocked_until'))).toBe(false);
+  });
+  it('still persists a cooldown when the provider actually responds with HTTP 429', async () => {
+    const { safeRoutingRequest } = await import('../../server/features/travel/safe-routing-request');
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('quota exceeded', {
+      status: 429,
+      headers: { 'retry-after': '60' },
+    })));
+    await expect(safeRoutingRequest('ors-matrix', 'https://example.test/matrix'))
+      .rejects.toMatchObject({ code: 'ROUTING_PROVIDER_LIMIT', statusCode: 429 });
+    expect(vi.mocked(pool.query).mock.calls.some(([sql]) => String(sql).includes('SET blocked_until'))).toBe(true);
+  });
   it('does not dispatch a routing fetch when quota is exhausted', async () => {
     mock.used = ROUTING_LIMITS['ors-matrix'].limit;
     const fetch = vi.fn();

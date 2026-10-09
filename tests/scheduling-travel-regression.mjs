@@ -111,6 +111,10 @@ try {
   globalThis.fetch = async (url, options) => {
     assert.ok(options.signal instanceof AbortSignal);
     assert.ok(!url.includes('directions-matrix'), 'Paid Matrix must never be called');
+    if (!url.includes('mapbox')) {
+      assert.ok(url.startsWith('https://api.heigit.org/openrouteservice/v2/'),
+        'ORS must use the current gateway and service path, not the reduced-quota legacy endpoint');
+    }
     endpoints.push(url.includes('/matrix/') ? 'ors-matrix' : url.includes('mapbox') ? 'mapbox-directions' : 'ors-directions');
     if (url.includes('/matrix/')) {
       const body = JSON.parse(options.body);

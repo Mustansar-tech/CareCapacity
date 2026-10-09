@@ -39,9 +39,34 @@ elements. Also, live ORS x-ratelimit headers reported a short-window reset and
 a limit different from the published daily quota; they are not a reliable
 daily-remaining counter.
 
+ORS has also returned zero remaining on a successful Matrix response while
+the account dashboard still showed available quota. This is a documented
+provider-header inconsistency, not evidence that routing must stop.
+
+**Why:** Proactively applying its reset timestamp caused a false next-day
+block even though all upstream requests succeeded.
+
+**How to apply:** Do not establish quota cooldowns from successful-response
+remaining headers. Keep the shared budget ledger and respect actual HTTP 429
+responses. See https://ask.openrouteservice.org/t/x-ratelimit-remaining-returns-wrong-number/2121.
+
 **How to apply:** Check https://openrouteservice.org/plans/ and
 https://openrouteservice.org/restrictions/ for plan limits. Treat actual 429/reset
 headers as cooldown instructions, not proof of remaining daily allowance.
+
+Use the current ORS gateway, `api.heigit.org`, not the deprecated
+`api.openrouteservice.org`.
+
+**Why:** ORS reduced the legacy gateway's quotas; its dashboard displays the
+new gateway's allowances instead. Legacy quota errors can therefore occur
+while the dashboard appears to have full quota. ORS staff confirmed this at
+https://ask.openrouteservice.org/t/quota-exceeded-on-directions-while-dashboard-shows-full-quota-standard-key/8068/2.
+
+**How to apply:** Verify the gateway before interpreting quota discrepancies.
+The new route base includes `/openrouteservice/v2/`, not just `/v2/`;
+follow https://ask.openrouteservice.org/t/deprecating-api-openrouteservice-org-in-favour-of-api-heigit-org/7912.
+An endpoint migration does not replenish an account-wide free budget; preserve
+the ledger and only clear a cooldown proven to originate from the old gateway.
 
 Do not reintroduce persistent travel-time caching without approval. Fresh
 road lookups can share an isolated cache within one enquiry run, including its
