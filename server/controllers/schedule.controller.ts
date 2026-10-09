@@ -247,5 +247,6 @@ export async function saveWeeklySchedule(req: Request, res: Response): Promise<v
     branchId, weekStartDate, weekEndDate, scheduleData,
     unallocatedVisits: unallocatedVisits || [], metrics,
   });
+  logger.info('Weekly schedule persisted', { branchId, weekStartDate, weekEndDate, generatedAt: savedSchedule.generatedAt });
   res.json(savedSchedule);
 }

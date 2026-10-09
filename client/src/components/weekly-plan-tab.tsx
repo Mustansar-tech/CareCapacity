@@ -18,6 +18,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { getCanonicalWeekBoundaries } from "@shared/schema";
 import { generateWeeklySchedule, setBadMatches } from "@/utils/scheduling-engine";
+import { persistWeeklySchedule } from "@/utils/persist-weekly-schedule";
 import {
   Dialog,
   DialogContent,
@@ -346,6 +347,8 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
   const [weeklySchedule, setWeeklySchedule] = useState<WeeklyScheduleData | null>(null);
   const weeklyScheduleRef = useRef<WeeklyScheduleData | null>(null);
   const [lastGeneratedAt, setLastGeneratedAt] = useState<Date | null>(null);
+  const [savingGeneratedSchedule, setSavingGeneratedSchedule] = useState(false);
+  const [scheduleSaveError, setScheduleSaveError] = useState<string | null>(null);
   const [travelSources, setTravelSources] = useState<Record<string, number> | null>(null);
   const [viewMode, setViewMode] = useState<'day' | 'week'>('day');
   const [selectedDayIndex, setSelectedDayIndex] = useState(0);
@@ -708,9 +711,10 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
 
       // Show the schedule immediately (car routes already corrected, walker Haversine estimates pending)
       setWeeklySchedule(correctedResult);
-      // Set an immediate optimistic timestamp; the DB round-trip will overwrite it
-      // with the authoritative generatedAt value once the save query invalidates
-      setLastGeneratedAt(new Date());
+      // Generation is not proof of persistence. Only use the database's saved timestamp.
+      setLastGeneratedAt(null);
+      setScheduleSaveError(null);
+      setSavingGeneratedSchedule(true);
 
       // ── Phase 2: Apply Haversine heuristic to walker/public routes ──
       // Collect only the routes that were actually assigned to walker/public employees.
@@ -782,15 +786,15 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
 
       // Save the schedule to the database
       try {
-        await apiRequest('POST', '/api/weekly-schedule/save', {
+        const persisted = await persistWeeklySchedule({
           weekStartDate: weekStart,
           weekEndDate: weekEnd,
           scheduleData: finalResult.assignments,
           unallocatedVisits: finalResult.unallocated,
           metrics: finalResult.metrics,
         });
-
-        queryClient.invalidateQueries({ queryKey: ['/api/weekly-schedule/latest'] });
+        setLastGeneratedAt(new Date(persisted.generatedAt));
+        clientLogger.log(`Schedule saved to database for week ${weekStart}`, { generatedAt: persisted.generatedAt });
 
         toast({
           title: "Schedule Generated & Saved",
@@ -798,28 +802,42 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
         });
       } catch (error) {
         clientLogger.error('Failed to save schedule:', error);
+        const message = error instanceof Error ? error.message : 'Unknown save error';
+        setScheduleSaveError(message);
+        setLastGeneratedAt(null);
         toast({
-          title: "Schedule Generated",
-          description: `Assigned ${finalResult.metrics.totalVisitsAssigned} visits (save failed)`,
+          title: "Schedule not saved",
+          description: `The schedule was generated but could not be saved. ${message}`,
           variant: "destructive",
         });
+      } finally {
+        setSavingGeneratedSchedule(false);
       }
     },
   });
 
   // Lightweight save mutation for drag-drop / manual assign auto-save
   const saveScheduleMutation = useMutation({
+    onMutate: () => {
+      setScheduleSaveError(null);
+      setLastGeneratedAt(null);
+    },
     mutationFn: async (schedule: WeeklyScheduleData) => {
-      await apiRequest('POST', '/api/weekly-schedule/save', {
+      const persisted = await persistWeeklySchedule({
         weekStartDate: weekStart,
         weekEndDate: weekEnd,
         scheduleData: schedule.assignments,
         unallocatedVisits: schedule.unallocated,
         metrics: schedule.metrics,
       });
-      queryClient.invalidateQueries({ queryKey: ['/api/weekly-schedule', weekStart] });
+      setLastGeneratedAt(new Date(persisted.generatedAt));
     },
-    onError: () => toast({ title: 'Could not save change', description: 'Your edit is shown locally but was not persisted.', variant: 'destructive' }),
+    onError: (error) => {
+      const message = error instanceof Error ? error.message : 'Unknown save error';
+      setScheduleSaveError(message);
+      setLastGeneratedAt(null);
+      toast({ title: 'Could not save change', description: `Your edit is shown locally but was not persisted. ${message}`, variant: 'destructive' });
+    },
   });
 
   // Undo stack — stores previous WeeklyScheduleData snapshots (max 20)
@@ -856,6 +874,7 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
     setWeeklySchedule(null);
     setSelectedEmployee(null);
     setLastGeneratedAt(null);
+    setScheduleSaveError(null);
   }, [data, weekStart]);
 
   useEffect(() => {
@@ -2173,12 +2192,17 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
 
         <div style={{ flex: 1 }} />
 
-        {saveScheduleMutation.isPending && (
+        {(saveScheduleMutation.isPending || savingGeneratedSchedule) && (
           <span style={{ fontSize: 11, color: '#64748B', whiteSpace: 'nowrap', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 4 }}>
             <Loader2 style={{ width: 12, height: 12, animation: 'spin 1s linear infinite' }} /> Saving…
           </span>
         )}
-        {!saveScheduleMutation.isPending && lastGeneratedAt && (
+        {scheduleSaveError && !saveScheduleMutation.isPending && !savingGeneratedSchedule && (
+          <span role="alert" title={scheduleSaveError} style={{ fontSize: 11, color: '#DC2626', whiteSpace: 'nowrap', flexShrink: 0 }}>
+            Save failed — changes not saved
+          </span>
+        )}
+        {!saveScheduleMutation.isPending && !savingGeneratedSchedule && !scheduleSaveError && lastGeneratedAt && (
           <span style={{ fontSize: 11, color: '#475569', whiteSpace: 'nowrap', flexShrink: 0 }}>
             Schedule saved: {lastGeneratedAt.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}, {lastGeneratedAt.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
           </span>
@@ -3094,7 +3118,10 @@ export function WeeklyPlanTab({ data, selectedDate }: WeeklyPlanTabProps) {
           </div>
         ))}
         <div style={{ flex: 1 }} />
-        {lastGeneratedAt && (
+        {scheduleSaveError && (
+          <span role="alert" title={scheduleSaveError} style={{ color: '#DC2626' }}>Save failed — changes not saved</span>
+        )}
+        {!saveScheduleMutation.isPending && !savingGeneratedSchedule && !scheduleSaveError && lastGeneratedAt && (
           <span style={{ color: '#475569' }}>
             Schedule saved: {lastGeneratedAt.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}, {lastGeneratedAt.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
           </span>
