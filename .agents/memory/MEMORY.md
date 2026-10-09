@@ -19,3 +19,4 @@
 - [Audit identity and privacy](audit-identity-privacy.md) — audit events must identify affected people by name; distinguish deletion, archiving and failure without retaining sensitive contents.
 - [Historical Day Rate imports](day-rate-historical-imports.md) — preserve current franchise metadata; normalize names and account for REAL precision and uncached formulas when verifying.
 - [Scheduling travel prefetch timeouts](scheduling-travel-prefetch-timeouts.md) — a timed-out all-pairs prefetch can exclude all car carers while saving succeeds; diagnose travel-cache seeding before relaxing constraints.
+- [Portable npm lockfiles](portable-npm-lockfiles.md) — managed installs can add internal registry URLs; keep committed download URLs accessible to external CI without changing integrity checks.
