@@ -15,6 +15,7 @@
 - [Free routing policy](car-travel-routing-provider-order.md) — ORS only; user forbids all Mapbox services. Preserve shared quotas, bounded batching, deadlines and safe failure.
 - [Supabase pooler mode for serverless](supabase-pooler-mode-serverless.md) — session-mode pooler (5432) caps ~15 connections project-wide; Vercel serverless needs transaction-mode (6543 + pgbouncer=true), not smaller pool-size env vars.
 - [BI role rollout](bi-role-rollout.md) — BI User currently matches admin inside SUR Group BI except it cannot trigger automation; expand into scoped personas later.
+- [SUR BI data vision](sur-bi-data-platform-vision.md) — SUR BI is intended as a shared leadership/board view consolidating performance KPIs across Care Capacity, People Planner, Xero, Zoho Books, and Jobtrain.
 - [PP automation backup policy](pp-automation-universal-fallback.md) — universal + extra backup are both global fallbacks; one attempt per account, email alerts; Glasgow North dedicated login is authorised again.
 - [Audit identity and privacy](audit-identity-privacy.md) — audit events must identify affected people by name; distinguish deletion, archiving and failure without retaining sensitive contents.
 - [Historical Day Rate imports](day-rate-historical-imports.md) — preserve current franchise metadata; normalize names and account for REAL precision and uncached formulas when verifying.
