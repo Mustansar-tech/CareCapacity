@@ -83,13 +83,7 @@ export async function processCapacityData(
   const scheduledHoursMap = buildScheduledHoursLookup(guaranteed);
   const clientScheduledHoursMap = buildClientScheduledHoursLookup(guaranteed);
   const ghLossScheduledHoursMap = buildGhLossScheduledHoursLookup(guaranteed);
-  const rosterEmployeeKeys = new Set(
-    cgData.map(row => normalizeName(row["CAREGiver Name"])).filter(Boolean),
-  );
-  const ghLossRawSummary = buildGhLossWeeklyRawSummary(
-    options?.guaranteedRaw ?? guaranteed,
-    rosterEmployeeKeys,
-  );
+  const ghLossRawSummary = buildGhLossWeeklyRawSummary(options?.guaranteedRaw ?? guaranteed);
 
   logger.debug(`\nSCHEDULED HOURS MAP VERIFICATION:`);
   logger.debug(`  Total entries in map: ${scheduledHoursMap.size}`);
@@ -141,9 +135,7 @@ export async function processCapacityData(
   });
 
   if (adhocFromGuaranteed.size > 0) {
-    // Preserve recorded visit hours without treating these people as members
-    // of the current CG roster or adding them to GH-loss targets.
-    logger.debug(`Adding ${adhocFromGuaranteed.size} visit-only employees for recorded hours, excluded from GH-loss targets`);
+    logger.debug(`Adding ${adhocFromGuaranteed.size} employees found in Guaranteed Hours but missing from CG Data`);
     adhocFromGuaranteed.forEach((originalName, norm) => {
       masterEmployees.push({ originalName, normalizedName: norm, weeklyHours: 0, transportMode: "", gender: "" });
       existingNames.add(norm);
