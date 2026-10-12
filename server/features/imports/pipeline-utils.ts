@@ -725,7 +725,10 @@ export function getScheduledHoursForEmployeeAndDate(
  *
  * Only excluded: secondary/multiple care, live-in care, and unpaid cancellations.
  */
-export function buildGhLossWeeklyRawSummary(guaranteed: any[]): GhLossRawSummary {
+export function buildGhLossWeeklyRawSummary(
+  guaranteed: any[],
+  rosterEmployeeKeys: ReadonlySet<string>,
+): GhLossRawSummary {
   // Matches either order of GH annotation: "(30GH)" / "(37.5 GH)" AND the
   // reversed "(GH12)" / "(GH 37.5)" form — both appear across real CG exports.
   const GH_REGEX_LOCAL = /(?:(\d+(?:\.\d+)?)\s*GH\b|\bGH\s*(\d+(?:\.\d+)?))/i;
@@ -741,6 +744,10 @@ export function buildGhLossWeeklyRawSummary(guaranteed: any[]): GhLossRawSummary
     const match = GH_REGEX_LOCAL.exec(nameStr);
     if (!match) continue;
     const normKey = normalizeName(nameStr);
+    // Visit exports retain historical/planned names after a carer leaves.
+    // Only the current CG roster can establish a guaranteed-hours obligation.
+    // Do not use availability membership: active carers can be on leave.
+    if (!rosterEmployeeKeys.has(normKey)) continue;
     if (normKey && !targets[normKey]) {
       const displayName = nameStr
         .replace(/\s*\(\s*(?:\d+(?:\.\d+)?\s*GH|GH\s*\d+(?:\.\d+)?)\s*\)\s*/gi, ' ')

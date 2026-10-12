@@ -3,6 +3,7 @@
 - [Supabase egress / visits bloat](supabase-egress-visits-bloat.md) — check table sizes first when diagnosing egress; upload pipelines must clear/upsert prior rows for a scope before re-inserting or storage grows unbounded.
 - [Scotland postcode territory boundaries](scotland-postcode-territory-boundaries.md) — all 19 territories COMPLETE; rebuild any changed territory via the franchise-territory-builder skill (Voronoi over NRS points, Scotland clip), never buffer-and-dissolve.
 - [GH loss cross-branch credit](gh-loss-cross-branch.md) — carer home branches persisted from CG Data "Branch" column; GH loss credits cross-branch hours to the home branch.
+- [GH-loss roster eligibility](gh-loss-roster-eligibility.md) — CG roster governs GH obligations; lingering visits must not reintroduce leavers. Missing availability alone is not termination.
 - [Enquiry stars byWeek format](enquiry-stars-byweek.md) — starredSelections is `{ byWeek }` for multi-week enquiries with legacy flat-map fallback; always handle both shapes when reading.
 - [Shared processing pipeline paths](shared-processing-pipeline-paths.md) — any ingestion-time fix must be applied to manual upload + both PP automation paths, never just one.
 - [Employee identity key normalization](employee-identity-key-normalization.md) — always derive employee identity keys via the shared normalizeName(); ad hoc key logic silently duplicates people.
