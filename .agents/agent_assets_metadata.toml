@@ -11,7 +11,7 @@ logical_id = "fae40eab-b1ef-41bc-b2a2-6554dea2edea"
 [[outputs]]
 id = "5lQOzoQCpRDW6g1aQBv6a"
 uri = "file://email-update.html"
-type = "text"
+type = "html"
 title = "Platform Update Email — Dashboard & Capacity Outlook"
 logical_id = "80881f80-3263-44f7-9a9c-ea877e038ef7"
 content_type = "text/html"
@@ -57,7 +57,7 @@ logical_id = "e9271ae1-3fab-4845-8e27-1611cf0d347f"
 [[outputs]]
 id = "v1fyFGeB4LBz-557LFIH6"
 uri = "file://attached_assets/announcement-email.html"
-type = "text"
+type = "html"
 title = "Care Capacity — Product Update (announcement email)"
 description = "Ready-to-use HTML for today's announcement email: full Scotland territory map, LIC leaver KPI fix, cross-branch GH Loss fix, and multi-week enquiry matcher."
 logical_id = "4b45907e-a6b0-43ca-aee8-ac6acd8cb701"
@@ -76,3 +76,17 @@ mtime_ms = 1788262505326
 storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:e164a791-856f-4b6d-a70c-3ea20af31226/58654853-b0d9-4cea-85f9-2ebdacff63a1/8e3b4bef-d4ad-470b-9eea-58f6d72e7a1e"
 storage_version_token = "1788262515474837"
 content_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+
+[[outputs]]
+id = "3hkeUqq05Sf9oZ2mFppXz"
+uri = "file://reports/sur-bi-workbook-analysis.html"
+type = "html"
+title = "SUR BI — KPI analysis and implementation blueprint"
+description = "Analysis of Dashboard 1 and the supporting workbook: 48 proposals, definition gaps, source requirements, additional KPIs and a phased rollout plan. Open the report in a browser; it also supports printing to PDF."
+logical_id = "7f77a0b8-8d63-4cdc-9c8b-eb40fe4eaa52"
+content_hash = "sha256:b6b6b4dbfce609cdcac8ca87e2fa76d73f46dd328b9c0ab4432d46d4cf200806"
+size = 34167
+mtime_ms = 1791881523191
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:e164a791-856f-4b6d-a70c-3ea20af31226/7f77a0b8-8d63-4cdc-9c8b-eb40fe4eaa52/63bbe8d0-b30a-4a3f-8538-a2cd599f0fc0"
+storage_version_token = "1791881564292621"
+content_type = "text/html"

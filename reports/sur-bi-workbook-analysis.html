@@ -1,0 +1,241 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SUR BI — Workbook Analysis and Implementation Blueprint</title>
+<style>
+:root{color-scheme:light;--ink:#193328;--muted:#58665f;--line:#dbe3de;--green:#24563c;--paper:#fff;--wash:#f2f6f3}
+*{box-sizing:border-box}body{margin:0;background:var(--wash);color:var(--ink);font:16px/1.65 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+main{max-width:1120px;margin:auto;background:var(--paper);padding:48px 54px}header{border-bottom:3px solid var(--green);padding-bottom:26px}
+.eyebrow{font-size:12px;letter-spacing:.12em;font-weight:700;text-transform:uppercase;color:var(--green)}h1{font-size:36px;line-height:1.18;max-width:820px;margin:12px 0 18px}h2{font-size:25px;line-height:1.3;margin:42px 0 14px}h3{font-size:19px;margin:24px 0 10px}p{margin:10px 0 16px}li{margin:7px 0}
+.meta,.small{font-size:13px;color:var(--muted)}.callout{background:var(--wash);border-left:4px solid var(--green);padding:18px 22px;margin:22px 0}.warning{border-left-color:#9b641d;background:#fff8ec}
+nav{display:flex;flex-wrap:wrap;gap:8px 18px;font-size:14px;padding:20px 0;border-bottom:1px solid var(--line)}a{color:var(--green);text-underline-offset:3px}a:focus-visible{outline:3px solid #9b641d;outline-offset:4px}
+.table-wrap{overflow-x:auto;margin:16px 0 24px}table{width:100%;border-collapse:collapse;font-size:14px;line-height:1.5}th,td{text-align:left;vertical-align:top;border-bottom:1px solid var(--line);padding:11px 12px}th{background:var(--wash);font-weight:650}caption{text-align:left;font-weight:650;padding:0 0 10px}
+strong{font-weight:650}.status{font-size:12px;font-weight:650;white-space:nowrap}.catalogue td:first-child{width:55px}footer{border-top:1px solid var(--line);margin-top:42px;padding-top:20px;color:var(--muted);font-size:13px}
+@media(max-width:720px){main{padding:28px 20px}h1{font-size:28px}h2{font-size:23px}th,td{padding:9px}nav{gap:8px 14px}}
+@media print{body{background:white}main{max-width:none;padding:0}nav{display:none}h2,h3{break-after:avoid}tr,.callout{break-inside:avoid}.table-wrap{overflow:visible}a{color:inherit}}
+</style>
+</head>
+<body><main>
+<header>
+<div class="eyebrow">SUR Group · Research and planning brief</div>
+<h1>SUR BI: from the teams’ KPI workbook to a group-wide performance platform</h1>
+<p><strong>Assessment:</strong> the workbook is a useful business requirements baseline, but not yet an implementation-ready KPI contract. The ambition is wider than a dashboard: it combines performance reporting, accountability, assurance, recovery actions and controlled Board reporting.</p>
+<p class="meta">Prepared 13 October 2026. Primary source: Business Intelligence Platform Development Sept 26 workbook, especially Dashboard 1. Supporting review: KPI Register, Dashboard, Lists, Developer Specification and selected existing SUR BI code.</p>
+</header>
+<nav aria-label="Report contents">
+<a href="#findings">Findings</a><a href="#definitions">Definitions</a><a href="#sources">Source research</a><a href="#additional">Additional KPIs</a><a href="#views">Reporting views</a><a href="#architecture">Architecture</a><a href="#phases">Implementation phases</a><a href="#catalogue">Workbook catalogue</a>
+</nav>
+<div class="callout warning">
+<strong>Evidence boundary.</strong> This workbook contains no entered performance observations in its six-period register, no entered targets and no named KPI owners. It cannot establish whether SUR is currently winning or losing, quantify savings, or prove any integration works. “Automatic” is a workbook classification, not a verified connector. Vendor credentials, accessible API fields, historical coverage, quotas and charges have not been tested in this review.
+</div>
+
+<section id="findings">
+<h2>1. What the organisation is trying to build</h2>
+<p>The intended operating model is: a Local Business Manager or delegate supplies or reviews a result; a Head of Department assures it; Operations compares offices and intervenes; the Board sees approved performance, risk and action summaries. This is supported by scoped access, versioned targets, evidence, audit history and period locking.</p>
+<p>The valuable outcome is not merely putting five systems on one screen. It is producing one trusted view of demand, workforce capacity, care delivery, financial outcomes and compliance, with explanations and owners when results differ from expectations.</p>
+<div class="table-wrap"><table>
+<caption>Observed scope and readiness</caption>
+<thead><tr><th>Evidence</th><th>Finding</th><th>Implication</th></tr></thead><tbody>
+<tr><td>Dashboard 1</td><td>48 named KPI/data proposals; 47 marked Essential.</td><td>This is not meaningfully prioritised. Some proposals are operational records or components, rather than standalone Board KPIs.</td></tr>
+<tr><td>Automation flags</td><td>32 marked Automatic, 5 Manual, 11 neither.</td><td>Separate “desired automation” from implemented, accessible and reconciled automation.</td></tr>
+<tr><td>Presentation flags</td><td>4 marked Main Dashboard; 19 Secondary. One is in both, leaving 26 in neither.</td><td>The navigation and presentation requirements are incomplete. The four Main items are Revenue, Growth %, Net Client Growth and Net C.P Growth.</td></tr>
+<tr><td>KPI Register</td><td>41 rows, but only 39 distinct names: Termination of Care and ToC Reason each appear twice.</td><td>Use one governed definition displayed in multiple views, rather than duplicating the same metric in the data model.</td></tr>
+<tr><td>Developer Specification</td><td>24 functional requirements and 8 open product decisions; baseline assumes manual entry first with an API-ready design.</td><td>The current multi-platform automation ambition needs an explicit ingestion and source-validation specification.</td></tr>
+<tr><td>Existing SUR BI</td><td>Data House, weekly KPI entries and Annual Roadmap provide a starting point. Scoreboards remains a placeholder. The weekly office list currently contains 10 offices.</td><td>Extend the existing section, but replace assumptions of a fixed office list with governed mappings for the full organisation.</td></tr>
+</tbody></table></div>
+<h3>Workbook inconsistencies to resolve before development</h3>
+<ul>
+<li><strong>Different catalogues:</strong> Dashboard 1 has additions such as offer withdrawals, reasons for leaving, visa expiry, sponsorship, salary %, mileage % and scheduling components. The register/specification still assumes 41 rows. Net Profit, Capacity Utilisation and Scheduling Efficiency are in the register but not named in Dashboard 1; its GH measures are also restated differently.</li>
+<li><strong>Formula links have drifted:</strong> Dashboard 1 A21 reads the Total Clients name from register B16, while H21 reads notes from N19. Scheduling cells G66/H66 reference register row 64, although the register ends at row 45. These are examples, not a complete spreadsheet formula audit.</li>
+<li><strong>Fixed summary ranges:</strong> dashboard totals refer to register K5:K45, so added Dashboard 1 proposals are not part of that reporting population.</li>
+<li><strong>Stale values:</strong> “latest non-blank” can make a prior-period result appear current. A selected period with no result must remain missing, with the last known result shown separately and labelled.</li>
+<li><strong>Direction versus trend:</strong> rising and falling trend arrows are not automatically favourable or unfavourable. Lower absence and higher conversion require different interpretation.</li>
+<li><strong>Conversion notes:</strong> the CC-to-SoC note repeats enquiry/consultation wording. Consultation-to-start conversion needs consultation and start-of-care components, not the enquiry denominator.</li>
+<li><strong>Unconfirmed automation:</strong> review sources say “Web page potential?”, and visa/sponsorship have no stated source. Neither can be treated as an implemented automatic feed.</li>
+</ul>
+<p><strong>Recommendation:</strong> preserve the original workbook as workshop evidence, then create a single versioned KPI dictionary and source mapping. Do not translate the spreadsheet cells directly into database columns or freeze “41 KPIs” as a permanent constraint.</p>
+</section>
+
+<section id="definitions">
+<h2>2. The definitions that determine whether the numbers can be trusted</h2>
+<p>Every metric needs an approved name, purpose, business owner, source, grain, reporting calendar, numerator/denominator where applicable, exclusions, direction, aggregation method, target, thresholds, refresh expectations and access classification.</p>
+<div class="table-wrap"><table>
+<thead><tr><th>Measure</th><th>Recommended definition / decision required</th></tr></thead><tbody>
+<tr><td>Revenue and Growth %</td><td>Distinguish operational invoiced revenue from finance-approved recognised revenue. Define VAT, credit notes, accruals and comparable periods. Growth = change ÷ previous comparable value; previous zero needs an explicit display rule.</td></tr>
+<tr><td>Invoiced Hours / Average Client Value</td><td>Separate hour-based invoice lines from day-rate or non-care charges. Client value needs a defined period and distinct billable-client population.</td></tr>
+<tr><td>Enquiry → consultation → start</td><td>Capture dated stage events. Cohort conversion measures the outcome of the same enquiry cohort; starts this month ÷ enquiries this month is a different period-throughput ratio and can be misleading because of lag.</td></tr>
+<tr><td>Total Clients / Net Client Growth</td><td>Define active at period end versus receiving care during the period. Net growth must have an agreed policy for new starts, terminations, reactivations and internal transfers.</td></tr>
+<tr><td>Total C.Ps / Net C.P Growth</td><td>Use distinct worker identities and an agreed active-employment rule. Cross-office working must not duplicate the group headcount. Home office and deployment office are different concepts.</td></tr>
+<tr><td>Retention and Turnover</td><td>Split into separate metrics. Turnover commonly uses leavers ÷ average active headcount and is lower-is-better; retention follows a starting cohort and is higher-is-better. Agree periods and inclusion rules.</td></tr>
+<tr><td>Applications / Offers / Hires</td><td>Distinguish applications from unique candidates and accepted offers from actual starters. Multiple applications from one person must not inflate worker headcount.</td></tr>
+<tr><td>Absence / Sickness / Annual Leave</td><td>Separate categories and their denominators. Desired hours alone are not a reliable universal absence denominator. Decide scheduled/contractual eligible hours, paid status and treatment of leave.</td></tr>
+<tr><td>Capacity Utilisation / Scheduling Efficiency</td><td>Define available billable capacity and distinguish planned from delivered care. Travel share, roster coverage and paid-time utilisation are separate measures; “efficiency” needs a chosen formula.</td></tr>
+<tr><td>Predicted versus Actual GH waste</td><td>Keep forecast based on planned work separate from realised waste based on verified eligible work and pay policy. Credit cross-office work back to the worker’s home office. Cost needs an approved rate and treatment of paid leave/training; unused hours alone are not a complete cost calculation.</td></tr>
+<tr><td>Training Compliance</td><td>Choose in-date completed mandatory assignments ÷ required/due assignments, or fully compliant staff ÷ staff in scope. These are different metrics. Group percentages must be recalculated from their components.</td></tr>
+<tr><td>Support Visits / Supervisions / Appraisals</td><td>Counts are useful activity measures, but due/on-time completion rates are better compliance indicators. Define who is due, frequency and exclusions.</td></tr>
+<tr><td>Gross / Net Profit and Salary %</td><td>Finance must own chart-of-accounts mapping, adjustments and cost allocation. Use approved consolidation/eliminations for the group; do not simply sum entity profit figures and call them consolidated profit.</td></tr>
+<tr><td>Complaints / Reviews</td><td>Pair complaint counts with severity, exposure and resolution performance. Pair review score with review count and platform. Do not average office ratings equally or combine different platforms without a defined method.</td></tr>
+<tr><td>Visa expiry / Sponsorship</td><td>These are restricted workforce records, not standalone general-access KPIs. A useful aggregate is cases due within 30/60/90 days and overdue checks, with authorised case-level drill-down only.</td></tr>
+</tbody></table></div>
+<div class="callout"><strong>Aggregation rule:</strong> revenue and hours usually sum; group headcount needs distinct identities; percentages normally require combined numerators and denominators; a period-end snapshot is not summed over weeks; text reasons are categorical distributions, not numeric totals. Missing and not-applicable must never be treated as zero.</div>
+<p>The existing weekly grid also stores monthly revenue information. If monthly snapshots are repeated in weekly records, summing those weekly rows would double-count monthly revenue. Establish one authoritative entity-and-period result and separate snapshots from movements.</p>
+</section>
+
+<section id="sources">
+<h2>3. Five core streams — plus explicit gaps</h2>
+<p>Agreed core scope: <strong>Xero finance through the existing Joiin reporting route where suitable; Zoho CRM; People Planner/Care Capacity; Jobtrain; Lumis.</strong> Zoho Books is not used and is out of scope. Joiin is the existing finance consolidation/reporting layer, not a sixth operational business system.</p>
+<div class="table-wrap"><table>
+<thead><tr><th>Source</th><th>Intended contribution</th><th>Research acceptance gate</th></tr></thead><tbody>
+<tr><td>Xero / Joiin</td><td>Approved revenue, profit, salary-related accounts, budget comparisons and potentially cash/debtor measures.</td><td>Confirm Joiin Connect can supply the exact approved reports, entity IDs, periods, adjustments and consolidated eliminations needed. Validate coverage of approximately 21 Xero organisations and commercial terms; do not build a duplicate Xero pipeline unnecessarily.</td></tr>
+<tr><td>Zoho CRM</td><td>Enquiries, lead sources, consultations, starts, losses and funnel stage dates.</td><td>Inspect the actual tenant’s modules, custom fields, stages, branch mapping and historical events. Verify OAuth permissions, quotas and whether start-of-care is authoritative here or needs reconciliation to People Planner.</td></tr>
+<tr><td>People Planner / Care Capacity</td><td>Clients, workers, scheduled care, available capacity, GH measures, absence and relevant tasks/events.</td><td>Retain existing report automation where there is no API access. Confirm each required export, cadence, date semantics and whether data describes plans or actual completed activity.</td></tr>
+<tr><td>Jobtrain</td><td>Applications, recruitment stages, interviews, no-shows, offers, withdrawals and starters.</td><td>Obtain vendor-approved access and field documentation, history, change timestamps, office/job mappings, quotas and any fees. Confirm actual-start data and how a candidate becomes a worker.</td></tr>
+<tr><td>Lumis</td><td>Required learning, completion, expiry and workforce training compliance.</td><td>The public LMS page lists API access under Pro; confirm the contracted package, technical documentation, auth, accessible mandatory/expiry fields, office identifiers, history and charges.</td></tr>
+</tbody></table></div>
+<h3>Not automatically covered by those five streams</h3>
+<ul>
+<li><strong>Payroll and HR:</strong> exact wage costs, employment history, visa/right-to-work records and sponsorship may require approved payroll/HR data or controlled manual imports.</li>
+<li><strong>Public review platforms:</strong> Homecare.co.uk, Google and Trustist are additional feeds. Prefer approved APIs, authorised exports or an agreed aggregator. “Web page potential” is not permission to scrape or proof of access.</li>
+<li><strong>Actual care outcomes:</strong> completed/missed/late visits require reliable attendance/outcome data; a schedule alone proves only the plan.</li>
+<li><strong>Quality and safeguarding:</strong> complaint classifications, incidents and action outcomes may need task/event exports or a separate governed input process.</li>
+</ul>
+<h3>Vendor/source checklist</h3>
+<p>For each source, obtain: account/package owner; read-only access method; exact fields and example payload/report; stable IDs; all entity coverage; oldest available history; timezone/date semantics; pagination and rate limits; retries and change detection; deletion/correction behaviour; service terms and costs; and a small approved sample for reconciliation. Public API availability alone does not close this research.</p>
+</section>
+
+<section id="additional">
+<h2>4. Additional measures worth considering</h2>
+<p>These are recommendations, not confirmed available data or an instruction to build all of them. Add only those with an owner, a decision they influence and a validated source.</p>
+<div class="table-wrap"><table>
+<thead><tr><th>Area</th><th>Recommended additions</th><th>Why useful</th></tr></thead><tbody>
+<tr><td>Finance</td><td>Gross profit margin; actual versus approved budget; overdue debtors/ageing; cash position; revenue and direct labour cost per delivered hour.</td><td>Revenue growth alone does not show profitability or cash risk. Hour economics need cost allocation and comparable service units.</td></tr>
+<tr><td>Commercial</td><td>Enquiry response time; lead-source conversion; days from enquiry to first care; lost/declined demand hours with reasons.</td><td>Shows whether demand is being converted promptly and where capacity or process prevents growth.</td></tr>
+<tr><td>Recruitment</td><td>Offer-to-actual-start conversion; time-to-hire and time-to-first-shift; 90-day new-starter retention.</td><td>Applications and offers do not necessarily create deployable capacity.</td></tr>
+<tr><td>Operations</td><td>Planned versus delivered care; uncovered demand; cancellations by reason; client hours at risk; forecast versus actual GH waste.</td><td>Links workforce capacity to realised service and revenue, and exposes forward risk.</td></tr>
+<tr><td>Training / workforce</td><td>Overdue mandatory training; training due within 30/60/90 days; supervision/appraisal on-time completion; restricted right-to-work exceptions.</td><td>A current compliance percentage alone does not expose approaching expiry or uncompleted checks.</td></tr>
+<tr><td>Quality</td><td>Complaint rate with severity; response/resolution within SLA; overdue material quality actions.</td><td>Low reported counts alone do not prove high-quality care or an effective reporting culture.</td></tr>
+<tr><td>Data / management control</td><td>Completeness, freshness, reconciliation status and overdue recovery actions.</td><td>Leaders need to know whether a result is trustworthy and whether corrective work is happening.</td></tr>
+</tbody></table></div>
+</section>
+
+<section id="views">
+<h2>5. Different teams need different views</h2>
+<p><strong>Board:</strong> approximately 12–15 approved headline indicators, targets, trends, material exceptions and action summaries. Proposed areas: revenue/budget; profit margin; cash/debt risk where available; care hours; net client growth; enquiry conversion; demand/capacity gap; workforce growth/retention; GH waste; training compliance; material quality risk; and reporting completeness.</p>
+<p><strong>Heads of Department:</strong> full functional KPI catalogue, comparable office results, distribution, assurance queue, recurring causes and action ownership.</p>
+<p><strong>Local Managers:</strong> office scorecard, forward capacity risks, due submissions, exceptions and recovery actions. <strong>KPI delegates:</strong> only assigned measures and office scopes, with a work queue.</p>
+<p>Retain the specification’s separation between working commentary and approved Board commentary. Do not present individual candidates, sickness details, visa documents or unrestricted staff training histories on the general Board dashboard. Administrative privileges should not automatically grant unrestricted business-data access.</p>
+<p>Root-cause choices currently focus on Capacity, Enquiry, Both, Other and Not identified. Expand governed cause categories by function—for example recruitment delay, data quality, training expiry, cost movement and client churn—without collecting unnecessary sensitive details.</p>
+</section>
+
+<section id="architecture">
+<h2>6. Recommended architecture: extend SUR BI, isolate the reporting work</h2>
+<p>Keep the existing SUR BI user experience and shared login initially. Do not create a competing application simply because there are more sources. Separate the reporting modules and background integration jobs from interactive care scheduling, so reporting failures or heavy syncs do not block operational work.</p>
+<ol>
+<li><strong>Source ingestion:</strong> Hetzner/server-side connectors, existing People Planner reports, and controlled manual submissions/imports. Secrets and OAuth tokens stay on the server, with access controls and encryption; not in the browser.</li>
+<li><strong>Master data:</strong> map source organisation IDs to legal entities, operating offices, departments and the group. Approximately 21 Xero organisations must not be assumed to equal the current 10 BI offices. Allow one-to-many mappings and effective dates.</li>
+<li><strong>Normalised reporting facts:</strong> store dated events, period values and ratio components with source lineage. Use stable source IDs and idempotent upserts; repeated imports must not duplicate rows.</li>
+<li><strong>Governed calculation layer:</strong> versioned metric definitions, targets and applicability; correct group aggregation; approved calendar; reconciliation and freshness rules.</li>
+<li><strong>Performance workflow:</strong> review/approval, commentary, recovery actions, evidence controls and frozen published periods with governed corrections.</li>
+<li><strong>Role-specific reporting:</strong> Board, Operations, departmental, local and delegate views, with server-side office/department/KPI authorization applied equally to APIs and exports.</li>
+</ol>
+<p>Preserve the current database and ingestion routes unless there is a separately justified and approved change. Dedicated reporting tables/schema and jobs may be sufficient initially; decide whether a separate reporting database is needed after measuring actual volume and operational load, not simply the platform count.</p>
+<h3>Operational reliability</h3>
+<ul>
+<li>Use pagination, bounded batches, provider-wide rate budgets, retry/backoff and saved checkpoints. Avoid a full historical sync on a dashboard request.</li>
+<li>Track each run’s scope, received/expected coverage, validation failures and completion state. Partial data must not silently publish as a complete group result.</li>
+<li>Expose last successful sync, source period, data completeness and stale status. The last approved value can remain visible during an outage, clearly labelled.</li>
+<li>Keep weekly operations and monthly closed finance as distinct reporting calendars. Near-real-time reflection of approval does not mean every vendor source refreshes every 15 minutes.</li>
+<li>Validate retention, vendor agreements, legal basis, restricted employee/candidate fields and recovery arrangements with information governance. Retain only necessary source detail; do not log credentials or sensitive record contents.</li>
+</ul>
+</section>
+
+<section id="phases">
+<h2>7. A phased programme with clear acceptance gates</h2>
+<div class="table-wrap"><table>
+<thead><tr><th>Phase</th><th>Work and output</th><th>Exit criterion</th></tr></thead><tbody>
+<tr><td>0 · Research and agreement</td><td>Reconcile Dashboard 1/register; prioritise the catalogue; obtain source samples/docs; agree metric definitions, calendars, office/entity mapping and owners.</td><td>Every pilot KPI has a signed definition, accessible source fields, aggregation rule and reconciliation reference. Unknowns are assigned, not assumed away.</td></tr>
+<tr><td>1 · Reporting foundation</td><td>Extend existing SUR BI with governed office hierarchy, metric registry, targets, authorization, freshness/completeness and integration-run tracking.</td><td>Group/office/department scopes work in UI, API and exports; missing differs from zero; duplicate imports are safe.</td></tr>
+<tr><td>2 · Finance and operations pilot</td><td>Use a small representative set of offices/entities, agreed historical periods, finance/Joiin outputs and existing People Planner/Care Capacity data.</td><td>Finance-approved revenue/profit and operational totals reconcile to source reports; planned and actual measures are not mixed; operational scheduling is unaffected.</td></tr>
+<tr><td>3 · Commercial and recruitment</td><td>Add Zoho CRM and Jobtrain lifecycle data, office mappings, cohort/period conversion and hiring-to-capacity analysis.</td><td>Sample enquiries and candidates trace correctly through stages; counts reconcile; repeated candidates and applications are not conflated.</td></tr>
+<tr><td>4 · Training and quality</td><td>Add Lumis mandatory compliance/expiry, supervision/appraisal measures and confirmed quality/review feeds. Keep restricted HR exceptions separate.</td><td>Mandatory populations and due dates reconcile; sensitive drill-down is limited; approaching expiry is visible.</td></tr>
+<tr><td>5 · Assurance and group rollout</td><td>Complete submissions/approvals, actions, period locks, approved Board exports, training, monitoring and expansion to all applicable offices.</td><td>Published periods are reproducible, permissions pass testing, source failures are disclosed, business owners accept results and recovery is rehearsed.</td></tr>
+</tbody></table></div>
+<p>Vendor-access research can run in parallel; metric and entity agreement must precede final calculation design. Do not wait for every API to deliver initial value: controlled imports can support a pilot, clearly labelled with their provenance and refresh status.</p>
+<h3>Ownership and estimating</h3>
+<p>Appoint a business sponsor, a product/operations owner, finance and functional KPI owners, technical/data engineering ownership and information-governance review. Integration access should have a named owner per supplier.</p>
+<p>A defensible cost or delivery estimate requires vendor enablement/fees, required history, actual field samples, entity mapping, access personas, peak user/load assumptions and agreed pilot scope. This review does not invent a return-on-investment figure or a guaranteed implementation timescale.</p>
+<h3>First planning decisions</h3>
+<ol>
+<li>Agree the small Board/pilot KPI set, rather than declaring 47 measures equally essential.</li>
+<li>Approve weekly/monthly calendars, “active client/worker” definitions and source-of-truth rules.</li>
+<li>Map legal entities, offices and all source identifiers before joining data.</li>
+<li>Obtain actual Joiin, Zoho CRM, Jobtrain and Lumis data-access samples and terms.</li>
+<li>Agree who can contribute, assure and publish, including rules for automatically imported results.</li>
+<li>Define reconciliation tolerances, refresh expectations and publication conditions.</li>
+</ol>
+</section>
+
+<section id="catalogue">
+<h2>Appendix · Dashboard 1’s 48 named proposals</h2>
+<p class="small">Rows and classifications below are from Dashboard 1, not verified production integrations. “Unset” means neither Manual nor Automatic is checked. Sources have been normalised for readability; “Derived” retains workbook calculation intent, not an approved calculation specification.</p>
+<div class="table-wrap"><table class="catalogue">
+<thead><tr><th>Row</th><th>Area / proposal</th><th>Workbook source / intent</th><th>Flag</th></tr></thead><tbody>
+<tr><td>10</td><td>Commercial · Revenue</td><td>Invoice Summary Report</td><td>Automatic</td></tr>
+<tr><td>11</td><td>Growth %</td><td>Derived from weekly revenue</td><td>Automatic</td></tr>
+<tr><td>12</td><td>Invoiced Hours</td><td>Derived from Invoice Summary</td><td>Automatic</td></tr>
+<tr><td>13</td><td>Average Client Value</td><td>Derived from Invoice Summary</td><td>Automatic</td></tr>
+<tr><td>14</td><td>Enquiries</td><td>Zoho CRM; investigate automation</td><td>Manual</td></tr>
+<tr><td>15</td><td>Consultations Completed</td><td>Zoho CRM; investigate automation</td><td>Manual</td></tr>
+<tr><td>16</td><td>Enquiry to Consultation Conversion %</td><td>Derived / possible CRM automation</td><td>Automatic</td></tr>
+<tr><td>17</td><td>Start of Care</td><td>Zoho CRM; investigate automation</td><td>Manual</td></tr>
+<tr><td>18</td><td>Consultation to Start-of-Care Conversion %</td><td>Derived; denominator note needs correction</td><td>Automatic</td></tr>
+<tr><td>21</td><td>Clients · Total Clients</td><td>Care Capacity</td><td>Automatic</td></tr>
+<tr><td>22</td><td>Net Client Growth</td><td>Care Capacity; period comparison</td><td>Automatic</td></tr>
+<tr><td>23</td><td>Termination of Care</td><td>People Planner report</td><td>Automatic</td></tr>
+<tr><td>24</td><td>Termination-of-Care Reason</td><td>People Planner report</td><td>Automatic</td></tr>
+<tr><td>25</td><td>Complaints</td><td>People Planner Events Report</td><td>Automatic</td></tr>
+<tr><td>26</td><td>Homecare.co.uk Reviews</td><td>Web page potential; unconfirmed</td><td>Automatic</td></tr>
+<tr><td>27</td><td>Google Reviews</td><td>Web page potential; unconfirmed</td><td>Automatic</td></tr>
+<tr><td>28</td><td>Trustist Reviews</td><td>Possible aggregation of review sources; unconfirmed</td><td>Automatic</td></tr>
+<tr><td>32</td><td>Workforce · Total C.Ps</td><td>Care Capacity; duplicate warning</td><td>Automatic</td></tr>
+<tr><td>33</td><td>Total Applications</td><td>Jobtrain</td><td>Automatic</td></tr>
+<tr><td>34</td><td>Total Interviews Completed</td><td>Jobtrain</td><td>Automatic</td></tr>
+<tr><td>35</td><td>Total Interview No-Shows</td><td>Jobtrain</td><td>Automatic</td></tr>
+<tr><td>36</td><td>Total Job Offers Given</td><td>Jobtrain</td><td>Automatic</td></tr>
+<tr><td>37</td><td>Candidates Withdrawn After Offer</td><td>Jobtrain; only proposal not marked Essential</td><td>Unset</td></tr>
+<tr><td>38</td><td>Net C.P Growth</td><td>Care Capacity</td><td>Automatic</td></tr>
+<tr><td>39</td><td>Application-to-Hire Conversion %</td><td>Derived</td><td>Automatic</td></tr>
+<tr><td>40</td><td>Total C.P Leavers</td><td>Care Capacity; entered by schedulers</td><td>Automatic</td></tr>
+<tr><td>41</td><td>C.P Retention and/or Turnover</td><td>Derived; split definitions</td><td>Automatic</td></tr>
+<tr><td>42</td><td>C.P Reason for Leaving</td><td>Care Capacity</td><td>Automatic</td></tr>
+<tr><td>43</td><td>Visa Expiry Due Date</td><td>No stated source</td><td>Automatic</td></tr>
+<tr><td>44</td><td>Sponsorship</td><td>No stated source</td><td>Automatic</td></tr>
+<tr><td>45</td><td>Absence</td><td>Care Capacity; denominator needs agreement</td><td>Automatic</td></tr>
+<tr><td>46</td><td>Annual Leave % of Revenue</td><td>Care Capacity; cost calculation incomplete</td><td>Automatic</td></tr>
+<tr><td>50</td><td>Operational · Support Visits</td><td>People Planner task matrix</td><td>Automatic</td></tr>
+<tr><td>51</td><td>Supervisions</td><td>People Planner task matrix</td><td>Automatic</td></tr>
+<tr><td>52</td><td>Appraisals</td><td>People Planner task matrix</td><td>Automatic</td></tr>
+<tr><td>53</td><td>Training Compliance Score</td><td>Lumis</td><td>Automatic</td></tr>
+<tr><td>54</td><td>Training Cost % of Revenue</td><td>Investigate unavailable/visit classification</td><td>Unset</td></tr>
+<tr><td>58</td><td>Finance · Gross Profit</td><td>Monthly management accounts</td><td>Manual</td></tr>
+<tr><td>59</td><td>Salary %</td><td>Monthly management accounts</td><td>Manual</td></tr>
+<tr><td>60</td><td>Mileage % of Revenue</td><td>People Planner report</td><td>Unset</td></tr>
+<tr><td>61</td><td>GH Wastage</td><td>Source/cost definition unresolved</td><td>Unset</td></tr>
+<tr><td>66</td><td>Scheduling · Non-Revenue Visits % of Revenue</td><td>No stated source; formula references outside register</td><td>Unset</td></tr>
+<tr><td>67</td><td>Desired Hours</td><td>No stated source in this section</td><td>Unset</td></tr>
+<tr><td>68</td><td>Unavailable</td><td>No stated source in this section</td><td>Unset</td></tr>
+<tr><td>69</td><td>Predicted GH Waste / Unused GH Capacity</td><td>No stated source in this section</td><td>Unset</td></tr>
+<tr><td>70</td><td>Actual GH Waste / Unused GH Capacity</td><td>No stated source in this section</td><td>Unset</td></tr>
+<tr><td>71</td><td>Sickness</td><td>No stated source in this section</td><td>Unset</td></tr>
+<tr><td>72</td><td>Annual Leave Hours / £</td><td>No stated source in this section</td><td>Unset</td></tr>
+</tbody></table></div>
+</section>
+<footer>
+<p><strong>Sources and limitations:</strong> workbook sheets/cells were inspected with formula and cached-value views. KPI catalogue counts exclude section headings and blank rows. Register observation range is E5:J45; target/owner ranges are L5:L45 and P5:P45. No actual vendor data, connector call or account settings were examined.</p>
+<p>The existing-code check was limited to the SUR BI weekly KPI repository/grid, scoreboard page and navigation references. It was not a complete architecture, security or performance audit.</p>
+<p>Relevant supplier references already discussed: <a href="https://www.joiin.co/features/joiin-connect/">Joiin Connect</a> and <a href="https://mylearningcloud.org.uk/learning-management-system/">Lumis LMS</a>. Public product statements do not establish this organisation’s contracted access.</p>
+<p>This is a static research report. It makes no network requests and contains no credentials or personal performance records. The application and original workbook have not been changed.</p>
+</footer>
+</main></body></html>
