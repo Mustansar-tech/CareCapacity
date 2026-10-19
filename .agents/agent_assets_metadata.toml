@@ -90,3 +90,31 @@ mtime_ms = 1791881523191
 storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:e164a791-856f-4b6d-a70c-3ea20af31226/7f77a0b8-8d63-4cdc-9c8b-eb40fe4eaa52/63bbe8d0-b30a-4a3f-8538-a2cd599f0fc0"
 storage_version_token = "1791881564292621"
 content_type = "text/html"
+
+[[outputs]]
+id = "KnR5P0DW376e30G0i-is0"
+uri = "file://reports/sur-bi-source-map-slide.pdf"
+type = "pdf"
+title = "SUR BI data-source slide (PDF)"
+description = "One-page, 16:9 slide ready to present or share."
+logical_id = "a3001688-c78a-4d19-8432-d3cc9782bd25"
+content_hash = "sha256:1e099c5aa66f89c8ea7b605753bff24ed4a78c271df1cb2cb7d9c7ef06f484ca"
+size = 253123
+mtime_ms = 1792400377782
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:e164a791-856f-4b6d-a70c-3ea20af31226/a3001688-c78a-4d19-8432-d3cc9782bd25/02c46937-6308-4ab3-a3a9-a5708e50befc"
+storage_version_token = "1792400411374681"
+content_type = "application/pdf"
+
+[[outputs]]
+id = "nJGbKeblCnlr04Djf7duq"
+uri = "file://reports/sur-bi-source-map-slide.png"
+type = "image"
+title = "SUR BI data-source slide (PNG)"
+description = "1600 × 900 slide image for inserting into an existing PowerPoint or Google Slides deck."
+logical_id = "f3d149bb-7f88-4763-b912-82172adccb15"
+content_hash = "sha256:f0c3adcc3d1c0fb535a38f04368440d97fe9ac9f8905abef03cf48844a495705"
+size = 261989
+mtime_ms = 1792400377294
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:e164a791-856f-4b6d-a70c-3ea20af31226/f3d149bb-7f88-4763-b912-82172adccb15/ed5552f4-3757-46ec-b0f6-9118ec0acb35"
+storage_version_token = "1792400412282767"
+content_type = "image/png"

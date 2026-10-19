@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SUR BI — connected data sources</title>
+  <style>
+    :root { color-scheme: light; }
+    * { box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; margin: 0; }
+    body {
+      display: grid;
+      place-items: center;
+      background: #dfe7e1;
+      font-family: Inter, "Aptos", "Segoe UI", Arial, sans-serif;
+      color: #17382f;
+    }
+    .slide {
+      width: min(100vw, 177.7778vh);
+      aspect-ratio: 16 / 9;
+      background: #f5f7f4;
+      overflow: hidden;
+      box-shadow: 0 20px 70px rgba(21, 48, 37, .18);
+    }
+    svg { display: block; width: 100%; height: 100%; }
+    @media print {
+      @page { size: 13.333in 7.5in; margin: 0; }
+      html, body { width: 13.333in; height: 7.5in; background: #f5f7f4; }
+      .slide { width: 13.333in; height: 7.5in; box-shadow: none; }
+    }
+  </style>
+</head>
+<body>
+<main class="slide" aria-label="SUR BI data-source overview slide">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" role="img" aria-labelledby="slide-title slide-desc">
+  <title id="slide-title">SUR BI — one view of the whole organisation</title>
+  <desc id="slide-desc">Five proposed data feeds—Xero through Joiin, Zoho CRM, People Planner and Care Capacity, Jobtrain, and Lumis—flow into SUR BI. Connections and source access remain subject to validation.</desc>
+  <defs>
+    <linearGradient id="hub" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#1b513f"/>
+      <stop offset="1" stop-color="#10372d"/>
+    </linearGradient>
+    <linearGradient id="headerWash" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#eaf2ec"/>
+      <stop offset="1" stop-color="#f5f7f4"/>
+    </linearGradient>
+    <filter id="softShadow" x="-20%" y="-20%" width="140%" height="150%">
+      <feDropShadow dx="0" dy="10" stdDeviation="14" flood-color="#1d3c30" flood-opacity=".09"/>
+    </filter>
+    <marker id="arrowFinance" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto">
+      <path d="M0 0L10 5L0 10Z" fill="#b18a47"/>
+    </marker>
+    <marker id="arrowCrm" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto">
+      <path d="M0 0L10 5L0 10Z" fill="#4674a6"/>
+    </marker>
+    <marker id="arrowCare" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto">
+      <path d="M0 0L10 5L0 10Z" fill="#3e8868"/>
+    </marker>
+    <marker id="arrowJobs" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto">
+      <path d="M0 0L10 5L0 10Z" fill="#bd7054"/>
+    </marker>
+    <marker id="arrowLearning" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto">
+      <path d="M0 0L10 5L0 10Z" fill="#8170a8"/>
+    </marker>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1600" height="900" fill="#f5f7f4"/>
+  <path d="M0 0H1600V208H0Z" fill="url(#headerWash)"/>
+  <circle cx="1490" cy="95" r="155" fill="#dce9df" opacity=".44"/>
+  <circle cx="1540" cy="150" r="82" fill="#cbded0" opacity=".24"/>
+  <path d="M0 208H1600" stroke="#e2e9e3" stroke-width="2"/>
+
+  <!-- Header -->
+  <g>
+    <rect x="78" y="48" width="34" height="34" rx="10" fill="#1d563f"/>
+    <path d="M87 59h7v7h-7zm10 0h7v7h-7zm-10 10h7v7h-7zm10 0h7v7h-7z" fill="#e9f2eb"/>
+    <text x="126" y="63" class="eyebrow" fill="#315545" font-size="15" font-weight="700" letter-spacing="2">SUR GROUP  /  BUSINESS INTELLIGENCE</text>
+    <text x="78" y="139" fill="#17382f" font-size="43" font-weight="730" letter-spacing="-1.2">One view of the whole organisation</text>
+    <text x="80" y="177" fill="#64756b" font-size="19" font-weight="450">Connecting finance, demand, care delivery, workforce and learning in SUR BI</text>
+    <g transform="translate(1232 54)">
+      <rect width="290" height="42" rx="21" fill="#fff7e8" stroke="#e7d6b6"/>
+      <circle cx="22" cy="21" r="5" fill="#b98639"/>
+      <text x="39" y="26" fill="#775d30" font-size="12" font-weight="750" letter-spacing="1.25">PROPOSED DATA CONNECTIONS</text>
+    </g>
+  </g>
+
+  <!-- Source-to-hub connectors, behind all cards -->
+  <g fill="none" stroke-linecap="round" stroke-width="3.5">
+    <path d="M445 358C500 358 508 410 566 429" stroke="#b18a47" stroke-dasharray="7 8" marker-end="url(#arrowFinance)"/>
+    <path d="M1155 358C1100 358 1092 410 1034 429" stroke="#4674a6" stroke-dasharray="7 8" marker-end="url(#arrowCrm)"/>
+    <path d="M445 587C503 587 512 547 566 540" stroke="#3e8868" stroke-dasharray="7 8" marker-end="url(#arrowCare)"/>
+    <path d="M1155 587C1097 587 1088 547 1034 540" stroke="#bd7054" stroke-dasharray="7 8" marker-end="url(#arrowJobs)"/>
+    <path d="M800 711C800 684 800 664 800 635" stroke="#8170a8" stroke-dasharray="7 8" marker-end="url(#arrowLearning)"/>
+  </g>
+
+  <!-- Finance source -->
+  <g filter="url(#softShadow)">
+    <rect x="82" y="253" width="364" height="204" rx="22" fill="#fff" stroke="#e2e8e3"/>
+    <rect x="82" y="253" width="7" height="204" rx="3.5" fill="#b18a47"/>
+  </g>
+  <g>
+    <circle cx="119" cy="290" r="17" fill="#f4efe4"/>
+    <path d="M119 280v20m6-15c-1.6-2-3.6-3-6-3-3 0-5 1.4-5 3.4 0 2.1 1.7 2.8 5 3.6 3.4.8 5 1.7 5 3.8 0 2.1-2.1 3.5-5.2 3.5-2.6 0-4.7-1-6.2-2.9" fill="none" stroke="#9b793f" stroke-width="1.8" stroke-linecap="round"/>
+    <text x="148" y="295" fill="#9a7a43" font-size="12" font-weight="750" letter-spacing="1.5">FINANCE</text>
+    <text x="108" y="339" fill="#203d32" font-size="26" font-weight="720">Xero <tspan fill="#a2aca5" font-weight="400">→</tspan> Joiin</text>
+    <text x="108" y="370" fill="#576a60" font-size="16">≈21 Xero organisations · Joiin</text>
+    <rect x="108" y="395" width="290" height="1" fill="#edf0ed"/>
+    <text x="108" y="424" fill="#718077" font-size="14">Revenue · costs · profit · group reporting</text>
+    <circle cx="422" cy="358" r="6" fill="#b18a47" stroke="#fff" stroke-width="3"/>
+  </g>
+
+  <!-- Commercial source -->
+  <g filter="url(#softShadow)">
+    <rect x="1154" y="253" width="364" height="204" rx="22" fill="#fff" stroke="#e2e8e3"/>
+    <rect x="1511" y="253" width="7" height="204" rx="3.5" fill="#4674a6"/>
+  </g>
+  <g>
+    <circle cx="1192" cy="290" r="17" fill="#eaf0f7"/>
+    <path d="M1183 286h18l-7 8v7l-4 2v-9z" fill="none" stroke="#4674a6" stroke-width="1.8" stroke-linejoin="round"/>
+    <text x="1221" y="295" fill="#4674a6" font-size="12" font-weight="750" letter-spacing="1.5">COMMERCIAL</text>
+    <text x="1180" y="339" fill="#203d32" font-size="26" font-weight="720">Zoho CRM</text>
+    <text x="1180" y="370" fill="#576a60" font-size="16">Enquiries · consultations · conversion</text>
+    <rect x="1180" y="395" width="290" height="1" fill="#edf0ed"/>
+    <text x="1180" y="424" fill="#718077" font-size="14">Funnel stages · branch mapping to confirm</text>
+    <circle cx="1178" cy="358" r="6" fill="#4674a6" stroke="#fff" stroke-width="3"/>
+  </g>
+
+  <!-- Care operations source -->
+  <g filter="url(#softShadow)">
+    <rect x="82" y="486" width="364" height="204" rx="22" fill="#fff" stroke="#e2e8e3"/>
+    <rect x="82" y="486" width="7" height="204" rx="3.5" fill="#3e8868"/>
+  </g>
+  <g>
+    <circle cx="119" cy="523" r="17" fill="#eaf3ed"/>
+    <path d="M110 530v-2c0-3 2-5 5-5h8c3 0 5 2 5 5v2m-17-10a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7zm14 0a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7z" fill="none" stroke="#3e8868" stroke-width="1.7" stroke-linecap="round"/>
+    <text x="148" y="528" fill="#3e8868" font-size="12" font-weight="750" letter-spacing="1.35">CARE OPERATIONS</text>
+    <text x="108" y="577" fill="#203d32" font-size="22" font-weight="720">People Planner +</text>
+    <text x="108" y="604" fill="#203d32" font-size="22" font-weight="720">Care Capacity</text>
+    <text x="108" y="641" fill="#576a60" font-size="15">Clients · care hours · workforce · capacity</text>
+    <text x="108" y="667" fill="#718077" font-size="13">Existing reports and automation route</text>
+    <circle cx="422" cy="587" r="6" fill="#3e8868" stroke="#fff" stroke-width="3"/>
+  </g>
+
+  <!-- Recruitment source -->
+  <g filter="url(#softShadow)">
+    <rect x="1154" y="486" width="364" height="204" rx="22" fill="#fff" stroke="#e2e8e3"/>
+    <rect x="1511" y="486" width="7" height="204" rx="3.5" fill="#bd7054"/>
+  </g>
+  <g>
+    <circle cx="1192" cy="523" r="17" fill="#f6ece8"/>
+    <rect x="1183" y="516" width="18" height="14" rx="2" fill="none" stroke="#bd7054" stroke-width="1.7"/>
+    <path d="M1188 516v-3h8v3m-13 5h18m-12 0v2m6-2v2" fill="none" stroke="#bd7054" stroke-width="1.7" stroke-linecap="round"/>
+    <text x="1221" y="528" fill="#a35f47" font-size="12" font-weight="750" letter-spacing="1.5">RECRUITMENT</text>
+    <text x="1180" y="577" fill="#203d32" font-size="26" font-weight="720">Jobtrain</text>
+    <text x="1180" y="611" fill="#576a60" font-size="16">Applications · interviews · offers</text>
+    <rect x="1180" y="632" width="290" height="1" fill="#edf0ed"/>
+    <text x="1180" y="660" fill="#718077" font-size="14">Candidate stage data · access to confirm</text>
+    <circle cx="1178" cy="587" r="6" fill="#bd7054" stroke="#fff" stroke-width="3"/>
+  </g>
+
+  <!-- Learning source -->
+  <g filter="url(#softShadow)">
+    <rect x="621" y="712" width="358" height="132" rx="22" fill="#fff" stroke="#e2e8e3"/>
+    <rect x="621" y="712" width="7" height="132" rx="3.5" fill="#8170a8"/>
+  </g>
+  <g>
+    <circle cx="660" cy="750" r="17" fill="#f0edf6"/>
+    <path d="M651 744h14a3 3 0 0 1 3 3v12h-14a3 3 0 0 0-3 3zm0 0v15a3 3 0 0 1 3-3m4-8h6m-6 5h6" fill="none" stroke="#8170a8" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="689" y="755" fill="#8170a8" font-size="12" font-weight="750" letter-spacing="1.5">LEARNING &amp; COMPLIANCE</text>
+    <text x="650" y="793" fill="#203d32" font-size="23" font-weight="720">Lumis</text>
+    <text x="735" y="792" fill="#576a60" font-size="15">Training · completion · expiry</text>
+    <text x="650" y="822" fill="#718077" font-size="13">API access and available fields to confirm</text>
+    <circle cx="800" cy="722" r="6" fill="#8170a8" stroke="#fff" stroke-width="3"/>
+  </g>
+
+  <!-- Central SUR BI hub -->
+  <g filter="url(#softShadow)">
+    <rect x="554" y="383" width="492" height="254" rx="30" fill="url(#hub)"/>
+  </g>
+  <g>
+    <rect x="584" y="407" width="192" height="27" rx="13.5" fill="#ffffff" opacity=".12"/>
+    <circle cx="601" cy="420.5" r="4" fill="#9dd5b4"/>
+    <text x="614" y="425" fill="#d9ece0" font-size="11" font-weight="750" letter-spacing="1.35">GROUP PERFORMANCE LAYER</text>
+    <text x="584" y="484" fill="#fff" font-size="48" font-weight="760" letter-spacing="-1.5">SUR BI</text>
+    <text x="586" y="516" fill="#d7e7dc" font-size="18" font-weight="500">One governed view of group performance</text>
+    <text x="586" y="545" fill="#bdd1c4" font-size="14">For the Board · leaders · managers · teams</text>
+    <path d="M584 563H1016" stroke="#ffffff" stroke-opacity=".18"/>
+    <g font-size="12" font-weight="650" text-anchor="middle">
+      <rect x="584" y="582" width="91" height="31" rx="15.5" fill="#ffffff" opacity=".12"/>
+      <text x="629.5" y="602" fill="#eef6f0">Targets</text>
+      <rect x="685" y="582" width="83" height="31" rx="15.5" fill="#ffffff" opacity=".12"/>
+      <text x="726.5" y="602" fill="#eef6f0">Trends</text>
+      <rect x="778" y="582" width="105" height="31" rx="15.5" fill="#ffffff" opacity=".12"/>
+      <text x="830.5" y="602" fill="#eef6f0">Exceptions</text>
+      <rect x="893" y="582" width="89" height="31" rx="15.5" fill="#ffffff" opacity=".12"/>
+      <text x="937.5" y="602" fill="#eef6f0">Actions</text>
+    </g>
+  </g>
+
+  <!-- Bottom note -->
+  <path d="M78 866H1522" stroke="#dce5dd" stroke-width="1.5"/>
+  <text x="80" y="888" fill="#68786e" font-size="12" font-weight="650" letter-spacing=".75">ILLUSTRATIVE TARGET STATE</text>
+  <text x="1520" y="888" fill="#68786e" font-size="12" text-anchor="end">Source access · KPI definitions · office mapping subject to validation</text>
+</svg>
+</main>
+</body>
+</html>
