@@ -118,3 +118,17 @@ mtime_ms = 1792400377294
 storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:e164a791-856f-4b6d-a70c-3ea20af31226/f3d149bb-7f88-4763-b912-82172adccb15/ed5552f4-3757-46ec-b0f6-9118ec0acb35"
 storage_version_token = "1792400412282767"
 content_type = "image/png"
+
+[[outputs]]
+id = "_CvVBGYACibwoNiBdzet7"
+uri = "file://docs/design-system/care-capacity-guide.html"
+type = "html"
+title = "Care Capacity — design-system review guide"
+description = "Draft visual guide with audit findings, proposed shared styles and controls, layout rules and staged rollout. SUR BI excluded; no live app changes."
+logical_id = "94c9dcb2-4c0a-4e12-b09a-0919dec3b85a"
+content_hash = "sha256:687b60e32d6897064a0105f5e55d2bbf94488c2762872cc4385c3d3953dc6084"
+size = 49423
+mtime_ms = 1793031112803
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:e164a791-856f-4b6d-a70c-3ea20af31226/94c9dcb2-4c0a-4e12-b09a-0919dec3b85a/cb0ccc11-7589-4506-ae24-d295ab3b073f"
+storage_version_token = "1793031170697732"
+content_type = "text/html"

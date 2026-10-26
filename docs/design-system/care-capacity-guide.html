@@ -1,0 +1,499 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>Care Capacity · Draft design-system review guide</title>
+  <style>
+    :root {
+      --action-primary:#005FCC; --action-primary-text:#FFFFFF;
+      --surface-page:#F6F7F9; --surface-panel:#FFFFFF;
+      --text-primary:#172033; --text-secondary:#526176;
+      --border-subtle:#D8DEE8; --border-control:#7A8799;
+      --status-success:#166534; --status-warning:#92400E;
+      --status-error:#B91C1C; --focus-ring:#005FCC;
+      --space-1:4px; --space-2:8px; --space-3:12px; --space-4:16px;
+      --space-6:24px; --space-8:32px; --space-12:48px;
+      --radius-control:8px; --radius-panel:12px;
+      --review-tint:#EAF2FC;
+    }
+    *{box-sizing:border-box}
+    html{scroll-padding-top:24px}
+    body{margin:0;background:var(--surface-page);color:var(--text-primary);font-family:Inter,system-ui,-apple-system,"Segoe UI",sans-serif;font-size:14px;line-height:20px}
+    a{color:var(--action-primary);text-underline-offset:3px}
+    a:hover{text-decoration-thickness:2px}
+    :focus-visible{outline:3px solid var(--focus-ring);outline-offset:3px}
+    button,input,select{font:inherit}
+    button,input,select,a{touch-action:manipulation}
+    button{cursor:pointer}
+    button:disabled{cursor:not-allowed}
+    h1,h2,h3,p{margin:0}
+    h1{font-size:24px;line-height:32px;font-weight:650;letter-spacing:-.5px}
+    h2{font-size:18px;line-height:26px;font-weight:650;letter-spacing:-.2px}
+    h3{font-size:14px;line-height:20px;font-weight:650}
+    p+p{margin-top:12px}
+    ul,ol{padding-left:20px;margin:12px 0 0}
+    li+li{margin-top:8px}
+    code,.path{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:12px;line-height:18px;overflow-wrap:anywhere}
+    .skip{position:absolute;top:8px;left:8px;transform:translateY(-180%);padding:12px;background:var(--surface-panel);z-index:10}
+    .skip:focus{transform:none}
+    .masthead{background:var(--surface-panel);border-top:4px solid var(--action-primary);border-bottom:1px solid var(--border-subtle)}
+    .masthead-inner{max-width:1440px;margin:auto;padding:24px 32px;display:flex;gap:24px;align-items:center;justify-content:space-between}
+    .identity{display:flex;gap:12px;align-items:center}
+    .identity-rule{width:4px;height:32px;background:var(--action-primary);flex:none}
+    .brand{font-size:18px;line-height:26px;font-weight:650}
+    .small{font-size:12px;line-height:18px}
+    .muted{color:var(--text-secondary)}
+    .tags{display:flex;gap:8px;flex-wrap:wrap}
+    .tag{font-size:12px;line-height:18px;border:1px solid var(--border-subtle);border-radius:4px;padding:4px 8px;background:var(--surface-page);font-weight:600}
+    .tag.draft{border-color:var(--action-primary);color:var(--action-primary);background:var(--review-tint)}
+    .shell{display:grid;grid-template-columns:208px minmax(0,1fr);gap:48px;max-width:1440px;margin:auto;padding:32px}
+    .contents{align-self:start;position:sticky;top:24px}
+    .eyebrow{font-size:12px;line-height:18px;font-weight:650;text-transform:uppercase;letter-spacing:1px;color:var(--text-secondary)}
+    .contents ol{list-style:none;padding:0;margin:16px 0 24px}
+    .contents li{margin:0;border-bottom:1px solid var(--border-subtle)}
+    .contents a{display:flex;gap:12px;padding:12px 0;text-decoration:none;color:var(--text-primary)}
+    .contents a:hover{color:var(--action-primary)}
+    .contents .num{font-size:12px;color:var(--text-secondary);font-variant-numeric:tabular-nums}
+    .contents-note{border-left:2px solid var(--border-subtle);padding-left:12px}
+    main{min-width:0}
+    .intro{padding:8px 0 32px;border-bottom:1px solid var(--border-subtle)}
+    .intro h1{margin:12px 0}
+    .intro .lead{font-size:16px;line-height:24px;max-width:760px}
+    .context{display:flex;gap:24px;flex-wrap:wrap;margin-top:24px}
+    .context span{display:block}
+    .section{padding:32px 0;border-bottom:1px solid var(--border-subtle);scroll-margin-top:24px}
+    .section-heading{display:flex;gap:12px;align-items:baseline;margin-bottom:12px}
+    .section-heading .num{color:var(--action-primary);font-size:12px;font-weight:650}
+    .section-intro{color:var(--text-secondary);max-width:760px;margin-bottom:24px}
+    .callout{padding:16px 20px;background:var(--review-tint);border-left:3px solid var(--action-primary);border-radius:0 8px 8px 0}
+    .callout h3{margin-bottom:4px}
+    .split{display:grid;grid-template-columns:1fr 1fr;gap:24px}
+    .panel{border:1px solid var(--border-subtle);border-radius:var(--radius-panel);padding:24px;background:var(--surface-panel);min-width:0}
+    .panel-title{margin-bottom:16px}
+    .stack>*+*{margin-top:16px}
+    .priority-list{list-style:none;margin:0;padding:0}
+    .priority-list li{display:grid;grid-template-columns:104px minmax(0,1fr);gap:16px;padding:20px 0;margin:0;border-bottom:1px solid var(--border-subtle)}
+    .priority-list li:first-child{padding-top:0}
+    .priority-list li:last-child{border-bottom:0;padding-bottom:0}
+    .priority{font-size:12px;line-height:18px;font-weight:650}
+    .priority.high{color:var(--status-error)}
+    .priority.medium{color:var(--status-warning)}
+    .priority-list h3{margin-bottom:4px}
+    .evidence{margin-top:8px;display:flex;gap:4px 16px;flex-wrap:wrap}
+    .table-wrap{overflow-x:auto;border:1px solid var(--border-subtle);border-radius:var(--radius-panel);background:var(--surface-panel)}
+    table{width:100%;border-collapse:collapse;text-align:left}
+    th,td{padding:12px 16px;vertical-align:top;border-bottom:1px solid var(--border-subtle)}
+    th{font-size:12px;line-height:18px;color:var(--text-secondary);font-weight:650;background:var(--surface-page)}
+    tr:last-child td{border-bottom:0}
+    caption{text-align:left;padding:16px;font-weight:650}
+    .token-table{table-layout:fixed}
+    .token-table th:nth-child(1){width:38%}
+    .token-table th:nth-child(2){width:25%}
+    .token-table code{font-size:12px}
+    .swatch{display:inline-block;width:24px;height:24px;vertical-align:middle;margin-right:8px;border:1px solid var(--border-control);border-radius:4px;background:var(--sample)}
+    .token-value{white-space:nowrap;font-variant-numeric:tabular-nums}
+    .note{margin-top:16px;color:var(--text-secondary);font-size:12px;line-height:18px}
+    .type-row{padding:16px 0;border-bottom:1px solid var(--border-subtle)}
+    .type-row:first-child{padding-top:0}
+    .type-row:last-child{border:0;padding-bottom:0}
+    .type-row .small{display:block;color:var(--text-secondary);margin-top:4px}
+    .title-sample{font-size:24px;line-height:32px;font-weight:600}
+    .section-sample{font-size:18px;line-height:26px;font-weight:600}
+    .spacing{display:flex;align-items:end;gap:16px;flex-wrap:wrap;margin:20px 0}
+    .space-item{font-size:12px;line-height:18px;color:var(--text-secondary)}
+    .space-item i{display:block;width:var(--measure);height:8px;background:var(--action-primary);margin-bottom:8px}
+    .button-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+    .button{display:inline-flex;align-items:center;justify-content:center;min-height:40px;padding:8px 16px;border:1px solid var(--border-control);border-radius:var(--radius-control);background:var(--surface-panel);color:var(--text-primary);font-weight:600;line-height:22px;text-decoration:none;gap:8px}
+    .button:hover:not(:disabled){background:var(--review-tint)}
+    .button.primary{background:var(--action-primary);border-color:var(--action-primary);color:var(--action-primary-text)}
+    .button.primary:hover:not(:disabled){background:#004EA8}
+    .button.quiet{border-color:transparent;color:var(--action-primary);background:transparent}
+    .button.destructive{color:var(--status-error);border-color:var(--status-error)}
+    .button:disabled{background:var(--surface-page);border-color:var(--border-subtle);color:var(--text-secondary)}
+    .button.focus-example{outline:3px solid var(--focus-ring);outline-offset:3px}
+    .state-item{display:flex;gap:12px;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--border-subtle)}
+    .state-item:last-child{border:0}
+    .state-item .small{color:var(--text-secondary)}
+    .feedback{margin-top:16px;padding:12px;border-left:3px solid var(--action-primary);background:var(--review-tint)}
+    .feedback:empty{display:none}
+    .field{display:flex;flex-direction:column;gap:8px}
+    .field label,.field legend{font-weight:600}
+    .field input,.field select{width:100%;min-height:40px;border:1px solid var(--border-control);border-radius:var(--radius-control);padding:8px 12px;background:var(--surface-panel);color:var(--text-primary)}
+    .field input:disabled{background:var(--surface-page);color:var(--text-secondary);border-style:dashed}
+    .field input[readonly]{background:var(--surface-page)}
+    .field input[aria-invalid=true]{border:2px solid var(--status-error)}
+    .hint{font-size:12px;line-height:18px;color:var(--text-secondary)}
+    .error{font-size:12px;line-height:18px;color:var(--status-error);font-weight:600}
+    .error[hidden]{display:none}
+    .field-row{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+    fieldset{border:0;padding:0;margin:0;min-width:0}
+    .check{display:flex;align-items:center;gap:12px;min-height:44px}
+    .check input{width:20px;height:20px;accent-color:var(--action-primary);flex:none}
+    .check label{padding:12px 0}
+    .hours-controls{display:flex;align-items:center;gap:8px}
+    .hours-controls input{min-width:0}
+    .hours-controls .button{flex:none}
+    .badge{display:inline-flex;align-items:center;gap:8px;padding:4px 8px;border:1px solid currentColor;border-radius:100px;font-size:12px;line-height:18px;font-weight:600;background:var(--surface-panel)}
+    .badge.success{color:var(--status-success)}
+    .badge.warning{color:var(--status-warning)}
+    .badge.error{color:var(--status-error)}
+    .badge.neutral{color:var(--text-secondary)}
+    .status-list{display:flex;gap:12px;flex-wrap:wrap}
+    .async-card{margin-top:24px;padding-top:20px;border-top:1px solid var(--border-subtle)}
+    .skeleton{height:12px;width:72%;background:var(--border-subtle);border-radius:4px;margin:8px 0}
+    .skeleton.short{width:46%}
+    .layout-demo{margin:16px 0;display:grid;grid-template-columns:2fr 3fr;gap:8px;padding:12px;background:var(--surface-page);border:1px solid var(--border-subtle);border-radius:8px}
+    .layout-demo span{padding:16px 8px;border:1px solid var(--border-control);background:var(--surface-panel);border-radius:4px;text-align:center;font-size:12px;line-height:18px}
+    .phases{list-style:none;counter-reset:phase;margin:0;padding:0}
+    .phases li{counter-increment:phase;display:grid;grid-template-columns:32px minmax(0,1fr);gap:16px;margin:0;padding:16px 0;border-bottom:1px solid var(--border-subtle)}
+    .phases li:before{content:counter(phase,decimal-leading-zero);color:var(--action-primary);font-weight:650;padding-top:2px}
+    .phases li:last-child{border:0}
+    .phases h3{margin-bottom:4px}
+    .reference-list{padding:0;list-style:none}
+    .reference-list li{padding:12px 0;border-bottom:1px solid var(--border-subtle);margin:0}
+    .reference-list li:last-child{border:0}
+    .reference-list .small{display:block;margin-top:4px}
+    footer{padding:24px 0 8px;display:flex;gap:16px;justify-content:space-between;flex-wrap:wrap;color:var(--text-secondary);font-size:12px;line-height:18px}
+    [hidden]{display:none!important}
+    @media(min-width:1200px){.intro{display:grid;grid-template-columns:minmax(0,1fr) 200px;column-gap:32px}.intro .eyebrow,.intro h1,.intro .lead{grid-column:1}.intro .context{grid-column:2;grid-row:1/4;display:block;margin:0;padding-left:24px;border-left:1px solid var(--border-subtle)}.context div+div{margin-top:16px}}
+    @media(max-width:1000px){.shell{grid-template-columns:160px minmax(0,1fr);gap:24px;padding:24px}.split{grid-template-columns:1fr}.masthead-inner{padding:20px 24px}.token-table th:nth-child(1){width:40%}}
+    @media(max-width:767px){.masthead-inner{align-items:start;flex-direction:column;gap:16px;padding:20px}.shell{display:block;padding:20px}.contents{position:static;margin-bottom:24px}.contents ol{display:grid;grid-template-columns:1fr 1fr;column-gap:16px;margin:8px 0 0}.contents a{padding:12px 0;font-size:12px;line-height:18px;gap:8px}.contents-note{display:none}.intro{padding-top:0}.section{padding:24px 0}.panel{padding:16px}.split{gap:16px}.priority-list li{grid-template-columns:1fr;gap:8px}.field-row{grid-template-columns:1fr}.field input,.field select{font-size:16px;min-height:44px}.button{min-height:44px}.token-table th,.token-table td{padding:12px 8px}.token-table th:nth-child(1){width:38%}.token-table th:nth-child(2){width:30%}.token-value{white-space:normal}.swatch{display:block;margin:0 0 4px}.context{gap:16px}.layout-demo{grid-template-columns:1fr}.state-item{gap:16px}}
+    @media(prefers-reduced-motion:reduce){*,*:before,*:after{scroll-behavior:auto!important;animation:none!important;transition:none!important}}
+    @media print{
+      @page{size:A4;margin:16mm}
+      body{background:#fff;color:#172033;font-size:10pt;line-height:1.45}
+      .masthead{border-top-width:2px}.masthead-inner{padding:12px 0}
+      .shell{display:block;padding:0}.contents,.skip,.no-print{display:none!important}
+      .intro{display:block;padding:20px 0}.intro .context{display:flex;border:0;padding:0;margin-top:16px}.context div+div{margin:0}
+      .section{padding:20px 0;scroll-margin-top:0}.split{display:block}.split>.panel+ .panel{margin-top:16px}
+      .panel,.callout,.table-wrap{break-inside:avoid;box-shadow:none}.panel{padding:16px}
+      h1,h2,h3{break-after:avoid}li,tr,.type-row,.state-item{break-inside:avoid}
+      .priority-list li{padding:12px 0}a{color:inherit;text-decoration:underline}
+      .reference-list a:after{content:" — " attr(href);font-size:9pt;overflow-wrap:anywhere}
+      .table-wrap{overflow:visible}.swatch{print-color-adjust:exact;-webkit-print-color-adjust:exact}.token-table{font-size:9pt}
+      .button{min-height:32px}input,select{print-color-adjust:exact;-webkit-print-color-adjust:exact}
+      .section-intro{margin-bottom:16px}.layout-demo{grid-template-columns:2fr 3fr}
+      .feedback{background:transparent}.print-note{display:block!important;margin-top:12px}
+    }
+  </style>
+</head>
+<body>
+  <a class="skip" href="#main">Skip to review content</a>
+  <header class="masthead">
+    <div class="masthead-inner">
+      <div class="identity"><span class="identity-rule" aria-hidden="true"></span><div><div class="brand">Care Capacity</div><div class="small muted">Design-system review guide</div></div></div>
+      <div class="tags" aria-label="Review status"><span class="tag draft">Draft</span><span class="tag">Not applied to live app</span><span class="tag">SUR BI excluded</span></div>
+    </div>
+  </header>
+  <div class="shell">
+    <nav class="contents" aria-label="Guide sections">
+      <div class="eyebrow">Review contents</div>
+      <ol>
+        <li><a href="#scope"><span class="num">01</span>Scope &amp; priorities</a></li>
+        <li><a href="#tokens"><span class="num">02</span>Proposed tokens</a></li>
+        <li><a href="#type"><span class="num">03</span>Type &amp; spacing</a></li>
+        <li><a href="#controls"><span class="num">04</span>Buttons &amp; fields</a></li>
+        <li><a href="#states"><span class="num">05</span>Status &amp; feedback</a></li>
+        <li><a href="#layout"><span class="num">06</span>Layout rules</a></li>
+        <li><a href="#rollout"><span class="num">07</span>Rollout &amp; checks</a></li>
+        <li><a href="#sources"><span class="num">08</span>Sources &amp; limits</a></li>
+      </ol>
+      <p class="contents-note small muted">Review the patterns, not a new brand. Existing routes, terminology and business rules remain.</p>
+    </nav>
+    <main id="main">
+      <div class="intro">
+        <div class="eyebrow">Proposed v1 · review artefact</div>
+        <h1>Consistent foundations.<br>Familiar daily work.</h1>
+        <p class="lead">An operational staffing workspace for Scottish home-care branch teams. Make dense information legible and forms dependable without rebuilding Care Capacity.</p>
+        <div class="context"><div><span class="small muted">Source audit</span><span>26 October 2026</span></div><div><span class="small muted">Decision requested</span><span>Review proposed patterns</span></div><div><span class="small muted">Sample content</span><span>Synthetic only</span></div></div>
+      </div>
+
+      <section class="section" id="scope" aria-labelledby="scope-title">
+        <div class="section-heading"><span class="num">01</span><h2 id="scope-title">Scope &amp; audit priorities</h2></div>
+        <p class="section-intro">Standardise adoption of the existing React, Tailwind and shadcn/Radix foundations. Preserve Home Instead assets, saved records, roles, reports and workflows.</p>
+        <div class="callout"><h3>Care Capacity only. No live changes.</h3><p>SUR Group BI, Day Rate Tracker, Data House and scoreboards—including legacy entry routes—are excluded. Root tokens and shared primitives must not be restyled until isolation is demonstrated, including dialog and popover portals.</p></div>
+        <div class="panel" style="margin-top:24px">
+          <ol class="priority-list">
+            <li><div class="priority high">High<br>CSS validity</div><div><h3>Consume complete colour tokens directly</h3><p>Current tokens contain full CSS colours. Nested <code>hsl(var(--…))</code> can invalidate declarations. Keep <code>var(--…)</code> consumption; add a static check. No global search-and-replace.</p><div class="evidence"><a class="path" href="../../client/src/index.css">client/src/index.css:20,57</a><a class="path" href="../../client/src/components/joiner-availability.css">client/src/components/joiner-availability.css:18–19</a><a class="path" href="../../tailwind.config.ts">tailwind.config.ts</a></div></div></li>
+            <li><div class="priority high">High<br>Field boundaries</div><div><h3>Separate input surfaces from control borders</h3><p>Current background and input-border values are nearly indistinguishable. Verify 3:1 adjacent-colour contrast for boundaries needed to identify controls; retain visible focus.</p><div class="evidence"><a class="path" href="../../client/src/components/ui/input.tsx">client/src/components/ui/input.tsx:11</a><a class="path" href="../../client/src/index.css">client/src/index.css:20,59</a></div></div></li>
+            <li><div class="priority high">High<br>Form workspaces</div><div><h3>Make successful joiner fixes reusable</h3><p>Provide confirmation, standard-form and wide-workspace dialog variants. Preserve the fixes for clipped timetables, narrow desired-hours fields and implicit Bank defaults. Use one vertical scroll owner.</p><div class="evidence"><a class="path" href="../../client/src/components/ui/dialog.tsx">client/src/components/ui/dialog.tsx:41</a><a class="path" href="../../client/src/components/joiner-availability.css">client/src/components/joiner-availability.css</a></div></div></li>
+            <li><div class="priority high">High<br>Keyboard parity</div><div><h3>Expose “View availability” as a visible action</h3><p>Double-click must not be the only route. Include appropriate read-only users and check accessible names on compact edit/delete controls.</p><div class="evidence"><a class="path" href="../../client/src/pages/capacity-outlook.tsx">client/src/pages/capacity-outlook.tsx:1784,1899,1979; 1852–1856</a></div></div></li>
+            <li><div class="priority medium">Medium<br>Consistency</div><div><h3>Unify control variants, density and scrolling</h3><p>Replace per-screen action styling with agreed variants. Review 9–11px labels and nested vertical scrolling at short heights and zoom. Source declarations indicate risk, not proof of every rendered failure.</p><div class="evidence"><a class="path" href="../../client/src/components/ui/button.tsx">client/src/components/ui/button.tsx</a><a class="path" href="../../client/src/pages/capacity-outlook.tsx">client/src/pages/capacity-outlook.tsx:595–650,1831</a><a class="path" href="../../client/src/pages/dashboard.tsx">client/src/pages/dashboard.tsx:210,278,305,332,334,410</a></div></div></li>
+            <li><div class="priority high">High<br>Rollout risk</div><div><h3>Prove the BI boundary before adoption</h3><p>Route separation does not isolate shared styles. Use an opt-in Care Capacity theme and portal-aware scoping; compare excluded-module baselines.</p><div class="evidence"><a class="path" href="../../client/src/App.tsx">client/src/App.tsx:445–447,492–505</a></div></div></li>
+          </ol>
+        </div>
+        <p class="note">Evidence locations are those recorded in the source audit; line numbers may drift. File links open source files, not live application routes.</p>
+      </section>
+
+      <section class="section" id="tokens" aria-labelledby="tokens-title">
+        <div class="section-heading"><span class="num">02</span><h2 id="tokens-title">Proposed semantic tokens</h2></div>
+        <p class="section-intro">Blue actions, light neutral surfaces and explicit status text. These light values are proposals for validation—not approved brand replacements or instructions to replace global variables.</p>
+        <div class="table-wrap">
+          <table class="token-table">
+            <caption>Light palette · proposed values</caption>
+            <thead><tr><th scope="col">Token</th><th scope="col">Value / swatch</th><th scope="col">Use</th></tr></thead>
+            <tbody>
+              <tr><td><code>action.primary</code></td><td class="token-value"><span class="swatch" style="--sample:#005FCC" aria-hidden="true"></span>#005FCC</td><td>Primary action; selected interaction</td></tr>
+              <tr><td><code>action.primary.text</code></td><td class="token-value"><span class="swatch" style="--sample:#FFFFFF" aria-hidden="true"></span>#FFFFFF</td><td>Text on primary</td></tr>
+              <tr><td><code>surface.page</code></td><td class="token-value"><span class="swatch" style="--sample:#F6F7F9" aria-hidden="true"></span>#F6F7F9</td><td>Page background</td></tr>
+              <tr><td><code>surface.panel</code></td><td class="token-value"><span class="swatch" style="--sample:#FFFFFF" aria-hidden="true"></span>#FFFFFF</td><td>Panels, fields and dialogs</td></tr>
+              <tr><td><code>text.primary</code></td><td class="token-value"><span class="swatch" style="--sample:#172033" aria-hidden="true"></span>#172033</td><td>Main content</td></tr>
+              <tr><td><code>text.secondary</code></td><td class="token-value"><span class="swatch" style="--sample:#526176" aria-hidden="true"></span>#526176</td><td>Supporting text</td></tr>
+              <tr><td><code>border.subtle</code></td><td class="token-value"><span class="swatch" style="--sample:#D8DEE8" aria-hidden="true"></span>#D8DEE8</td><td>Nonessential dividers only</td></tr>
+              <tr><td><code>border.control</code></td><td class="token-value"><span class="swatch" style="--sample:#7A8799" aria-hidden="true"></span>#7A8799</td><td>Essential control boundaries</td></tr>
+              <tr><td><code>status.success</code></td><td class="token-value"><span class="swatch" style="--sample:#166534" aria-hidden="true"></span>#166534</td><td>Positive status text / icon</td></tr>
+              <tr><td><code>status.warning</code></td><td class="token-value"><span class="swatch" style="--sample:#92400E" aria-hidden="true"></span>#92400E</td><td>Attention-required text / icon</td></tr>
+              <tr><td><code>status.error</code></td><td class="token-value"><span class="swatch" style="--sample:#B91C1C" aria-hidden="true"></span>#B91C1C</td><td>Errors; destructive action</td></tr>
+              <tr><td><code>focus.ring</code></td><td class="token-value"><span class="swatch" style="--sample:#005FCC" aria-hidden="true"></span>#005FCC</td><td>Keyboard focus outline</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="note">Never use colour alone. Status foreground colours are not arbitrary background fills: define and test paired backgrounds separately. The blue review callout tint is presentational, not an approved semantic token. Verify every adjacent colour, hover, focus, disabled and error state. Preserve existing dark mode; dark tokens need a separate contrast pass.</p>
+      </section>
+
+      <section class="section" id="type" aria-labelledby="type-title">
+        <div class="section-heading"><span class="num">03</span><h2 id="type-title">Typography &amp; working density</h2></div>
+        <p class="section-intro">Retain Inter with a system fallback. This standalone file does not download fonts: it uses locally available Inter or the device’s system font. Dense does not mean miniature.</p>
+        <div class="split">
+          <div class="panel">
+            <div class="type-row"><div class="title-sample">Capacity Outlook</div><span class="small">Page title · 24 / 32px · semibold</span></div>
+            <div class="type-row"><div class="section-sample">Candidate availability</div><span class="small">Section title · 18 / 26px · semibold</span></div>
+            <div class="type-row"><p>Desired hours: 23.75 hours per week</p><span class="small">Body and table data · 14 / 20px</span></div>
+            <div class="type-row"><div class="small">Example branch · period beginning 26 October 2026</div><span class="small">Secondary information · 12 / 18px</span></div>
+          </div>
+          <div class="panel">
+            <h3>Named spacing, not screen-by-screen guesses</h3>
+            <div class="spacing" aria-label="Spacing scale in pixels">
+              <div class="space-item"><i style="--measure:4px"></i>4</div><div class="space-item"><i style="--measure:8px"></i>8</div><div class="space-item"><i style="--measure:12px"></i>12</div><div class="space-item"><i style="--measure:16px"></i>16</div><div class="space-item"><i style="--measure:24px"></i>24</div><div class="space-item"><i style="--measure:32px"></i>32</div><div class="space-item"><i style="--measure:48px"></i>48</div>
+            </div>
+            <ul><li>Controls: 8px radius. Panels and dialogs: 12px. Pills only for badges and toggles.</li><li>Ordinary panels use borders; overlays may use a restrained shadow. No routine gradients or glows.</li><li>Standard and compact density need explicit variants. Mobile text entry is at least 16px.</li><li>Keep required business precision. Do not cosmetically round hours or money.</li><li>Existing Lucide icons: typically 16–20px; hide decorative icons from assistive technology.</li></ul>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="controls" aria-labelledby="controls-title">
+        <div class="section-heading"><span class="num">04</span><h2 id="controls-title">Buttons &amp; dependable fields</h2></div>
+        <p class="section-intro">Examples, not connected product actions. Controls generally start at 40px high; prefer 44px touch targets. Every field has a visible label, and essential boundaries remain visible before focus.</p>
+        <div class="split">
+          <div class="panel">
+            <h3 class="panel-title">Action variants · interactive examples</h3>
+            <div class="button-row" id="variant-examples">
+              <button type="button" class="button primary" data-variant="Primary">Primary example</button>
+              <button type="button" class="button" data-variant="Secondary">Secondary example</button>
+              <button type="button" class="button quiet" data-variant="Quiet">Quiet example</button>
+              <button type="button" class="button destructive" data-variant="Destructive">Destructive example</button>
+            </div>
+            <p class="note">Selecting a variant only describes it below. No records are created, saved or deleted. Destructive product operations require confirmation; archive, delete and failed action are distinct.</p>
+            <p class="feedback" id="variant-feedback" role="status" aria-live="polite"></p>
+            <h3 style="margin-top:24px">State inventory · labelled specimens</h3>
+            <div class="state-item"><span class="small">Default</span><button type="button" class="button" id="default-example">Default example</button></div>
+            <div class="state-item"><span class="small">Focus appearance<br>(Tab to test actual focus)</span><button type="button" class="button focus-example" id="focus-example">Focus example</button></div>
+            <div class="state-item"><span class="small">Disabled</span><button type="button" class="button" disabled>Unavailable example</button></div>
+            <div class="state-item"><span class="small">Loading specimen<br>No job is running</span><button type="button" class="button" disabled>Loading… example</button></div>
+            <p class="note">One primary action per real action group. Loading and disabled are different states even when both prevent repeat submission. Retain an accessible action name and expose actual busy state when connected.</p>
+          </div>
+          <div class="panel">
+            <h3 class="panel-title">Field states · static examples</h3>
+            <div class="stack">
+              <div class="field"><label for="example-name">Candidate name (example)</label><input id="example-name" value="Eilidh Rowan" autocomplete="off" aria-describedby="name-hint"><span class="hint" id="name-hint">Invented person; editable locally only.</span></div>
+              <div class="field"><label for="example-readonly">Branch (read-only example)</label><input id="example-readonly" value="Glenhaven — example branch" readonly aria-describedby="readonly-hint"><span class="hint" id="readonly-hint">Read-only text remains selectable and focusable.</span></div>
+              <div class="field"><label for="example-disabled">Agreed contract (disabled example)</label><input id="example-disabled" value="Not available in this example" disabled aria-describedby="disabled-hint"><span class="hint" id="disabled-hint">This review guide cannot agree a contract.</span></div>
+              <div class="field"><label for="example-invalid">Hours per week (error specimen)</label><input id="example-invalid" value="twenty" aria-invalid="true" aria-describedby="invalid-hint" autocomplete="off"><span class="error" id="invalid-hint">Enter hours as a number, for example 23.75. This is a static error specimen.</span></div>
+            </div>
+          </div>
+        </div>
+        <div class="panel" style="margin-top:24px">
+          <div class="tags" style="margin-bottom:12px"><span class="tag">Local interaction example</span><span class="tag">No persistence</span></div>
+          <h3 class="panel-title">Desired hours are not the same as Bank</h3>
+          <p class="muted" style="margin-bottom:20px">New joiners start blank, with availability unticked. “Check example” validates this local sample only; it does not calculate recommendations or agree a contract.</p>
+          <form id="hours-example" novalidate>
+            <div class="field-row">
+              <div class="field">
+                <label for="desired-hours">Desired hours per week <span class="small">(required, or choose Bank)</span></label>
+                <div class="hours-controls"><input id="desired-hours" type="number" min="0" step="any" inputmode="decimal" placeholder="Not entered" aria-describedby="hours-hint hours-error"><button class="button" type="button" id="bank-example" aria-pressed="false">Choose Bank</button></div>
+                <span class="hint" id="hours-hint">Blank means not entered—not Bank. Bank is a separate explicit choice.</span>
+                <span class="error" id="hours-error" hidden>Enter a non-negative number of hours, or explicitly choose Bank.</span>
+              </div>
+              <div class="field">
+                <label for="sample-period">Period (example)</label>
+                <select id="sample-period"><option>Week beginning 26 October 2026</option><option>Week beginning 2 November 2026</option></select>
+                <span class="hint">Invented scenario. No live branch context is loaded.</span>
+              </div>
+            </div>
+            <fieldset style="margin-top:20px"><legend><strong>Availability (example)</strong></legend><p class="hint" id="availability-hint">Nothing is selected by default. Selecting a slot changes only this example.</p><div class="check"><input type="checkbox" id="monday-example" aria-describedby="availability-hint"><label for="monday-example">Monday, 09:00–12:00</label></div><div class="check"><input type="checkbox" id="tuesday-example" aria-describedby="availability-hint"><label for="tuesday-example">Tuesday, 14:00–17:00</label></div></fieldset>
+            <div class="button-row" style="margin-top:16px"><button class="button primary" type="submit">Check example</button><button class="button" type="reset">Reset example</button></div>
+            <p id="hours-result" class="feedback" role="status" aria-live="polite"></p>
+          </form>
+          <noscript><p class="note">JavaScript is disabled. The specimens remain readable; local validation, Bank selection and reset feedback require JavaScript. Nothing is sent anywhere.</p></noscript>
+        </div>
+        <p class="note">Keep desired hours, availability, calculated advice and agreed contract separate. Preserve saved records and driver/walker and contract formulas. In real save failures, retain entered values, explain the correction and focus the first invalid control.</p>
+      </section>
+
+      <section class="section" id="states" aria-labelledby="states-title">
+        <div class="section-heading"><span class="num">05</span><h2 id="states-title">Status &amp; system feedback</h2></div>
+        <p class="section-intro">Labels carry the meaning. Business status is not action styling, and no specimen below represents a real record, request or running job.</p>
+        <div class="split">
+          <div class="panel">
+            <h3 class="panel-title">Status badge examples</h3>
+            <div class="status-list"><span class="badge success">Complete</span><span class="badge warning">Needs review</span><span class="badge error">Failed</span><span class="badge neutral">Not entered</span></div>
+            <p class="note">Outlined on a neutral surface here; these are text-labelled examples, not approved business-status terminology.</p>
+            <div class="async-card"><h3>Loading specimen</h3><p class="hint">Loading candidate details… (static example)</p><div aria-hidden="true"><div class="skeleton"></div><div class="skeleton short"></div></div></div>
+            <div class="async-card"><h3>Empty specimen</h3><p>No availability has been entered.</p><p class="hint">Explain the next step: add availability in the relevant candidate form. Do not infer Bank from missing information.</p></div>
+          </div>
+          <div class="panel">
+            <h3 class="panel-title">Recoverable error · local example</h3>
+            <p id="retry-description">Example data could not be loaded. Entered values would be retained in the product.</p>
+            <button type="button" id="retry-example" class="button" style="margin-top:12px" aria-describedby="retry-description">Run recovery example</button>
+            <p id="retry-result" class="feedback" role="status" aria-live="polite"></p>
+            <p class="note">This switches to a local success message. It makes no request and does not demonstrate a real retry or production recovery.</p>
+            <div class="async-card"><h3>Stale specimen</h3><p><strong>Information may be out of date.</strong> Example last updated: 26 October 2026, 09:15.</p><p class="hint">Show provenance and offer an explicit refresh when connected. Do not silently present stale information as current.</p></div>
+            <div class="async-card"><h3>Job progress contract</h3><p>Only show real progress, estimates or cancellation when supported. Never fabricate completion. Scheduling and People Planner still need dedicated long-running-job interaction checks.</p></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="layout" aria-labelledby="layout-title">
+        <div class="section-heading"><span class="num">06</span><h2 id="layout-title">Layout for the task</h2></div>
+        <p class="section-intro">A timetable is a workspace, not a narrow confirmation dialog. Preserve context, make explicit actions reachable and avoid sideways scrolling on ordinary forms.</p>
+        <div class="split">
+          <div class="panel">
+            <h3>Form and workspace variants</h3>
+            <div class="layout-demo" aria-label="Illustrative workspace layout: candidate details alongside timetable on wide screens; stacked on narrow screens"><span>Candidate details</span><span>Availability / selected day</span></div>
+            <ul><li>Standard form: approximately 480–640px, according to content.</li><li>Wide workspace: use available width up to roughly 1440px.</li><li>Wide: candidate details alongside timetable. Narrow: single column with selected-day timetable.</li><li>Dialog header/footer outside one vertical content scroller. Save/cancel reachable; focused controls not obscured.</li><li>Use embedded container size, not viewport assumptions alone.</li></ul>
+          </div>
+          <div class="panel">
+            <h3>Dense data without hidden meaning</h3>
+            <ul><li>Page headers identify branch and period. Label hours, status and provenance.</li><li>Filter bars need visible labels, clear/reset and result counts. Preserve state without leaking across branches.</li><li>Tables use real headers, explicit sort state, named row actions, long-name handling and aligned numbers.</li><li>Only genuine two-dimensional tables/maps may use contained scrolling, with keyboard access and clear navigation.</li><li>British English and explicit dates. Keep stored date-only values separate from display formatting.</li></ul>
+          </div>
+        </div>
+        <div class="callout" style="margin-top:24px"><h3>Responsive verification matrix—not a breakpoint prescription</h3><p>Test 320, 390, 768, 1024, 1280 and 1440 CSS-pixel widths, short laptop heights, 200% zoom and 400% reflow. Check long names, dense rows, visible focus, reachable actions and unclipped inputs. A 390px guide layout is not evidence that the live application passes these checks.</p></div>
+      </section>
+
+      <section class="section" id="rollout" aria-labelledby="rollout-title">
+        <div class="section-heading"><span class="num">07</span><h2 id="rollout-title">Phased adoption &amp; release gates</h2></div>
+        <p class="section-intro">Separate business-logic changes from visual refactoring. Keep the current stack; do not introduce another UI library or bulk-replace shared components.</p>
+        <div class="split">
+          <div class="panel">
+            <ol class="phases">
+              <li><div><h3>Capture the baseline</h3><p>Record real journeys and screenshots, including BI regression-only baselines. Use synthetic or redacted data in review artefacts.</p></div></li>
+              <li><div><h3>Approve and isolate</h3><p>Review the draft; establish an opt-in Care Capacity boundary including portals. Root/global primitives stay unchanged until consumer coverage is proven.</p></div></li>
+              <li><div><h3>Build and pilot patterns</h3><p>Fields, buttons, badges, toolbars, dialog variants and async states. Pilot joiner/leaver forms; leave calculations unchanged.</p></div></li>
+              <li><div><h3>Adopt module by module</h3><p>Dashboard and Capacity Outlook; then Workforce/BD Matrix; then Scheduling/People Planner.</p></div></li>
+              <li><div><h3>Release on evidence</h3><p>Pass role, keyboard, responsive, loading/error/empty, persistence and BI non-regression checks before release.</p></div></li>
+            </ol>
+          </div>
+          <div class="panel">
+            <h3>Required checks—not completed claims</h3>
+            <ul><li>Type-check/build and focused unit tests; no new runtime errors.</li><li>Create/edit/cancel/error flows; retained values and correct saved records.</li><li>Branch and role boundaries, including appropriate read-only access.</li><li>Keyboard-only use, visible focus and dialog focus management.</li><li>4.5:1 normal text; 3:1 large text and required non-text contrast.</li><li>Target size: WCAG 2.2 minimum 24×24 CSS pixels or a documented exception; prefer larger touch controls.</li><li>Reflow, zoom, short heights, no clipped fields; dark mode and every control state.</li><li>Shared-component consumer review and screenshot comparisons. BI baseline unchanged.</li></ul>
+            <p class="note">Portable named tokens → scoped CSS variables and semantic aliases → accessible primitives → domain patterns → screens. DTCG-compatible format is useful where appropriate, not a reason to change the stack.</p>
+          </div>
+        </div>
+        <p class="note">Keep the catalogue outside production navigation unless approved. New patterns need repeated use, a state inventory, responsive examples and accessibility checks. Document exceptions with an owner and reason; deprecate variants gradually. This guide is not the runtime source of truth.</p>
+      </section>
+
+      <section class="section" id="sources" aria-labelledby="sources-title">
+        <div class="section-heading"><span class="num">08</span><h2 id="sources-title">Source documents &amp; verification limits</h2></div>
+        <div class="callout"><h3>Draft proposal—not production accessibility certification</h3><p>The audit is source-based, with earlier screenshots and browser-fixture evidence for joiner-form issues. It is not authenticated visual verification of every screen, role, data state, device or deployment. This static guide neither changes nor certifies the live application.</p></div>
+        <div class="split" style="margin-top:24px">
+          <div class="panel">
+            <h3>Local source of factual content</h3>
+            <ul class="reference-list">
+              <li><a class="path" href="../DESIGN_SYSTEM.md">docs/DESIGN_SYSTEM.md</a><span class="small muted">Proposed v1: foundations, component contracts, governance and release criteria.</span></li>
+              <li><a class="path" href="../CARE_CAPACITY_DESIGN_AUDIT.md">docs/CARE_CAPACITY_DESIGN_AUDIT.md</a><span class="small muted">26 October 2026: prioritised findings, source locations, coverage and adoption sequence.</span></li>
+            </ul>
+            <h3 style="margin-top:20px">Outstanding verification</h3>
+            <ul><li>Tokens/primitives: computed styles, contrast and interaction states.</li><li>Dashboard: populated, empty, error and upload journeys.</li><li>Capacity Outlook: real save/edit/archive, keyboard and roles.</li><li>Workforce/BD Matrix: maps, long names, dense rows, matching progress and failures.</li><li>Scheduling/People Planner: end-to-end interactions and long-running jobs.</li><li>Login/admin/documentation: permissions, keyboard and consistent patterns.</li><li>SUR BI: baseline regression checks only.</li></ul>
+            <p class="note">No security scan, production database audit, load test, screen-reader conformance audit or exhaustive live-session review was performed. Security, privacy, backups, monitoring and performance require separate evidence.</p>
+          </div>
+          <div class="panel">
+            <h3>External references from the audit</h3>
+            <ul class="reference-list">
+              <li><a href="https://service-manual.nhs.uk/design-system">NHS design system</a><span class="small muted">Borrow researched interaction principles, not NHS branding.</span></li>
+              <li><a href="https://www.w3.org/WAI/WCAG22/Understanding/reflow.html">WCAG 2.2 · Reflow</a><span class="small muted">320 CSS-pixel reflow; exceptions for genuine two-dimensional content.</span></li>
+              <li><a href="https://www.w3.org/WAI/WCAG22/Understanding/target-size-minimum.html">WCAG 2.2 · Target size (minimum)</a><span class="small muted">24×24 CSS-pixel minimum with specified exceptions. Prefer larger touch controls.</span></li>
+              <li><a href="https://www.designtokens.org/tr/2025.10/format/">DTCG token format · 2025.10</a><span class="small muted">Portable tokens and aliases. Community Group specification, not a W3C Recommendation.</span></li>
+              <li><a href="https://raw.githubusercontent.com/vercel-labs/web-interface-guidelines/main/command.md">Vercel Web Interface Guidelines</a><span class="small muted">Practical source-review checklist; subordinate to WCAG and product requirements.</span></li>
+            </ul>
+          </div>
+        </div>
+      </section>
+      <footer><span>Care Capacity · Proposed v1 · Draft review only</span><span>Not applied to live app · SUR BI excluded</span><a href="#main">Back to start</a></footer>
+    </main>
+  </div>
+  <script>
+    (() => {
+      'use strict';
+      const feedback = document.getElementById('variant-feedback');
+      const descriptions = {
+        Primary: 'Primary example selected. Use for the main action in an action group.',
+        Secondary: 'Secondary example selected. Use for an alternative action without competing with the primary.',
+        Quiet: 'Quiet example selected. Use for a lower-emphasis action with a clear accessible name.',
+        Destructive: 'Destructive example selected. A real irreversible operation needs confirmation. Nothing has been deleted.'
+      };
+      document.getElementById('variant-examples').addEventListener('click', (event) => {
+        const button = event.target.closest('button[data-variant]');
+        if (button) feedback.textContent = descriptions[button.dataset.variant];
+      });
+      document.getElementById('default-example').addEventListener('click', () => {
+        feedback.textContent = 'Default-state example activated. This is local feedback only.';
+      });
+      document.getElementById('focus-example').addEventListener('click', () => {
+        feedback.textContent = 'Focus example activated. Use Tab and Shift+Tab to review actual keyboard focus throughout this guide.';
+      });
+      const form = document.getElementById('hours-example');
+      const hours = document.getElementById('desired-hours');
+      const bank = document.getElementById('bank-example');
+      const error = document.getElementById('hours-error');
+      const result = document.getElementById('hours-result');
+      let isBank = false;
+      let previousHours = '';
+      function clearError() {
+        hours.removeAttribute('aria-invalid');
+        error.hidden = true;
+      }
+      bank.addEventListener('click', () => {
+        isBank = !isBank;
+        if (isBank) { previousHours = hours.value; hours.value = ''; }
+        else { hours.value = previousHours; }
+        hours.disabled = isBank;
+        bank.setAttribute('aria-pressed', String(isBank));
+        bank.textContent = isBank ? 'Bank selected' : 'Choose Bank';
+        clearError();
+        result.textContent = isBank ? 'Example: Bank explicitly selected. Desired hours are not inferred from a blank field.' : 'Example: Bank cleared. Enter desired hours to check the sample.';
+      });
+      hours.addEventListener('input', () => { clearError(); result.textContent = ''; });
+      form.addEventListener('submit', (event) => {
+        event.preventDefault();
+        clearError();
+        if (!isBank && (hours.value.trim() === '' || !Number.isFinite(hours.valueAsNumber) || hours.valueAsNumber < 0)) {
+          hours.setAttribute('aria-invalid', 'true');
+          error.hidden = false;
+          result.textContent = '';
+          hours.focus();
+          return;
+        }
+        const selected = [...form.querySelectorAll('input[type=checkbox]:checked')].map((input) => document.querySelector('label[for="' + input.id + '"]').textContent);
+        const availability = selected.length ? selected.join('; ') : 'not entered';
+        result.textContent = 'Example check complete. ' + (isBank ? 'Bank explicitly selected.' : 'Desired hours: ' + hours.value + ' hours per week.') + ' Availability: ' + availability + '. No recommendation calculated and nothing saved to the app.';
+      });
+      form.addEventListener('reset', () => {
+        isBank = false;
+        previousHours = '';
+        hours.disabled = false;
+        bank.setAttribute('aria-pressed', 'false');
+        bank.textContent = 'Choose Bank';
+        clearError();
+        result.textContent = 'Example reset. Desired hours are blank; Bank and availability are not selected.';
+      });
+      let recovered = false;
+      document.getElementById('retry-example').addEventListener('click', (event) => {
+        recovered = !recovered;
+        document.getElementById('retry-result').textContent = recovered ? 'Success example: local sample available. No request was made and no app data changed.' : 'Error example restored. Run recovery again to inspect the local success feedback.';
+        event.currentTarget.textContent = recovered ? 'Reset recovery example' : 'Run recovery example';
+      });
+    })();
+  </script>
+</body>
+</html>
