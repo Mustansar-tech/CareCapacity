@@ -455,7 +455,7 @@ function JoinerModal({
       candidateName: "",
       gender: undefined,
       employmentType: undefined,
-      desiredWeeklyHours: 0,
+      desiredWeeklyHours: undefined,
       contractedHours: undefined,
       postcode: "",
       trainingDate: "",
@@ -488,7 +488,7 @@ function JoinerModal({
           candidateName: "",
           gender: undefined,
           employmentType: undefined,
-          desiredWeeklyHours: 0,
+          desiredWeeklyHours: undefined,
           contractedHours: undefined,
           postcode: "",
           trainingDate: "",
@@ -562,7 +562,7 @@ function JoinerModal({
               </FormItem>
             )} />
 
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-2 gap-4">
               <FormField control={form.control} name="gender" render={({ field }) => (
                 <FormItem>
                   <FormLabel>Gender <span className="text-red-500">*</span></FormLabel>
@@ -595,7 +595,7 @@ function JoinerModal({
               <FormField control={form.control} name="desiredWeeklyHours" render={({ field }) => {
                 const isBank = watchedDesiredHours === 0;
                 return (
-                  <FormItem>
+                  <FormItem className="col-span-full min-w-0">
                     <FormLabel>Desired Hrs/wk <span className="text-red-500">*</span></FormLabel>
                     <FormControl>
                       <div>
@@ -615,10 +615,16 @@ function JoinerModal({
                             <span style={{ fontSize: 10, fontWeight: 400, color: '#818CF8' }}>click to enter hours</span>
                           </button>
                         ) : (
-                          <div style={{ display: 'flex', gap: 6 }}>
+                          <div className="flex w-full items-center gap-2">
                             <Input
                               type="number" step="0.5" placeholder="e.g. 35"
-                              value={field.value || ""}
+                              aria-label="Desired hours per week"
+                              className="min-w-0 flex-1"
+                              min="0"
+                              name={field.name}
+                              ref={field.ref}
+                              onBlur={field.onBlur}
+                              value={field.value ?? ""}
                               onChange={e => field.onChange(e.target.value === "" ? undefined : Number(e.target.value))}
                             />
                             <button

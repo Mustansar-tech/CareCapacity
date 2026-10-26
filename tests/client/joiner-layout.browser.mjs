@@ -31,6 +31,17 @@ try {
     const dialog = page.getByRole("dialog");
     await dialog.waitFor();
     await page.waitForTimeout(400);
+    const desiredHours = dialog.getByRole("spinbutton", { name: "Desired hours per week" });
+    assert.equal(await desiredHours.inputValue(), "", "New joiners must start with an empty hours input, not Bank");
+    const inputBox = await desiredHours.boundingBox();
+    assert(inputBox && inputBox.width >= 180, "Desired hours input must be wide enough to read");
+    await desiredHours.fill("25");
+    assert.equal(await desiredHours.inputValue(), "25");
+    await dialog.getByRole("button", { name: "Bank", exact: true }).click();
+    assert.equal(await desiredHours.count(), 0, "Bank is an explicit choice");
+    await dialog.getByRole("button", { name: "Bank click to enter hours" }).click();
+    assert.equal(await desiredHours.inputValue(), "", "Returning from Bank restores the empty input");
+    await desiredHours.fill("25");
     const dimensions = await dialog.evaluate(el => {
       const r = el.getBoundingClientRect();
       return { left: r.left, right: r.right, top: r.top, bottom: r.bottom, width: r.width, scrollWidth: el.scrollWidth, clientWidth: el.clientWidth };

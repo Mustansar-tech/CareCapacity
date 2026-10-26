@@ -22,3 +22,9 @@ The joiner timetable must use the available desktop space and must not require s
 **Why:** The user rejected the first narrow, vertically stacked dialog because it clipped weekend columns and introduced nested scrollbars.
 
 **How to apply:** Keep the desktop form wide with the whole week visible, adapt the timetable for small screens rather than overflow it, and verify the actual modal at desktop and mobile widths.
+
+New joiners must default to an empty desired-hours input, not Bank. Bank is an explicit choice, and saved Bank records must retain that choice when edited.
+
+**Why:** The user corrected the initial default and reported that the desired-hours input was too narrow to read.
+
+**How to apply:** Give desired hours enough width independently of Gender and Type; do not initialize new desired hours to zero (the existing Bank marker).
