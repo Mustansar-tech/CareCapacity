@@ -2,6 +2,7 @@ import { sql } from "drizzle-orm";
 import { pgTable, text, varchar, timestamp, jsonb, unique, index, integer, serial, real, boolean, primaryKey } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
+import { storedAvailabilitySchema } from "./joiner-availability";
 
 export const userRoles = ['admin', 'operations_director', 'scheduler', 'viewer'] as const;
 export type UserRole = typeof userRoles[number];
@@ -914,7 +915,7 @@ export const insertJoinerSchema = createInsertSchema(joiners).omit({
   status: z.enum(["active", "dropped", "hired", "hired_archived"]).default("active"),
   expectedStartDate: z.string().optional().nullable(),
   hiredAt: z.string().optional().nullable(),
-  availability: z.string().optional().nullable(),
+  availability: storedAvailabilitySchema.optional().nullable(),
 });
 
 export type InsertJoiner = z.infer<typeof insertJoinerSchema>;

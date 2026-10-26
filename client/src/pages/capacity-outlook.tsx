@@ -41,6 +41,7 @@ import {
 } from "@/components/ui/sheet";
 import type { OutlookResponse, OutlookDetail, Leaver, Joiner, MonthlySnapshot, AvailabilityChange } from "@shared/schema";
 import { joinerStages } from "@shared/schema";
+import { JoinerAvailability } from "@/components/joiner-availability";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -453,6 +454,7 @@ function JoinerModal({
     defaultValues: {
       candidateName: "",
       gender: undefined,
+      employmentType: undefined,
       desiredWeeklyHours: 0,
       contractedHours: undefined,
       postcode: "",
@@ -485,6 +487,7 @@ function JoinerModal({
         form.reset({
           candidateName: "",
           gender: undefined,
+          employmentType: undefined,
           desiredWeeklyHours: 0,
           contractedHours: undefined,
           postcode: "",
@@ -638,8 +641,8 @@ function JoinerModal({
             <div className="grid grid-cols-2 gap-4">
               <FormField control={form.control} name="contractedHours" render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Contracted Hours <span className="text-red-500">*</span></FormLabel>
-                  <FormControl><Input type="number" step="0.5" placeholder="e.g. 30" {...field} value={field.value ?? ""} /></FormControl>
+                  <FormLabel>Agreed Contracted Hours <span className="text-red-500">*</span></FormLabel>
+                  <FormControl><Input type="number" min="0" step="any" placeholder="e.g. 30" {...field} value={field.value ?? ""} /></FormControl>
                   <FormMessage />
                 </FormItem>
               )} />
@@ -763,8 +766,14 @@ function JoinerModal({
 
             <FormField control={form.control} name="availability" render={({ field }) => (
               <FormItem>
-                <FormLabel>Availability</FormLabel>
-                <FormControl><Textarea placeholder="e.g. Mon–Fri mornings, weekends available…" rows={2} className="resize-none" {...field} /></FormControl>
+                <JoinerAvailability
+                  value={field.value}
+                  onChange={field.onChange}
+                  employmentType={form.watch("employmentType")}
+                  contractedHours={form.watch("contractedHours")}
+                  onUseRecommended={hours => form.setValue("contractedHours", hours, { shouldDirty: true, shouldValidate: true })}
+                  onZeroHours={() => form.setValue("contractedHours", 0, { shouldDirty: true, shouldValidate: true })}
+                />
                 <FormMessage />
               </FormItem>
             )} />
@@ -1023,11 +1032,13 @@ function AvailabilityNotesPopup({
   open,
   joiner,
   onClose,
+  onEdit,
 }: {
   open: boolean;
   joiner: Joiner | null;
   branchId: string;
   onClose: () => void;
+  onEdit?: () => void;
 }) {
   if (!joiner) return null;
 
@@ -1035,7 +1046,7 @@ function AvailabilityNotesPopup({
 
   return (
     <Dialog open={open} onOpenChange={v => { if (!v) onClose(); }}>
-      <DialogContent className="max-w-md" onCloseAutoFocus={e => e.preventDefault()}>
+      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto" onCloseAutoFocus={e => e.preventDefault()}>
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-500 to-violet-600 flex items-center justify-center">
@@ -1069,14 +1080,7 @@ function AvailabilityNotesPopup({
               </div>
             </div>
           )}
-          <div className="space-y-1.5">
-            <p className="text-sm font-medium">Availability</p>
-            {joiner.availability ? (
-              <p className="text-sm text-muted-foreground whitespace-pre-wrap rounded-md bg-muted/40 p-3">{joiner.availability}</p>
-            ) : (
-              <p className="text-sm text-muted-foreground/50 italic">No availability recorded</p>
-            )}
-          </div>
+          <JoinerAvailability value={joiner.availability} employmentType={joiner.employmentType} contractedHours={joiner.contractedHours} />
           <div className="space-y-1.5">
             <p className="text-sm font-medium">Notes</p>
             {joiner.notes ? (
@@ -1089,6 +1093,7 @@ function AvailabilityNotesPopup({
 
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>Close</Button>
+          {onEdit && <Button onClick={onEdit}>Edit availability &amp; notes</Button>}
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -2455,6 +2460,11 @@ export default function CapacityOutlookPage() {
         joiner={availabilityPopupJoiner}
         branchId={selectedBranchId ?? ''}
         onClose={() => setAvailabilityPopupJoiner(null)}
+        onEdit={isScheduler && branchId ? () => {
+          setEditingJoiner(availabilityPopupJoiner);
+          setAvailabilityPopupJoiner(null);
+          setJoinerModalOpen(true);
+        } : undefined}
       />
 
       {/* Delete leaver confirm */}

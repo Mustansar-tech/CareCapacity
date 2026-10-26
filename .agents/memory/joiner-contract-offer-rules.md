@@ -10,3 +10,9 @@ The user confirmed that the minimum GH offer is 4 hours per week for both driver
 **Why:** The workbook states the minimum only on the driver sheet and does not specify rounding; the user explicitly resolved both ambiguities.
 
 **How to apply:** Use these rules when implementing the joiner availability calculator. Do not infer candidate availability from the workbook's sample selections.
+
+Availability, recommended GH hours, desired hours, and agreed contracted hours are separate. A Bank/zero-hours agreement must retain the joiner's availability, and recommendations must not automatically overwrite an agreed contract.
+
+**Why:** The user explicitly asked how availability works without contracted hours and approved keeping these independent.
+
+**How to apply:** Recalculate recommendations when type or availability changes, but apply them to agreed hours only on an explicit user action.
