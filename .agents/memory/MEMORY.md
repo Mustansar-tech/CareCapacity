@@ -1,3 +1,4 @@
+- [Joiner contract offer rules](joiner-contract-offer-rules.md) — Start availability unticked; 4-hour GH minimum applies to drivers and walkers; preserve exact calculated hours.
 - [Drizzle push vs Supabase](drizzle-push-supabase.md) — `npm run db:push` fails against the Supabase pooler; use SSL env overrides or create tables via direct SQL.
 - [DPO Standing Role](dpo-standing-role.md) — Ongoing privacy lead for Care Capacity; DPIA complete at docs/DPIA-Care-Capacity.md; 10 open compliance actions; PVG = criminal-offence data; no Art 28 DPAs obtained yet.
 - [Supabase egress / visits bloat](supabase-egress-visits-bloat.md) — check table sizes first when diagnosing egress; upload pipelines must clear/upsert prior rows for a scope before re-inserting or storage grows unbounded.
