@@ -132,3 +132,17 @@ mtime_ms = 1793031112803
 storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:e164a791-856f-4b6d-a70c-3ea20af31226/94c9dcb2-4c0a-4e12-b09a-0919dec3b85a/cb0ccc11-7589-4506-ae24-d295ab3b073f"
 storage_version_token = "1793031170697732"
 content_type = "text/html"
+
+[[outputs]]
+id = "nZR4E_c9aqzZhOoSCAnI0"
+uri = "file://generated-artifacts/care-capacity-audit-2026-10-26/Care-Capacity-Authenticated-UX-Audit.pdf"
+type = "pdf"
+title = "Care Capacity — Authenticated UX Audit"
+description = "10-page audit against your brief, with verified findings, source references, priorities, component gaps and acceptance checks. No credentials or identifiable staff/client screenshots."
+logical_id = "e1c56feb-b782-43d8-8ec3-586e7f6943cb"
+content_hash = "sha256:51ea0505ac0269853a5553dca69beae409b034a98c74e1f58d3434c071e8a3c9"
+size = 129761
+mtime_ms = 1793032672851
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:e164a791-856f-4b6d-a70c-3ea20af31226/e1c56feb-b782-43d8-8ec3-586e7f6943cb/5f49955a-cac4-4e11-936d-3f3238ef5a0c"
+storage_version_token = "1793032701678641"
+content_type = "application/pdf"

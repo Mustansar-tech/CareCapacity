@@ -2,6 +2,8 @@
 
 Date: 26 October 2026. Status: initial source-based audit and proposed direction, not a production certification.
 
+Follow-up: [Authenticated UX audit](CARE_CAPACITY_AUTHENTICATED_UX_AUDIT.md) checks the running application against the later enterprise design-system brief. Use it for verified interactive findings and current coverage; this document remains the earlier source-based assessment.
+
 ## Scope and evidence
 
 Preserve existing routes, workflows, business rules, data and roles. SUR Group BI, Data House, scoreboards and Day Rate Tracker are excluded, including legacy routes into those modules. No live application styles or functionality were changed during this audit.
