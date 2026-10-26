@@ -1,12 +1,15 @@
 // @vitest-environment jsdom
 import { useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { JoinerAvailability } from "./joiner-availability";
 import { decodeAvailability, emptyWeeklyAvailability, encodeAvailability } from "@shared/joiner-availability";
 
 afterEach(cleanup);
+
+const timetable = () => within(screen.getByRole("region", { name: "Weekly availability timetable" }));
+const daily = () => within(screen.getByRole("region", { name: "Daily availability" }));
 
 function Controlled({ initial = "", onChange = vi.fn() }: { initial?: string; onChange?: (value: string) => void }) {
   const [value, setValue] = useState(initial);
@@ -16,7 +19,9 @@ function Controlled({ initial = "", onChange = vi.fn() }: { initial?: string; on
 describe("joiner availability controls", () => {
   it("starts with 77 labelled unselected toggles and requires an explicit type", () => {
     render(<JoinerAvailability onChange={vi.fn()} onUseRecommended={vi.fn()} />);
-    expect(screen.getAllByRole("button", { pressed: false })).toHaveLength(77);
+    expect(timetable().getAllByRole("button", { pressed: false })).toHaveLength(77);
+    expect(timetable().getAllByRole("columnheader")).toHaveLength(8);
+    expect(timetable().getByRole("columnheader", { name: /Sun/ })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Use recommended hours" }).hasAttribute("disabled")).toBe(true);
     expect(screen.getByText(/Select Driver or Walker/)).toBeTruthy();
   });
@@ -24,12 +29,12 @@ describe("joiner availability controls", () => {
   it("preserves legacy notes while toggling and clearing full days", () => {
     const onChange = vi.fn();
     render(<Controlled initial="School runs on Tuesday" onChange={onChange} />);
-    fireEvent.click(screen.getByRole("button", { name: "Select all Monday slots" }));
+    fireEvent.click(timetable().getByRole("button", { name: "Select all Monday slots" }));
     let saved = decodeAvailability(onChange.mock.lastCall![0]);
     expect(saved.slots[0].every(Boolean)).toBe(true);
     expect(saved.notes).toBe("School runs on Tuesday");
     expect(screen.getByText("7.5 hours")).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "Clear all Monday slots" }));
+    fireEvent.click(timetable().getByRole("button", { name: "Clear all Monday slots" }));
     saved = decodeAvailability(onChange.mock.lastCall![0]);
     expect(saved.slots[0].some(Boolean)).toBe(false);
     expect(saved.notes).toBe("School runs on Tuesday");
@@ -51,7 +56,7 @@ describe("joiner availability controls", () => {
   it("responds to keyboard activation with a labelled pressed state", async () => {
     const user = userEvent.setup();
     render(<Controlled />);
-    const slot = screen.getByRole("button", { name: "Monday 08:00–09:00" });
+    const slot = timetable().getByRole("button", { name: "Monday 08:00–09:00" });
     slot.focus();
     await user.keyboard(" ");
     expect(slot.getAttribute("aria-pressed")).toBe("true");
@@ -101,6 +106,41 @@ describe("joiner availability controls", () => {
     expect(screen.getByLabelText("Sunday 20:30–21:30: Available")).toBeTruthy();
     expect(screen.getByText("Evenings preferred")).toBeTruthy();
     expect(container.textContent).not.toContain("joiner-weekly-availability");
-    expect(screen.queryAllByRole("button")).toHaveLength(0);
+    expect(timetable().queryAllByRole("button")).toHaveLength(0);
+    expect(daily().getAllByRole("button")).toHaveLength(7);
+  });
+
+  it("uses one compact selectable day and preserves controlled slots when switching days", () => {
+    const onChange = vi.fn();
+    render(<Controlled initial="School runs" onChange={onChange} />);
+    expect(daily().getAllByRole("button", { pressed: false })).toHaveLength(17);
+    expect(daily().getByRole("group", { name: "Monday availability" })).toBeTruthy();
+    fireEvent.click(daily().getByRole("button", { name: "Show Sunday" }));
+    expect(daily().queryByRole("group", { name: "Monday availability" })).toBeNull();
+    expect(daily().getByRole("button", { name: "Show Sunday" }).getAttribute("aria-pressed")).toBe("true");
+    fireEvent.click(daily().getByRole("button", { name: "Sunday 20:30–21:30" }));
+    const saved = decodeAvailability(onChange.mock.lastCall![0]);
+    expect(saved.slots[6][10]).toBe(true);
+    expect(saved.notes).toBe("School runs");
+    expect(timetable().getByRole("button", { name: "Sunday 20:30–21:30" }).getAttribute("aria-pressed")).toBe("true");
+    fireEvent.click(daily().getByRole("button", { name: "Show Monday" }));
+    fireEvent.click(daily().getByRole("button", { name: "Show Sunday" }));
+    expect(daily().getByRole("button", { name: "Sunday 20:30–21:30" }).getAttribute("aria-pressed")).toBe("true");
+  });
+
+  it("allows read-only day navigation without offering slot mutations", () => {
+    const data = emptyWeeklyAvailability("Evenings preferred");
+    data.slots[6][10] = true;
+    render(<JoinerAvailability value={encodeAvailability(data)} employmentType="walker" />);
+    fireEvent.click(daily().getByRole("button", { name: "Show Sunday" }));
+    expect(daily().getByLabelText("Sunday 20:30–21:30: Available")).toBeTruthy();
+    expect(daily().queryByRole("button", { name: "Sunday 20:30–21:30" })).toBeNull();
+    expect(daily().queryByRole("button", { name: "Clear all Sunday slots" })).toBeNull();
+  });
+
+  it("keeps the formula explanation in a disclosure", () => {
+    const { container } = render(<JoinerAvailability employmentType="driver" />);
+    expect(container.querySelector("details")?.hasAttribute("open")).toBe(false);
+    expect(container.querySelector("summary")?.textContent).toBe("How hours are calculated");
   });
 });

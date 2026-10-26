@@ -1,0 +1,63 @@
+/* One scroll owner per dialog. The timetable never establishes a scroll area. */
+.joiner-dialog.joiner-dialog {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  width: calc(100vw - 1.5rem);
+  max-width: 90rem;
+  max-height: calc(100dvh - 1.5rem);
+  min-width: 0;
+  padding: 0;
+}
+.joiner-dialog > .joiner-dialog-header,
+.joiner-dialog-footer {
+  flex: none;
+  min-width: 0;
+  padding: 1rem 1.25rem;
+}
+.joiner-dialog-header { border-bottom: 1px solid hsl(var(--border)); padding-right: 3rem !important; }
+.joiner-dialog-footer { border-top: 1px solid hsl(var(--border)); gap: .5rem; }
+.joiner-dialog-form {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+}
+.joiner-dialog-body {
+  min-height: 0;
+  min-width: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 1.25rem;
+}
+.joiner-dialog-layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1.5rem; }
+.joiner-dialog-layout > *,
+.joiner-candidate-fields > *,
+.joiner-candidate-fields .grid > * { min-width: 0; }
+.joiner-candidate-fields { display: flex; flex-direction: column; gap: 1rem; }
+.joiner-candidate-fields input,
+.joiner-candidate-fields textarea { min-width: 0; max-width: 100%; }
+.joiner-candidate-fields [data-radix-select-trigger] { min-width: 0; }
+.joiner-availability { container: availability / inline-size; }
+.availability-desktop { display: none; }
+.availability-mobile { display: block; }
+.availability-day-tabs { display: flex; flex-wrap: wrap; gap: .375rem; }
+.availability-day-tab { flex: 1 0 3rem; min-width: 0; padding: .5rem .25rem; }
+.availability-slot-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .375rem; }
+.availability-slot-grid > * { min-width: 0; }
+.availability-desktop table { table-layout: fixed; width: 100%; }
+.availability-desktop tr > :first-child { width: 7.5rem; }
+.availability-desktop th,
+.availability-desktop td { overflow-wrap: anywhere; }
+.availability-calculator button { height: auto; min-height: 2.25rem; white-space: normal; text-align: left; }
+@container availability (min-width: 640px) {
+  .availability-desktop { display: block; }
+  .availability-mobile { display: none; }
+}
+@media (min-width: 1280px) {
+  .joiner-dialog-layout { grid-template-columns: minmax(0, 22rem) minmax(0, 1fr); align-items: start; }
+}
+@media (max-width: 479px) {
+  .joiner-dialog-body { padding: .875rem; }
+  .joiner-candidate-fields .grid { grid-template-columns: minmax(0, 1fr); }
+}

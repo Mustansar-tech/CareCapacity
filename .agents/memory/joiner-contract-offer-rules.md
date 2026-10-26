@@ -16,3 +16,9 @@ Availability, recommended GH hours, desired hours, and agreed contracted hours a
 **Why:** The user explicitly asked how availability works without contracted hours and approved keeping these independent.
 
 **How to apply:** Recalculate recommendations when type or availability changes, but apply them to agreed hours only on an explicit user action.
+
+The joiner timetable must use the available desktop space and must not require sideways scrolling to reach days.
+
+**Why:** The user rejected the first narrow, vertically stacked dialog because it clipped weekend columns and introduced nested scrollbars.
+
+**How to apply:** Keep the desktop form wide with the whole week visible, adapt the timetable for small screens rather than overflow it, and verify the actual modal at desktop and mobile widths.

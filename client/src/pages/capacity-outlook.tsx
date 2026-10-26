@@ -539,17 +539,21 @@ function JoinerModal({
 
   return (
     <Dialog open={open} onOpenChange={v => { if (!v) { onClose(); form.reset(); } }}>
-      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto" onCloseAutoFocus={e => e.preventDefault()}>
-        <DialogHeader>
+      <DialogContent className="joiner-dialog" onCloseAutoFocus={e => e.preventDefault()}>
+        <DialogHeader className="joiner-dialog-header">
           <DialogTitle className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center">
+            <div className="w-8 h-8 shrink-0 rounded-lg bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center">
               <TrendingUp className="w-4 h-4 text-white" />
             </div>
             {editing ? "Edit Joiner" : "Add Joiner"}
           </DialogTitle>
         </DialogHeader>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(d => mutation.mutate(d))} className="space-y-4">
+          <form onSubmit={form.handleSubmit(d => mutation.mutate(d))} className="joiner-dialog-form">
+            <div className="joiner-dialog-body">
+            <div className="joiner-dialog-layout">
+            <div className="joiner-candidate-fields min-w-0">
+            <h3 className="text-sm font-semibold">Candidate details</h3>
             <FormField control={form.control} name="candidateName" render={({ field }) => (
               <FormItem>
                 <FormLabel>Candidate Name <span className="text-red-500">*</span></FormLabel>
@@ -693,7 +697,7 @@ function JoinerModal({
                           : "bg-muted text-muted-foreground border-border hover:bg-muted/80",
                       ].join(' ')}
                     >
-                      {isHiredMilestone ? '🏆 ' : ''}{m}
+                      {m}
                       {isHiredMilestone
                         ? <span className="opacity-60 ml-1">= 100%</span>
                         : <span className="opacity-60"> +{Math.round((MILESTONE_WEIGHTS[m] ?? 0) * 100)}%</span>
@@ -730,7 +734,7 @@ function JoinerModal({
                 <FormItem>
                   <FormLabel>Training Attended</FormLabel>
                   <FormControl>
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                       {[1, 2, 3, 4].map(day => {
                         const isOn = selected.includes(String(day));
                         return (
@@ -764,8 +768,16 @@ function JoinerModal({
               );
             }} />
 
-            <FormField control={form.control} name="availability" render={({ field }) => (
+            <FormField control={form.control} name="notes" render={({ field }) => (
               <FormItem>
+                <FormLabel>Notes</FormLabel>
+                <FormControl><Textarea placeholder="Optional notes…" rows={2} className="resize-none" {...field} /></FormControl>
+                <FormMessage />
+              </FormItem>
+            )} />
+            </div>
+            <FormField control={form.control} name="availability" render={({ field }) => (
+              <FormItem className="min-w-0">
                 <JoinerAvailability
                   value={field.value}
                   onChange={field.onChange}
@@ -778,15 +790,9 @@ function JoinerModal({
               </FormItem>
             )} />
 
-            <FormField control={form.control} name="notes" render={({ field }) => (
-              <FormItem>
-                <FormLabel>Notes</FormLabel>
-                <FormControl><Textarea placeholder="Optional notes…" rows={2} className="resize-none" {...field} /></FormControl>
-                <FormMessage />
-              </FormItem>
-            )} />
-
-            <DialogFooter>
+            </div>
+            </div>
+            <DialogFooter className="joiner-dialog-footer">
               <Button type="button" variant="outline" onClick={() => { onClose(); form.reset(); }}>Cancel</Button>
               <Button type="submit" disabled={mutation.isPending} className="bg-emerald-600 hover:bg-emerald-700 text-white">
                 {mutation.isPending ? "Saving…" : editing ? "Update" : "Add Joiner"}
@@ -1046,20 +1052,20 @@ function AvailabilityNotesPopup({
 
   return (
     <Dialog open={open} onOpenChange={v => { if (!v) onClose(); }}>
-      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto" onCloseAutoFocus={e => e.preventDefault()}>
-        <DialogHeader>
+      <DialogContent className="joiner-dialog" onCloseAutoFocus={e => e.preventDefault()}>
+        <DialogHeader className="joiner-dialog-header">
           <DialogTitle className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-500 to-violet-600 flex items-center justify-center">
+            <div className="w-8 h-8 shrink-0 rounded-lg bg-gradient-to-br from-violet-500 to-violet-600 flex items-center justify-center">
               <CalendarDays className="w-4 h-4 text-white" />
             </div>
-            <div>
+            <div className="min-w-0 break-words">
               <div className="text-base">{joiner.candidateName}</div>
               <div className="text-xs font-normal text-muted-foreground capitalize">{joiner.employmentType} · {joiner.stage}</div>
             </div>
           </DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4 py-1">
+        <div className="joiner-dialog-body space-y-4">
           {trainingDays.length > 0 && (
             <div className="space-y-1.5">
               <p className="text-sm font-medium">Training Attended</p>
@@ -1084,14 +1090,14 @@ function AvailabilityNotesPopup({
           <div className="space-y-1.5">
             <p className="text-sm font-medium">Notes</p>
             {joiner.notes ? (
-              <p className="text-sm text-muted-foreground whitespace-pre-wrap rounded-md bg-muted/40 p-3">{joiner.notes}</p>
+              <p className="text-sm text-muted-foreground whitespace-pre-wrap break-words rounded-md bg-muted/40 p-3">{joiner.notes}</p>
             ) : (
               <p className="text-sm text-muted-foreground/50 italic">No notes recorded</p>
             )}
           </div>
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="joiner-dialog-footer">
           <Button variant="outline" onClick={onClose}>Close</Button>
           {onEdit && <Button onClick={onEdit}>Edit availability &amp; notes</Button>}
         </DialogFooter>
