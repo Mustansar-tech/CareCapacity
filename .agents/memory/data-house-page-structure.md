@@ -23,6 +23,12 @@ on demand via the same `MonthGrid` component.
 **Why:** keeps the tab bar from accumulating one tab per month forever,
 while still making full history reachable.
 
+**KPI Tracker direction (user decision, 27 Oct 2026):** the replacement KPI
+Tracker lives in-app inside Data House (not an Excel workbook) and unifies
+Day Rate Tracker revenue + Annual Roadmap targets + Care Capacity auto data.
+Ownership is shown by department (Finance, Business Growth, Workforce,
+Scheduling, Care Quality) — never individual names, in the app or team docs.
+
 **How to apply:** if the rolling-window logic (`getComparisonMonths`) ever
 changes, keep the archive filter (`months < previousMonth`) in sync so there's
 no gap or overlap between the rolling tabs and the archive dropdown.

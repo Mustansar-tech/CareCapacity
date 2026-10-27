@@ -11,7 +11,7 @@
 - [People Planner automation architecture](people-planner-automation-architecture.md) — real cron scheduler is worker.ts not scheduler.ts; how to add a new export type (menuPath quirks, live-in-care selects, one-session-per-tenant).
 - [PP Financial Summary franchise dropdown quirks](people-planner-financial-summary-franchise-dropdown.md) — real dropdown text often diverges from stored franchise name; use exact overrides, never delete punctuation when normalizing.
 - [Day Rate Tracker number formatting](day-rate-tracker-number-formatting.md) — never round monetary figures on this dashboard; always show exactly 2 decimal places.
-- [Data House page structure](data-house-page-structure.md) — "Data House" nav = 3 tabs (Day Rate Tracker/KPI Tracker/Annual Roadmap); rolling 3-month window + archive dropdown for older months.
+- [Data House page structure](data-house-page-structure.md) — "Data House" nav = 3 tabs (Day Rate Tracker/KPI Tracker/Annual Roadmap); rolling 3-month window + archive dropdown; new KPI Tracker is in-app, department-owned.
 - [Automation coordination](day-rate-automation-cross-process-status.md) — API/cron need shared state and account ownership; startup must not sign in; rollout must update both services.
 - [Enquiry matcher travel cache reverted](enquiry-matcher-travel-cache-reverted.md) — persistent DB travel-time cache for the BD/enquiry matcher was tried and reverted; matcher now always hits ORS live, no branchId-keyed DB cache.
 - [Free routing policy](car-travel-routing-provider-order.md) — ORS only; user forbids all Mapbox services. Preserve shared quotas, bounded batching, deadlines and safe failure.
