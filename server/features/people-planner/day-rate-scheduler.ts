@@ -164,7 +164,16 @@ export async function runDayRateAutomation(now: Date = new Date(), triggeredBy: 
   const finishedSessions = listFinancialSummarySessions().filter(s => sessionIds.includes(s.sessionId));
   const allJobResults = finishedSessions.flatMap(s => s.jobResults);
   const completedJobs = allJobResults.filter(j => j.status === "completed").length;
-  const failedJobs = allJobResults.filter(j => j.status === "failed").length;
+  // A queue failure, missing result or deadline overrun is NOT a successful
+  // refresh. Counting only explicit failures could report 0 failures with most
+  // requested exports never finishing.
+  const failedJobs = Math.max(0, totalJobs - completedJobs);
+  const unresolvedJobs = totalJobs - allJobResults.length;
+  if (unresolvedJobs > 0) {
+    logger.error("Day Rate automation: requested exports have no final result", undefined, {
+      runId, unresolvedJobs, totalJobs, completedJobs,
+    });
+  }
 
   await completeAutomationRun(runId, { totalJobs, completedJobs, failedJobs, unmappedFranchises: unmapped });
   await pruneOldAutomationRuns().catch(err => logger.error("Failed to prune old automation runs", err instanceof Error ? err : undefined));

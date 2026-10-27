@@ -33,7 +33,7 @@ import { Sentry } from "./infrastructure/sentry";
 
 import cron from "node-cron";
 import { logger } from "./infrastructure/logger";
-import { prewarmAllSlots } from "./features/people-planner/automation-engine";
+import { prewarmAllSlots, getSlotCount } from "./features/people-planner/automation-engine";
 import {
   programmaticQueueMultiWeekSync,
   getConfiguredBranchIds,
@@ -104,7 +104,8 @@ export async function runDailySync(): Promise<void> {
     return;
   }
 
-  for (const branchId of branchIds) {
+  for (let i = 0; i < branchIds.length; i++) {
+    const branchId = branchIds[i];
     try {
       const result = await programmaticQueueMultiWeekSync(
         branchId,
@@ -129,6 +130,8 @@ export async function runDailySync(): Promise<void> {
         { tags: { branchId } },
       );
     }
+    // Match BI: avoid a simultaneous burst of Access Workspace sign-ins.
+    if (i < branchIds.length - 1) await new Promise(resolve => setTimeout(resolve, 15000));
   }
 }
 
@@ -138,7 +141,7 @@ export async function runDailySync(): Promise<void> {
 //   Summer (BST = UTC+1): fires at 00:00 UTC
 //   Winter (GMT = UTC)  : fires at 01:00 UTC
 
-if (process.env.ACCESS_EMAIL) {
+if (getSlotCount() > 0) {
   cron.schedule("0 1 * * 1-5", () => {
     const now = new Date();
     logger.info("Worker: daily cron fired", {
@@ -181,17 +184,17 @@ if (process.env.ACCESS_EMAIL) {
     description: "Every day 08:00 BST/GMT — Financial Summary export → Day Rate Tracker",
   });
 } else {
-  logger.warn("Worker: ACCESS_EMAIL not configured — daily scheduler not armed");
+  logger.warn("Worker: no complete automation accounts configured — schedulers not armed");
 }
 
-// ─── Startup: pre-warm all sessions ──────────────────────────────────────────
+// ─── Startup: warm Chromium without signing into any account ────────────────
 
 setTimeout(async () => {
-  if (!process.env.ACCESS_EMAIL) {
-    logger.info("Session pre-warm: ACCESS_EMAIL not configured — skipping");
+  if (getSlotCount() === 0) {
+    logger.info("Browser pre-warm: no complete accounts configured — skipping");
     return;
   }
-  logger.info("Session pre-warm: beginning startup warm-up");
+  logger.info("Browser pre-warm: beginning startup warm-up");
   try {
     await prewarmAllSlots();
   } catch (err) {

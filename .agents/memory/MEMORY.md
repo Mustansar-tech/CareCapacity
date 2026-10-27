@@ -12,7 +12,7 @@
 - [PP Financial Summary franchise dropdown quirks](people-planner-financial-summary-franchise-dropdown.md) — real dropdown text often diverges from stored franchise name; use exact overrides, never delete punctuation when normalizing.
 - [Day Rate Tracker number formatting](day-rate-tracker-number-formatting.md) — never round monetary figures on this dashboard; always show exactly 2 decimal places.
 - [Data House page structure](data-house-page-structure.md) — "Data House" nav = 3 tabs (Day Rate Tracker/KPI Tracker/Annual Roadmap); rolling 3-month window + archive dropdown for older months.
-- [Day Rate automation cross-process status](day-rate-automation-cross-process-status.md) — status/history for cron features must persist to Postgres, not module-level memory, since api/worker run as separate PM2 processes; also added job retry + kickoff stagger.
+- [Automation coordination](day-rate-automation-cross-process-status.md) — API/cron need shared state and account ownership; startup must not sign in; rollout must update both services.
 - [Enquiry matcher travel cache reverted](enquiry-matcher-travel-cache-reverted.md) — persistent DB travel-time cache for the BD/enquiry matcher was tried and reverted; matcher now always hits ORS live, no branchId-keyed DB cache.
 - [Free routing policy](car-travel-routing-provider-order.md) — ORS only; user forbids all Mapbox services. Preserve shared quotas, bounded batching, deadlines and safe failure.
 - [Supabase pooler mode for serverless](supabase-pooler-mode-serverless.md) — session-mode pooler (5432) caps ~15 connections project-wide; Vercel serverless needs transaction-mode (6543 + pgbouncer=true), not smaller pool-size env vars.

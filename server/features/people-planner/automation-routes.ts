@@ -2,6 +2,7 @@ import type { Express, Request } from "express";
 import { execSync } from "child_process";
 import fs from "fs";
 import path from "path";
+import { randomUUID } from "crypto";
 import { requireAuth, requireRole, requireRoleAtLeast } from "../../features/auth/auth";
 import { storage } from "../../storage";
 import { logger } from "../../infrastructure/logger";
@@ -20,12 +21,15 @@ import {
   getSlotCount,
   getAccountSlotIndex,
   getSlotAccountKey,
+  getAccountLockKey,
   MAX_ACCOUNT_SLOTS,
   resetSlotForNextSession,
   type JobConfig,
 } from "./automation-engine";
 import { runExportWithBackup } from "./export-job-fallback";
-import { sendAccountFailureAlert } from "./account-failure-alert";
+import { sendAccountFailureAlert, sendAutomationOutcomeAlert } from "./account-failure-alert";
+import { acquireAccountLease, type AccountLease } from "./account-lease";
+import { ppAccountLeaseStore } from "../../repositories/pp-automation-lease.repository";
 import { parseFinancialSummaryWorkbook } from "./financial-summary-parser";
 import { upsertAutomatedEntry } from "../../repositories/day-rate.repository";
 import { recordAutomationJobResult } from "../../repositories/day-rate-automation.repository";
@@ -238,6 +242,90 @@ const BRANCH_SLOT_MAP: Record<string, number> = {
 /** Maps 0-based slot array index → sessionId currently occupying it. */
 const slotReservations = new Map<number, string>();
 const sessionFailedSlots = new Map<string, Set<number>>();
+const sessionAccountLeases = new Map<string, Map<number, AccountLease>>();
+const lostAccountLeases = new Set<string>();
+const leaseProcessId = randomUUID();
+
+function assertSessionAccountLease(sessionId: string, slot: number): void {
+  if (lostAccountLeases.has(sessionId)) {
+    throw new Error("Automation account lock lost; stopped safely without another login.");
+  }
+  const lease = sessionAccountLeases.get(sessionId)?.get(slot);
+  if (!lease) throw new Error("Automation account lock missing; refused uncoordinated login.");
+  lease.assertActive();
+}
+
+async function claimSessionAccount(sessionId: string, slot: number, waitMs = 600000): Promise<boolean> {
+  const existing = sessionAccountLeases.get(sessionId)?.get(slot);
+  if (existing) {
+    assertSessionAccountLease(sessionId, slot);
+    return true;
+  }
+  if (lostAccountLeases.has(sessionId)) throw new Error("Automation account lock lost; session stopped.");
+  const lease = await acquireAccountLease(
+    ppAccountLeaseStore, getAccountLockKey(slot), `${leaseProcessId}:${sessionId}`,
+    {
+      waitMs,
+      onLost: async () => {
+        lostAccountLeases.add(sessionId);
+        logger.error("Automation account lease lost; closing its browser", undefined, { sessionId, slot });
+        if (slotReservations.get(slot) === sessionId) await resetSlotForNextSession(slot, true);
+      },
+    },
+  );
+  if (!lease) return false;
+  const leases = sessionAccountLeases.get(sessionId) ?? new Map<number, AccountLease>();
+  leases.set(slot, lease);
+  sessionAccountLeases.set(sessionId, leases);
+  return true;
+}
+
+async function prepareSessionAccount(sessionId: string, slot: number): Promise<void> {
+  if (!await claimSessionAccount(sessionId, slot)) {
+    throw new Error("Automation account lock busy in another process; timed out waiting without attempting login.");
+  }
+  assertSessionAccountLease(sessionId, slot);
+  await resetSlotForNextSession(slot);
+}
+
+async function closeSessionAccount(sessionId: string, slot: number, failed = false): Promise<void> {
+  const lease = sessionAccountLeases.get(sessionId)?.get(slot);
+  if (!lease) return;
+  // Close all live pages BEFORE another process can acquire this account.
+  await resetSlotForNextSession(slot, failed);
+  try {
+    await lease.release();
+  } catch {
+    throw new Error("Automation account lock could not be released; it will expire safely.");
+  } finally {
+    sessionAccountLeases.get(sessionId)?.delete(slot);
+  }
+}
+
+async function finishAutomationSession(sessionId: string, financial = false): Promise<void> {
+  for (const slot of sessionAccountLeases.get(sessionId)?.keys() ?? []) {
+    await closeSessionAccount(sessionId, slot).catch(err =>
+      logger.error("Account cleanup failed; lease will expire", err, { sessionId, slot }));
+  }
+  sessionAccountLeases.delete(sessionId);
+  lostAccountLeases.delete(sessionId);
+  const failedAccounts = sessionFailedSlots.get(sessionId)?.size ?? 0;
+  const session = financial ? financialSummarySessions.get(sessionId) : activeSessions.get(sessionId);
+  if (!session || (!failedAccounts && session.status !== "failed")) return;
+  const items = financial
+    ? (session as FinancialSummarySession).jobResults
+    : (session as PipelineSession).weeklyProgress;
+  const completed = items?.filter(item => item.status === "completed").length ?? (session.status === "completed" ? 1 : 0);
+  const failed = items?.filter(item => item.status !== "completed").length ?? (session.status === "failed" ? 1 : 0);
+  let branchName = "People Planner branch";
+  try { branchName = (await storage.getBranchById(session.branchId))?.displayName ?? branchName; } catch {}
+  await sendAutomationOutcomeAlert({
+    sessionId, branchName, automation: financial ? "BI Financial Summary" : "Care Capacity",
+    status: session.status === "completed" ? "completed" : completed > 0 ? "partial" : "failed",
+    completed, failed, failedAccounts,
+    accountKey: getSlotAccountKey(session.slotArrayIndex ?? -1),
+  });
+}
 
 /** Atomically reserve a slot for a session. Must be called synchronously before launching async work. */
 function reserveSlot(slotIndex: number, sessionId: string): void {
@@ -255,6 +343,11 @@ function releaseSessionSlots(sessionId: string): void {
     if (owner === sessionId) releaseSlot(slot);
   }
   sessionFailedSlots.delete(sessionId);
+  // Capacity completion must also wake BI jobs (not only its own queue).
+  setImmediate(() => {
+    startNextQueuedSession();
+    startNextQueuedFinancialSummarySession();
+  });
 }
 
 function preferredAccountKey(branchId: string): string {
@@ -325,15 +418,22 @@ function getQueuePos(sessionId: string): number {
  */
 function startNextQueuedSession(): void {
   while (sessionQueue.length > 0) {
-    // Peek at the next queued session to choose its preferred slot before shifting
-    const peekId = sessionQueue[0];
+    // FIFO among runnable sessions: a busy Aberdeen account must not block an
+    // unrelated branch whose dedicated account is free.
+    const readyIndex = sessionQueue.findIndex(id => {
+      const session = activeSessions.get(id);
+      return !session?.pendingParams || findPreferredSlotForBranch(session.branchId) !== -1;
+    });
+    if (readyIndex === -1) return;
+    const peekId = sessionQueue.splice(readyIndex, 1)[0];
     const peekSession = activeSessions.get(peekId);
+    if (!peekSession?.pendingParams) continue;
     const idleSlot = peekSession
       ? findPreferredSlotForBranch(peekSession.branchId)
       : -1;
     if (idleSlot === -1) return; // no suitable slot free — stop draining
 
-    const nextId = sessionQueue.shift()!;
+    const nextId = peekId;
     const session = activeSessions.get(nextId);
     if (!session?.pendingParams) {
       logger.warn("Queued session missing or has no params — skipping", { nextId });
@@ -459,20 +559,42 @@ async function runExportJobWithRetry(
   const failedSlots = sessionFailedSlots.get(sessionId) ?? new Set<number>();
   sessionFailedSlots.set(sessionId, failedSlots);
   return runExportWithBackup(config, initialSlot, timeoutMs, {
-    runJob: runAutomationJob,
-    waitForJob,
+    runJob: async (jobConfig, slot) => {
+      assertSessionAccountLease(sessionId, slot);
+      return runAutomationJob(jobConfig, slot);
+    },
+    waitForJob: async (id, timeout) => {
+      try {
+        return await waitForJob(id, timeout);
+      } finally {
+        // Closing a browser after lease loss can itself reject waitForJob.
+        // Preserve the coordination diagnosis instead of blaming credentials.
+        const slot = activeSessions.get(sessionId)?.slotArrayIndex ??
+          financialSummarySessions.get(sessionId)?.slotArrayIndex ?? initialSlot;
+        assertSessionAccountLease(sessionId, slot);
+      }
+    },
     failedSlots,
     claimBackup: async (failedSlot) => {
+      // Free the failed account before waiting, so failed sessions do not hold
+      // one another's backup slots while every global account is occupied.
+      await closeSessionAccount(sessionId, failedSlot, true);
+      if (slotReservations.get(failedSlot) === sessionId) releaseSlot(failedSlot);
       const candidates = ["ACCESS_EMAIL", "ACCESS_BACKUP_EMAIL"]
         .map(getAccountSlotIndex)
         .filter(slot => slot !== -1 && slot !== failedSlot && !failedSlots.has(slot));
       if (candidates.length === 0) return -1;
       const deadline = Date.now() + Math.min(timeoutMs, 600000);
       while (Date.now() < deadline) {
-        const backup = candidates.find(slot => !slotReservations.has(slot));
-        if (backup !== undefined) {
+        for (const backup of candidates) {
+          if (slotReservations.has(backup)) continue;
           reserveSlot(backup, sessionId);
-          return backup;
+          try {
+            if (await claimSessionAccount(sessionId, backup, 0)) return backup;
+          } finally {
+            if (!sessionAccountLeases.get(sessionId)?.has(backup) &&
+                slotReservations.get(backup) === sessionId) releaseSlot(backup);
+          }
         }
         await sleep(1000);
       }
@@ -483,16 +605,15 @@ async function runExportJobWithRetry(
       // Update before any await so final cleanup always knows the actual owner.
       const session = activeSessions.get(sessionId) ?? financialSummarySessions.get(sessionId);
       if (session) session.slotArrayIndex = backupSlot;
-      await resetSlotForNextSession(previousSlot);
-      releaseSlot(previousSlot);
       setImmediate(() => {
         startNextQueuedSession();
         startNextQueuedFinancialSummarySession();
       });
-      await resetSlotForNextSession(backupSlot);
+      assertSessionAccountLease(sessionId, backupSlot);
+      await resetSlotForNextSession(backupSlot, true);
       logger.warn("Switched directly to global backup account after export failure", { sessionId, previousSlot, backupSlot });
     },
-    notifyFailure: async (slot) => {
+    notifyFailure: async (slot, _backup, failure) => {
       logger.error("Automation account failed; it will not be retried in this session", undefined, { sessionId, slot });
       let branchName = config.plannerArea ?? config.financeFranchiseName ?? "People Planner branch";
       if (config.branchId) {
@@ -505,6 +626,7 @@ async function runExportJobWithRetry(
         branchName,
         accountKey: getSlotAccountKey(slot),
         reportType: config.reportType,
+        failure,
       });
     },
   }, onJobStarted);
@@ -561,9 +683,10 @@ async function runFinancialSummarySession(
   financialSummarySessions.set(sessionId, session);
 
   let currentSlot = slotArrayIndex;
+  session.slotArrayIndex = currentSlot;
 
   try {
-    await resetSlotForNextSession(currentSlot);
+    await prepareSessionAccount(sessionId, currentSlot);
 
     for (const job of jobs) {
       const jobResult: FinancialSummaryJobResult = {
@@ -627,7 +750,7 @@ async function runFinancialSummarySession(
       financialSummarySessions.set(sessionId, session);
 
       if (session.runId) {
-        recordAutomationJobResult({
+        await recordAutomationJobResult({
           runId: session.runId,
           branchId,
           franchiseName: job.financeFranchiseName,
@@ -640,7 +763,9 @@ async function runFinancialSummarySession(
       }
     }
 
-    session.status = "completed";
+    const failedJobs = session.jobResults.filter(job => job.status === "failed").length;
+    session.status = failedJobs ? "failed" : "completed";
+    if (failedJobs) session.error = `${failedJobs} of ${jobs.length} Financial Summary exports failed`;
     session.completedAt = new Date().toISOString();
     financialSummarySessions.set(sessionId, session);
   } catch (err) {
@@ -650,17 +775,25 @@ async function runFinancialSummarySession(
     financialSummarySessions.set(sessionId, session);
     logger.error("Financial Summary session failed", err instanceof Error ? err : undefined, { sessionId, branchId });
     throw err;
+  } finally {
+    await finishAutomationSession(sessionId, true);
   }
 }
 
 function startNextQueuedFinancialSummarySession(): void {
   while (financialSummaryQueue.length > 0) {
-    const peekId = financialSummaryQueue[0];
+    const readyIndex = financialSummaryQueue.findIndex(id => {
+      const session = financialSummarySessions.get(id);
+      return !session?.pendingJobs || findPreferredSlotForBranch(session.branchId) !== -1;
+    });
+    if (readyIndex === -1) return;
+    const peekId = financialSummaryQueue.splice(readyIndex, 1)[0];
     const peekSession = financialSummarySessions.get(peekId);
+    if (!peekSession?.pendingJobs) continue;
     const idleSlot = peekSession ? findPreferredSlotForBranch(peekSession.branchId) : -1;
     if (idleSlot === -1) return;
 
-    const nextId = financialSummaryQueue.shift()!;
+    const nextId = peekId;
     const session = financialSummarySessions.get(nextId);
     if (!session?.pendingJobs) {
       logger.warn("Queued financial summary session missing or has no jobs — skipping", { nextId });
@@ -1635,6 +1768,7 @@ async function runPipelineSession(
     ? { ...existingSession, status: "running", jobIds: [], phase: "starting", pendingParams: undefined }
     : { sessionId, status: "running", jobIds: [], phase: "starting", startedAt: new Date().toISOString(), branchId, initiatedByUserId };
   activeSessions.set(sessionId, session);
+  session.slotArrayIndex = slotArrayIndex;
 
   try {
     // ── Reset any leftover context from a previous session on this slot ────────
@@ -1647,7 +1781,7 @@ async function runPipelineSession(
     // Resetting here (saving cookies first) gives each pipeline session a clean
     // context while still allowing the login step to be skipped via the saved
     // session file.
-    await resetSlotForNextSession(slotArrayIndex);
+    await prepareSessionAccount(sessionId, slotArrayIndex);
 
     const downloadedBuffers: Record<string, Buffer> = {};
     let currentSlot = slotArrayIndex;
@@ -1846,6 +1980,8 @@ async function runPipelineSession(
     activeSessions.set(sessionId, session);
     logger.error("Pipeline session failed", err instanceof Error ? err : undefined, { sessionId });
     throw err;
+  } finally {
+    await finishAutomationSession(sessionId);
   }
 }
 
@@ -1882,12 +2018,13 @@ async function runMultiWeekPipelineSession(
   }
 
   activeSessions.set(sessionId, session);
+  session.slotArrayIndex = slotArrayIndex;
 
   const reportTypes = ["visitsExport", "careGiverExport", "careGiverAvailabilityExport"] as const;
 
   try {
     // Reset any leftover context from a previous session on this slot (once, at start).
-    await resetSlotForNextSession(slotArrayIndex);
+    await prepareSessionAccount(sessionId, slotArrayIndex);
 
     logger.info("Multi-week pipeline session starting", { sessionId, branchId, weekCount: weekStartDates.length });
 
@@ -2113,9 +2250,9 @@ async function runMultiWeekPipelineSession(
     const failedCount = session.weeklyProgress?.filter(w => w.status === "failed").length ?? 0;
     const completedCount = session.weeklyProgress?.filter(w => w.status === "completed").length ?? 0;
 
-    if (completedCount === 0 && failedCount > 0) {
+    if (failedCount > 0) {
       session.status      = "failed";
-      session.error       = `All ${weekStartDates.length} weeks failed`;
+      session.error       = `${completedCount} of ${weekStartDates.length} weeks updated; ${failedCount} failed`;
       session.phase       = "error";
     } else {
       session.status      = "completed";
@@ -2138,5 +2275,7 @@ async function runMultiWeekPipelineSession(
     activeSessions.set(sessionId, session);
     logger.error("Multi-week pipeline session failed", err instanceof Error ? err : undefined, { sessionId });
     throw err;
+  } finally {
+    await finishAutomationSession(sessionId);
   }
 }

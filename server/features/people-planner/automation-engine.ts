@@ -1,6 +1,7 @@
 import { chromium, type Browser, type BrowserContext, type Page } from "playwright";
 import fs from "fs";
 import path from "path";
+import { createHash } from "crypto";
 import { execSync } from "child_process";
 import { logger } from "../../infrastructure/logger";
 import type { ReportType } from "./report-configs";
@@ -87,7 +88,10 @@ async function getOrLaunchSharedBrowser(): Promise<Browser> {
     browserLaunchPromise = null;
     logger.info("Shared Chromium browser launched");
     return browser;
-  })();
+  })().finally(() => {
+    // A rejected launch must not poison every subsequent account attempt.
+    browserLaunchPromise = null;
+  });
 
   return browserLaunchPromise;
 }
@@ -114,9 +118,9 @@ function makeSlot(displayIndex: number, email: string, password: string, account
     accountKey,
     email,
     password,
-    sessionFile: accountKey === "ACCESS_BACKUP_EMAIL"
-      ? path.resolve("/tmp/pp-session-backup.json")
-      : path.resolve(`/tmp/pp-session-slot-${displayIndex}.json`),
+    // Identity-based, process-private files cannot inherit another account's
+    // cookies if an optional slot is removed or API/worker run simultaneously.
+    sessionFile: path.resolve(`/tmp/pp-session-${process.pid}-${createHash("sha256").update(email.trim().toLowerCase()).digest("hex").slice(0, 24)}.json`),
     context: null,
     plannerPage: null,
     plannerBranchUrl: null,
@@ -164,7 +168,16 @@ function loadAccountPool(): SlotState[] {
   if (backupEmail && backupPassword) {
     pool.push(makeSlot(pool.length + 1, backupEmail, backupPassword, "ACCESS_BACKUP_EMAIL"));
   }
-  return pool;
+  const identities = new Set<string>();
+  return pool.filter(slot => {
+    const identity = slot.email.trim().toLowerCase();
+    if (identities.has(identity)) {
+      logger.warn("Duplicate automation account ignored; use a distinct account for redundancy", { accountKey: slot.accountKey });
+      return false;
+    }
+    identities.add(identity);
+    return true;
+  });
 }
 
 // ─── State ────────────────────────────────────────────────────────────────────
@@ -297,6 +310,13 @@ export function getSlotAccountKey(slotArrayIndex: number): string {
   return slotStates[slotArrayIndex]?.accountKey ?? "unknown account";
 }
 
+/** The same actual login has the same lock across machines and env-var aliases. */
+export function getAccountLockKey(slotArrayIndex: number): string {
+  const slot = slotStates[slotArrayIndex];
+  if (!slot) throw new Error("Automation account lock: configured account is missing.");
+  return createHash("sha256").update(slot.email.trim().toLowerCase()).digest("hex");
+}
+
 /** Returns the 0-based array index of the first idle slot, or -1 if all are busy. */
 export function getIdleSlotIndex(): number {
   return slotStates.findIndex(s => s.currentJobId === null);
@@ -341,6 +361,9 @@ export async function runAutomationJob(config: JobConfig, slotArrayIndex = 0): P
   const slot = slotStates[slotArrayIndex];
   if (!slot) {
     throw new Error(`Slot ${slotArrayIndex} does not exist (pool has ${slotStates.length} slot(s))`);
+  }
+  if (slot.currentJobId) {
+    throw new Error("Already running on account slot; refused to overwrite the active job.");
   }
 
   const id = generateId();
@@ -552,6 +575,8 @@ async function runJob(job: AutomationJob, slot: SlotState): Promise<void> {
       await slot.context.close().catch(() => {});
       slot.context = null;
     }
+    // Never restore cookies from the session which just failed.
+    fs.rmSync(slot.sessionFile, { force: true });
   }
 }
 
@@ -630,9 +655,8 @@ async function handleTenantReAuth(page: Page, email: string, password: string): 
 
   // If we landed on auth/password (email already known — just need password)
   if (url.includes("auth/password")) {
-    try {
-      const pwField = page.getByPlaceholder(/enter your password/i);
-      if (await pwField.isVisible({ timeout: 8000 }).catch(() => false)) {
+    const pwField = page.getByPlaceholder(/enter your password/i);
+    if (await pwField.isVisible({ timeout: 8000 }).catch(() => false)) {
         await pwField.fill(password);
         await page.getByRole("button", { name: /sign in/i }).click();
         await page.waitForURL(
@@ -641,10 +665,9 @@ async function handleTenantReAuth(page: Page, email: string, password: string): 
         );
         await page.waitForLoadState("networkidle", { timeout: 20000 }).catch(() => {});
         return true;
-      }
-    } catch {
-      // Fall through to full re-login below
     }
+    // Do not submit the same failed account again via the general login page.
+    throw new Error("Tenant re-authentication password step unavailable; account will not be retried.");
   }
 
   // Full re-login (covers auth/signin or any other identity page)
@@ -1384,18 +1407,9 @@ async function triggerDownload(plannerPage: Page, jobId: string): Promise<string
 
 // ─── Session pre-warming ──────────────────────────────────────────────────────
 /**
- * Pre-warm all configured account slot sessions.
- *
- * For each slot, this function:
- *  1. Acquires (or reuses) the shared Chromium browser.
- *  2. Creates a BrowserContext loaded from the saved session file (if present),
- *     so returning users skip the login form entirely.
- *  3. Navigates to the Access Cloud login URL to verify the session is still live.
- *  4. Logs in and saves a fresh session file only when the session has expired.
- *  5. Closes the temporary page — the context stays open so runJob can reuse it.
- *
- * This is fire-and-forget background work. Failures are logged but not thrown.
- * Called once at worker startup so the first user-triggered sync is instant.
+ * Warm Chromium only. Account logins must wait until a branch session owns its
+ * database lease. Logging into every account at startup can invalidate sessions
+ * already running in another API/worker process.
  */
 export async function prewarmAllSlots(): Promise<void> {
   if (slotStates.length === 0) {
@@ -1403,66 +1417,6 @@ export async function prewarmAllSlots(): Promise<void> {
     return;
   }
 
-  logger.info("Session pre-warm: starting for all slots", { slotCount: slotStates.length });
-
-  const results = await Promise.allSettled(
-    slotStates.map(async (slot) => {
-      try {
-        // Reuse existing context if already warm from a previous pre-warm or job.
-        if (slot.context && slot.context.browser()?.isConnected()) {
-          logger.info("Session pre-warm: slot already has a live context — skipping", { slotIndex: slot.index });
-          return;
-        }
-
-        const browser = await getOrLaunchSharedBrowser();
-
-        if (!slot.context) {
-          slot.context = await browser.newContext({
-            storageState: fs.existsSync(slot.sessionFile) ? slot.sessionFile : undefined,
-            acceptDownloads: false,
-          });
-          slot.plannerPage = null;
-        }
-
-        const page = await slot.context.newPage();
-
-        try {
-          await page.goto(LOGIN_URL, { waitUntil: "domcontentloaded", timeout: 30000 });
-          await page.waitForLoadState("networkidle", { timeout: 15000 }).catch(() => {});
-
-          const needsLogin = await checkNeedsLogin(page);
-          if (needsLogin) {
-            logger.info("Session pre-warm: cold session — logging in", { slotIndex: slot.index });
-            await login(page, slot.email, slot.password);
-            await slot.context.storageState({ path: slot.sessionFile });
-            logger.info("Session pre-warm: login complete, session saved", { slotIndex: slot.index });
-          } else {
-            logger.info("Session pre-warm: session still warm — no login needed", { slotIndex: slot.index });
-            // Refresh the saved session file with the latest cookies.
-            await slot.context.storageState({ path: slot.sessionFile });
-          }
-        } finally {
-          await page.close().catch(() => {});
-        }
-      } catch (err) {
-        logger.error("Session pre-warm: slot failed", err instanceof Error ? err : undefined, {
-          slotIndex: slot.index,
-          error: err instanceof Error ? err.message : String(err),
-        });
-        // On failure, discard the context so runJob starts fresh for this slot.
-        if (slot.context) {
-          await slot.context.close().catch(() => {});
-          slot.context = null;
-          slot.plannerPage = null;
-        }
-        // Re-throw so Promise.allSettled records this slot as rejected and the
-        // summary counts (succeeded / failed) are accurate.
-        throw err;
-      }
-    })
-  );
-
-  const succeeded = results.filter(r => r.status === "fulfilled").length;
-  const failed = results.filter(r => r.status === "rejected").length;
-  logger.info("Session pre-warm: complete", { succeeded, failed, total: slotStates.length });
+  await getOrLaunchSharedBrowser();
+  logger.info("Browser pre-warm complete; no account sign-ins performed");
 }

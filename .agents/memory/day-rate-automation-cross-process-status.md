@@ -1,18 +1,34 @@
 ---
-name: Day Rate automation cross-process status + retry
-description: Why the Financial Summary automation status banner showed "not yet run" despite successful cron runs, and how reliability was hardened.
+name: Automation cross-process coordination
+description: Why API and cron state and account ownership must be shared, and why rollout must cover both services.
 ---
 
-## Root cause: two PM2 processes, one in-memory state
+Automation state visible from HTTP and account ownership must be shared across API
+and cron processes, not held only in module-level memory.
 
-`care-capacity-api` (serves HTTP routes) and `care-capacity-worker` (runs cron via `worker.ts`) are **separate PM2 processes**, each with its own module-level JS state. Any automation status/history kept in a plain in-memory variable inside a routes file is invisible across the process boundary: the worker's cron run updates its own copy, the API process serving the status endpoint never sees it. Manual "run now" clicks worked because that request executes inside the API process itself.
+**Why:** successful cron work previously appeared as "not yet run" to HTTP users
+because each process saw a different state. Local account reservations likewise
+cannot prevent another process from using the same provider login.
 
-**Why this matters generally:** any future automation/status feature that must be visible from the API needs to persist to Postgres (or another shared store), not module-level variables — this is a recurring trap in this app's two-process architecture, not a one-off bug.
+**How to apply:** coordinate actual account identities through the shared database.
+Use expiring owner-checked leases, not session-scoped advisory locks (transaction
+pooling must work). Treat uncertain ownership as a reason to stop browser work,
+not as permission to bypass coordination with another account.
 
-**How it was fixed:** added `day_rate_automation_runs` / `day_rate_automation_job_results` tables; the cron creates a run row, each job result is persisted as it finishes, and `GET /api/day-rate/automation/status` reads from the DB (`getLatestAutomationRun()`) instead of in-memory state.
+Do not authenticate accounts during unreserved startup pre-warming.
 
-## Secondary cause: unstaggered cold-login concurrency
+**Why:** a worker restart must not invalidate an active API session. Simultaneous
+cold logins also create avoidable provider and browser contention.
 
-At the 2am cron fire, ~10 branches' Playwright sessions all attempted AccessCloud login/launcher navigation near-simultaneously (up to 6 concurrent slots), intermittently exceeding fixed 30s timeouts. This was a transient contention issue, not a business-logic bug, and there was no retry — one flaky login permanently dropped that franchise/month for the day.
+**How to apply:** warm the browser only; acquire account ownership before any login.
+Stagger branch starts. Preserve the single-attempt fallback policy in
+`pp-automation-universal-fallback.md`; do not restore older same-account retry loops.
 
-**Fix:** per-job retry (up to 3 attempts, 8s backoff) for a curated list of retryable/transient error patterns (timeouts, "tile not found", ERR_*, download-not-detected), plus a 15s stagger between branch kickoffs in the scheduler loop.
+A preview restart is not an external VPS rollout. All processes sharing the
+accounts must adopt the coordination rules and use the same database.
+
+**Why:** an old worker ignores leases held by a new API. A mixed-version deployment
+therefore cannot provide exclusive account access.
+
+**How to apply:** drain active exports and update both services together. Do not
+claim live recovery merely because isolated tests and the preview pass.

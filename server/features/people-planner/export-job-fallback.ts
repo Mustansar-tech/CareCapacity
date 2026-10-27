@@ -1,4 +1,5 @@
 import type { AutomationJob, JobConfig } from "./automation-engine";
+import { describeAutomationFailure, type AutomationFailure } from "./automation-failure";
 
 export type ExportJobOutcome =
   | { ok: true; job: AutomationJob; slotUsed: number; attempts: number }
@@ -10,7 +11,7 @@ export interface ExportFallbackDependencies {
   /** Wait for and atomically claim the next unfailed global backup. -1 means unavailable. */
   claimBackup: (failedSlot: number) => Promise<number>;
   switchSlot: (previousSlot: number, backupSlot: number) => Promise<void>;
-  notifyFailure: (slot: number, backup: boolean) => Promise<void>;
+  notifyFailure: (slot: number, backup: boolean, failure: AutomationFailure) => Promise<void>;
   failedSlots: Set<number>;
 }
 
@@ -27,12 +28,14 @@ export async function runExportWithBackup(
 ): Promise<ExportJobOutcome> {
   let slot = initialSlot;
   let attempts = 0;
+  let preparationError: unknown;
   if (deps.failedSlots.has(slot)) {
     return { ok: false, error: "This account already failed in this session; not retrying it.", slotUsed: slot, attempts };
   }
   while (attempts < 3) {
     attempts++;
     try {
+      if (preparationError) throw preparationError;
       const jobId = await deps.runJob(config, slot);
       onJobStarted?.(jobId);
       const job = await deps.waitForJob(jobId, timeoutMs);
@@ -42,9 +45,25 @@ export async function runExportWithBackup(
       return { ok: true, job, slotUsed: slot, attempts };
     } catch (err) {
       const error = err instanceof Error ? err.message : String(err);
+      const failure = describeAutomationFailure(error);
+      // Lock loss/busy infrastructure is NOT an account failure. Never evade a
+      // coordination failure by starting another uncoordinated browser.
+      if (failure.category === "coordination") {
+        return { ok: false, error, slotUsed: slot, attempts };
+      }
       deps.failedSlots.add(slot);
       // Email failure must never prevent the backup from running.
-      await deps.notifyFailure(slot, attempts > 1).catch(() => {});
+      let notificationTimer: ReturnType<typeof setTimeout> | undefined;
+      try {
+        await Promise.race([
+          deps.notifyFailure(slot, attempts > 1, failure).catch(() => {}),
+          new Promise<void>(resolve => {
+            notificationTimer = setTimeout(resolve, Math.min(timeoutMs, 5000));
+          }),
+        ]);
+      } finally {
+        if (notificationTimer) clearTimeout(notificationTimer);
+      }
       if (attempts === 3) return { ok: false, error, slotUsed: slot, attempts };
       let backup: number;
       try {
@@ -64,8 +83,11 @@ export async function runExportWithBackup(
       slot = backup;
       try {
         await deps.switchSlot(previousSlot, backup);
-      } catch {
-        return { ok: false, error: "Could not prepare the backup account; no further login attempts made.", slotUsed: slot, attempts };
+        preparationError = undefined;
+      } catch (err) {
+        // Treat preparation as this account's one failed attempt, then continue
+        // to the remaining global account rather than abandoning both backups.
+        preparationError = err instanceof Error ? err : new Error("Could not prepare the backup account.");
       }
     }
   }

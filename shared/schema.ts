@@ -9,6 +9,13 @@ export type UserRole = typeof userRoles[number];
 
 export const CURRENT_LEGAL_VERSION = "1.0";
 
+// SHA-256 account identity only; shared by all API and automation-worker processes.
+export const ppAutomationAccountLeases = pgTable("pp_automation_account_leases", {
+  accountKey: text("account_key").primaryKey(),
+  ownerId: text("owner_id").notNull(),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+});
+
 // Only request counts/timing metadata: never travel coordinates or API keys.
 export const routingUsageCounts = pgTable("routing_usage_counts", {
   endpoint: text("endpoint").notNull(),

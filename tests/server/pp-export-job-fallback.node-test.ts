@@ -111,7 +111,7 @@ describe("PP and Day Rate one-attempt backup policy", () => {
     assert.equal(result.ok, false);
     assert.equal(result.slotUsed, 6);
     assert.equal(result.attempts, 2);
-    assert.deepEqual(deps.notifyFailure.mock.calls[1].arguments, [6, true]);
+    assert.deepEqual(deps.notifyFailure.mock.calls[1].arguments.slice(0, 2), [6, true]);
     assert.equal((await runExportWithBackup(config, 6, 1000, deps)).attempts, 0);
     assert.equal(deps.runJob.mock.callCount(), 2);
   });
@@ -168,4 +168,54 @@ describe("PP and Day Rate one-attempt backup policy", () => {
     assert.equal(deps.notifyFailure.mock.callCount(), 1);
     assert.equal(deps.runJob.mock.callCount(), 1);
   });
+
+  it("uses the second universal account when preparing the first backup fails", async () => {
+    const deps = dependencies();
+    deps.claimBackup.mock.mockImplementation(async () =>
+      [0, 6].find(slot => !deps.failedSlots.has(slot)) ?? -1);
+    deps.runJob.mock.mockImplementation(async (_config, slot) => slot === 2 ? "primary-job" : "backup-job");
+    deps.waitForJob.mock.mockImplementation(async id => id === "primary-job" ? failed : completed);
+    deps.switchSlot.mock.mockImplementation(async (_previous, backup) => {
+      if (backup === 0) throw new Error("Browser reset failed");
+    });
+    const result = await runExportWithBackup(config, 2, 1000, deps);
+    assert.equal(result.ok, true);
+    assert.equal(result.slotUsed, 6);
+    assert.equal(result.attempts, 3);
+    assert.deepEqual(deps.runJob.mock.calls.map(c => c.arguments[1]), [2, 6]);
+    assert.deepEqual([...deps.failedSlots], [2, 0]);
+  });
+
+  it("does not blame credentials or bypass failed cross-process coordination", async () => {
+    const deps = dependencies();
+    deps.runJob.mock.mockImplementation(async () => {
+      throw new Error("Automation account lock lost; stopped safely.");
+    });
+    const result = await runExportWithBackup(config, 2, 1000, deps);
+    assert.equal(result.ok, false);
+    assert.equal(deps.failedSlots.size, 0);
+    assert.equal(deps.notifyFailure.mock.callCount(), 0);
+    assert.equal(deps.claimBackup.mock.callCount(), 0);
+  });
+
+  it("continues failover even if the notification never settles", async () => {
+    const deps = dependencies();
+    deps.notifyFailure.mock.mockImplementation(() => new Promise<void>(() => {}));
+    deps.runJob.mock.mockImplementation(async (_config, slot) => slot === 2 ? "primary-job" : "backup-job");
+    deps.waitForJob.mock.mockImplementation(async id => id === "primary-job" ? failed : completed);
+    const result = await runExportWithBackup(config, 2, 25, deps);
+    assert.equal(result.ok, true);
+    assert.equal(result.slotUsed, 6);
+  });
+
+  for (const reportType of ["visitsExport", "careGiverExport", "careGiverAvailabilityExport", "financialSummaryExport"] as const) {
+    it(`applies both global fallbacks to ${reportType}`, async () => {
+      const deps = dependencies();
+      deps.claimBackup.mock.mockImplementation(async () => [0, 6].find(slot => !deps.failedSlots.has(slot)) ?? -1);
+      deps.runJob.mock.mockImplementation(async (_config, slot) => String(slot));
+      deps.waitForJob.mock.mockImplementation(async id => id === "6" ? completed : failed);
+      assert.equal((await runExportWithBackup({ ...config, reportType }, 2, 1000, deps)).ok, true);
+      assert.deepEqual(deps.runJob.mock.calls.map(c => c.arguments[1]), [2, 0, 6]);
+    });
+  }
 });

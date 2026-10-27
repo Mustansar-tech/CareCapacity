@@ -11,6 +11,17 @@ The owner wants the existing universal account and the additional global backup 
 
 **How to apply:** preserve the single-attempt policy across all automation paths. A busy backup must be waited for without repeating the failed login. Release reservations by the session that owns them, including when fallback or backup preparation fails.
 
+Attempt-level warnings must distinguish an export failure from a final branch
+failure, with a safe cause category and a subsequent recovery/failure outcome.
+
+**Why:** the owner interpreted an account warning as the automation being broken;
+stored successful results can coexist with an earlier failed account attempt.
+An export timeout alone does not establish incorrect credentials.
+
+**How to apply:** never forward raw authentication errors or OAuth URLs into email.
+Do not let notification delivery block fallback. Do not mark partial refreshes as
+fully completed or promise that external providers can never fail.
+
 On 2026-10-05 the owner confirmed replacement credentials and explicitly authorised Glasgow North to use its dedicated account again for both Day Rate and PP.
 
 **Why:** the owner has now given the requested go-ahead after the earlier temporary restriction.
