@@ -20,9 +20,6 @@ vi.mock('../../../server/infrastructure/supabase', () => ({
 
 vi.mock('../../../server/features/people-planner/automation-engine', () => ({
   prewarmAllSlots: vi.fn().mockResolvedValue(undefined),
-  // Worker startup now checks the configured pool, not ACCESS_EMAIL. Keep this
-  // date-utility suite independent of real credentials and cron scheduling.
-  getSlotCount: vi.fn().mockReturnValue(0),
 }));
 
 vi.mock('../../../server/features/people-planner/automation-routes', () => ({
