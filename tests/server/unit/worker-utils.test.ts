@@ -20,6 +20,8 @@ vi.mock('../../../server/infrastructure/supabase', () => ({
 
 vi.mock('../../../server/features/people-planner/automation-engine', () => ({
   prewarmAllSlots: vi.fn().mockResolvedValue(undefined),
+  // Zero slots keeps the worker from arming cron jobs or pre-warming at import.
+  getSlotCount: vi.fn().mockReturnValue(0),
 }));
 
 vi.mock('../../../server/features/people-planner/automation-routes', () => ({
