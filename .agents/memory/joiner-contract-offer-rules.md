@@ -28,3 +28,9 @@ New joiners must default to an empty desired-hours input, not Bank. Bank is an e
 **Why:** The user corrected the initial default and reported that the desired-hours input was too narrow to read.
 
 **How to apply:** Give desired hours enough width independently of Gender and Type; do not initialize new desired hours to zero (the existing Bank marker).
+
+Alternating-week availability is opt-in via a toggle; off by default (single week). When on, Week 2 starts unticked, and the GH recommendation comes from the week with LESS calculated hours.
+
+**Why:** In care, some joiners offer different availability on alternate weeks; the contract must be deliverable in both weeks. The user specified the lower week as the basis.
+
+**How to apply:** Keep the 4-hour minimum status highly visible (red below, green at/above) and make contract actions look like buttons ("Use recommended hours" solid green).

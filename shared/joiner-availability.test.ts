@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  availabilitySummary, calculateContractOffer, decodeAvailability,
+  availabilitySummary, calculateAvailabilityOffer, calculateContractOffer, decodeAvailability,
   emptyWeeklyAvailability, encodeAvailability, storedAvailabilitySchema,
 } from "./joiner-availability";
 import { insertJoinerSchema } from "./schema";
@@ -92,6 +92,32 @@ describe("joiner availability and offer rules", () => {
     expect(() => calculateContractOffer([[true]], "driver")).toThrow();
     const wrongVersion = JSON.stringify({ ...emptyWeeklyAvailability(), version: 2 });
     expect(storedAvailabilitySchema.safeParse(wrongVersion).success).toBe(false);
+  });
+
+  it("recommends alternating-week contracts from the week with less availability", () => {
+    const data = withCounts([11, 11]);
+    data.alternateSlots = withCounts([6]).slots;
+    const offer = calculateAvailabilityOffer(data, "driver");
+    expect(offer.alternating).toBe(true);
+    expect(offer.weeks.map(w => w.calculatedHours)).toEqual([15, 4.5]);
+    expect(offer.basisWeek).toBe(1);
+    expect(offer.recommendedHours).toBe(4.5);
+    expect(offer.meetsMinimum).toBe(true);
+    data.alternateSlots = withCounts([5]).slots;
+    expect(calculateAvailabilityOffer(data, "driver")).toMatchObject({ recommendedHours: 0, meetsMinimum: false, basisWeek: 1 });
+  });
+
+  it("keeps single-week offers unchanged and round-trips the alternate week", () => {
+    const single = withCounts([11, 11]);
+    expect(calculateAvailabilityOffer(single, "walker")).toMatchObject({ alternating: false, basisWeek: 0, recommendedHours: 8 });
+    const data = withCounts([2]);
+    data.alternateSlots = withCounts([0, 3]).slots;
+    const encoded = encodeAvailability(data);
+    expect(decodeAvailability(encoded)).toEqual(data);
+    expect(storedAvailabilitySchema.safeParse(encoded).success).toBe(true);
+    expect(availabilitySummary(encoded)).toContain("Week 2:\nTuesday: 08:00–09:00");
+    const malformed = JSON.stringify({ ...data, alternateSlots: [[true]] });
+    expect(storedAvailabilitySchema.safeParse(malformed).success).toBe(false);
   });
 
   it("allows missing and legacy availability on existing records", () => {

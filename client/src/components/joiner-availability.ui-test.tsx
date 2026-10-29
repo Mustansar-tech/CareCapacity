@@ -138,6 +138,41 @@ describe("joiner availability controls", () => {
     expect(daily().queryByRole("button", { name: "Clear all Sunday slots" })).toBeNull();
   });
 
+  it("keeps a single week by default and edits Week 2 separately when alternating is on", () => {
+    const onChange = vi.fn();
+    render(<Controlled onChange={onChange} />);
+    const toggle = screen.getByRole("switch", { name: /Alternating weeks/ });
+    expect(toggle.getAttribute("aria-checked")).toBe("false");
+    fireEvent.click(timetable().getByRole("button", { name: "Select all Monday slots" }));
+    fireEvent.click(toggle);
+    let saved = decodeAvailability(onChange.mock.lastCall![0]);
+    expect(saved.alternateSlots?.flat().some(Boolean)).toBe(false);
+    expect(screen.getByRole("button", { name: /Week 2/, pressed: true })).toBeTruthy();
+    fireEvent.click(timetable().getByRole("button", { name: "Tuesday 08:00–09:00" }));
+    saved = decodeAvailability(onChange.mock.lastCall![0]);
+    expect(saved.slots[0].every(Boolean)).toBe(true);
+    expect(saved.slots[1][0]).toBe(false);
+    expect(saved.alternateSlots![1][0]).toBe(true);
+    expect(screen.getByText(/lower week · used for contract/).closest("div")?.textContent).toContain("Week 2");
+    expect(screen.getByTestId("minimum-status").textContent).toMatch(/Below the 4-hour minimum in Week 2/);
+    fireEvent.click(screen.getByRole("switch", { name: /Alternating weeks/ }));
+    saved = decodeAvailability(onChange.mock.lastCall![0]);
+    expect(saved.alternateSlots).toBeUndefined();
+    expect(saved.slots[0].every(Boolean)).toBe(true);
+  });
+
+  it("colours the minimum status red below 4 hours and green at or above it", () => {
+    const below = emptyWeeklyAvailability();
+    below.slots[0][0] = true;
+    const { rerender } = render(<JoinerAvailability value={encodeAvailability(below)} employmentType="driver" />);
+    expect(screen.getByTestId("minimum-status").className).toContain("text-red-700");
+    const above = emptyWeeklyAvailability();
+    above.slots[0].fill(true);
+    rerender(<JoinerAvailability value={encodeAvailability(above)} employmentType="driver" />);
+    expect(screen.getByTestId("minimum-status").className).toContain("text-emerald-800");
+    expect(screen.getByTestId("minimum-status").textContent).toContain("Meets the 4-hour minimum");
+  });
+
   it("keeps the formula explanation in a disclosure", () => {
     const { container } = render(<JoinerAvailability employmentType="driver" />);
     expect(container.querySelector("details")?.hasAttribute("open")).toBe(false);

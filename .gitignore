@@ -10,4 +10,3 @@ capacity_dashboard.xlsx
 .env
 deploy.sh
 production-fixes.patch
-/generated-artifacts/
